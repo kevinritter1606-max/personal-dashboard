@@ -34,4 +34,806 @@
 
     body {
       background-color: var(--bg-gray);
+      color: var(--text-dark);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Bayer Top Gradient */
+    .brand-gradient {
+      height: 6px;
+      background: linear-gradient(90deg, #0091df 0%, #00bcff 50%, #89d329 100%);
+      width: 100%;
+    }
+
+    header {
+      background: #ffffff;
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .header-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-title h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--bayer-blue);
+    }
+
+    .status-badge {
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+    .status-read { background: #e2e8f0; color: #475569; }
+    .status-edit { background: #dcfce7; color: #166534; }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .btn-primary { background: var(--bayer-blue); color: #fff; }
+    .btn-primary:hover { background: #0077b6; }
+    .btn-outline { border-color: #cbd5e1; background: #fff; color: #475569; }
+    .btn-outline:hover { background: #f8fafc; }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn-danger:hover { background: #dc2626; }
+
+    /* Layout */
+    main {
+      padding: 20px;
+      display: flex;
+      gap: 20px;
+      flex: 1;
+      overflow-x: auto;
+    }
+
+    .sidebar {
+      width: 320px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      max-height: 44vh;
+    }
+
+    .panel h2 {
+      font-size: 0.95rem;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #1e293b;
+    }
+
+    .card-list {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 80px;
+      padding: 6px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border: 1px dashed #cbd5e1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* Mitarbeiter Kärtchen */
+    .employee-card {
+      background: #fff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: grab;
+      border-left: 6px solid #94a3b8;
+      user-select: none;
+    }
+
+    .employee-card:active { cursor: grabbing; }
+    .employee-card.team-1 { border-left-color: var(--team-1); }
+    .employee-card.team-2 { border-left-color: var(--team-2); }
+    .employee-card.team-3 { border-left-color: var(--team-3); }
+    .employee-card.team-4 { border-left-color: var(--team-4); }
+
+    .card-name { font-size: 0.85rem; font-weight: 600; color: #1e293b; }
+    .card-role { font-size: 0.7rem; padding: 2px 6px; background: #f1f5f9; border-radius: 4px; color: #475569; font-weight: 600; }
+
+    /* Board Matrix */
+    .board-container {
+      flex: 1;
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      display: flex;
+      flex-direction: column;
+      overflow-x: auto;
+    }
+
+    .board-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1200px;
+    }
+
+    .board-table th, .board-table td {
+      border: 1px solid #e2e8f0;
+      vertical-align: top;
+    }
+
+    .line-header {
+      background: #f8fafc;
+      padding: 10px 8px;
+      text-align: center;
+      min-width: 145px;
+      position: relative;
+      transition: background 0.15s;
+    }
+
+    /* Im Planer-Modus ist der Header interaktiv */
+    body:not(.readonly-mode) .line-header {
+      cursor: pointer;
+    }
+    body:not(.readonly-mode) .line-header:hover {
+      background: #f1f5f9;
+    }
+    body:not(.readonly-mode) .line-header::after {
+      content: "✏️";
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      font-size: 0.7rem;
+      opacity: 0.5;
+    }
+
+    .line-title { font-size: 0.95rem; font-weight: 700; color: #0f172a; }
+    
+    .badge-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      justify-content: center;
+      margin-top: 4px;
+    }
+
+    .line-prio {
+      font-size: 0.65rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #e2e8f0;
+      font-weight: 700;
+      color: #334155;
+    }
+    .line-prio.prio-high { background: #fee2e2; color: #b91c1c; } /* Rot bei PRIO 1 & 2 */
+    .line-prio.prio-mid { background: #fef3c7; color: #b45309; }  /* Gelb */
+
+    .line-status-tag {
+      font-size: 0.65rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #fecdd3;
+      color: #9f1239;
+      font-weight: 700;
+    }
+
+    .line-notes {
+      font-size: 0.75rem;
+      color: #475569;
+      margin-top: 6px;
+      line-height: 1.25;
+      background: #ffffff;
+      padding: 4px 6px;
+      border-radius: 4px;
+      border: 1px dashed #cbd5e1;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .shift-header {
+      background: #f1f5f9;
+      font-weight: 700;
+      font-size: 0.85rem;
+      width: 90px;
+      text-align: center;
+      padding: 16px 8px;
+      color: #334155;
+    }
+
+    .drop-zone {
+      padding: 6px;
+      min-height: 95px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: #fafafa;
+    }
+
+    /* Modal Formulare */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .modal {
+      background: #fff;
+      padding: 24px;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 520px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal h3 {
+      margin-bottom: 16px;
+      color: var(--bayer-blue);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 4px; color: #475569; }
+    .form-control { width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.875rem; }
+    textarea.form-control { resize: vertical; min-height: 60px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+
+    /* Tabs im Settings Modal */
+    .tabs { display: flex; gap: 8px; border-bottom: 2px solid #e2e8f0; margin-bottom: 16px; }
+    .tab-btn { padding: 8px 14px; background: none; border: none; border-bottom: 2px solid transparent; font-weight: 600; cursor: pointer; color: #64748b; margin-bottom: -2px; }
+    .tab-btn.active { color: var(--bayer-blue); border-bottom-color: var(--bayer-blue); }
+
+    .tab-content { display: none; overflow-y: auto; flex: 1; }
+    .tab-content.active { display: block; }
+
+    .item-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .item-row:hover { background: #f8fafc; }
+
+    /* Modus-Sperre */
+    body.readonly-mode .employee-card { cursor: default !important; }
+    body.readonly-mode .admin-only { display: none !important; }
+  </style>
+</head>
+<body class="readonly-mode">
+
+  <div class="brand-gradient"></div>
+
+  <header>
+    <div class="header-title">
+      <h1>Schicht- und Linienplanung</h1>
+      <span id="modeBadge" class="status-badge status-read">Mitarbeiter-Ansicht (Nur Lesen)</span>
+    </div>
+
+    <div class="header-actions">
+      <button id="settingsBtn" class="btn btn-outline admin-only" onclick="openSettingsModal()">⚙️ Einstellungen</button>
+      <button id="authBtn" class="btn btn-primary" onclick="toggleAuth()">Planer-Login</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Sidebar: Verfügbarer Pool & Abwesenheit -->
+    <aside class="sidebar">
+      <div class="panel">
+        <h2>Verfügbarer Pool <span id="poolCount" style="font-size:0.8rem; color:#64748b;">(0)</span></h2>
+        <div id="pool" class="card-list drop-zone" data-zone="pool"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Abwesend (Urlaub / Krank)</h2>
+        <div id="absent" class="card-list drop-zone" data-zone="absent" style="background: #fff1f2;"></div>
+      </div>
+    </aside>
+
+    <!-- Board-Matrix -->
+    <section class="board-container">
+      <table class="board-table">
+        <thead>
+          <tr id="headerRow">
+            <th class="shift-header">Schicht</th>
+          </tr>
+        </thead>
+        <tbody id="matrixBody"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <!-- Modal: PIN Abfrage -->
+  <div id="pinModal" class="modal-overlay">
+    <div class="modal" style="max-width: 360px;">
+      <h3>Planer Freischaltung</h3>
+      <div class="form-group">
+        <label>PIN eingeben (Standard: 1234)</label>
+        <input type="password" id="pinInput" class="form-control" placeholder="****">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal('pinModal')">Abbrechen</button>
+        <button class="btn btn-primary" onclick="verifyPin()">Anmelden</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Linie bearbeiten (Prio, Wartung, Stückzahlen) -->
+  <div id="lineEditModal" class="modal-overlay">
+    <div class="modal" style="max-width: 420px;">
+      <h3 id="lineEditTitle">Linie bearbeiten</h3>
+      <input type="hidden" id="editLineId">
+
+      <div class="form-group">
+        <label>Priorität</label>
+        <select id="editLinePrio" class="form-control">
+          <option value="">Keine Priorität</option>
+          <option value="PRIO 1">PRIO 1</option>
+          <option value="PRIO 2">PRIO 2</option>
+          <option value="PRIO 3">PRIO 3</option>
+          <option value="PRIO 4">PRIO 4</option>
+          <option value="PRIO 5">PRIO 5</option>
+          <option value="PRIO 6">PRIO 6</option>
+          <option value="PRIO 7">PRIO 7</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Status-Hinweis / Tag (z. B. Wartung!, Formatwechsel, Pack 4)</label>
+        <input type="text" id="editLineTag" class="form-control" placeholder="z. B. Wartung!">
+      </div>
+
+      <div class="form-group">
+        <label>Zusatzinformation / Offene Stückzahlen</label>
+        <textarea id="editLineNote" class="form-control" placeholder="z. B. Noch ca. 25.000 bis CW"></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal('lineEditModal')">Abbrechen</button>
+        <button class="btn btn-primary" onclick="saveLineDetails()">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Einstellungen (Mitarbeiter & Rollen) -->
+  <div id="settingsModal" class="modal-overlay">
+    <div class="modal">
+      <h3>
+        Verwaltung & Konfiguration
+        <button onclick="closeModal('settingsModal')" style="border:none; background:none; font-size:1.2rem; cursor:pointer;">&times;</button>
+      </h3>
+
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('tabEmployees')">Mitarbeiter</button>
+        <button class="tab-btn" onclick="switchTab('tabRoles')">Rollen verwalten</button>
+      </div>
+
+      <!-- Tab 1: Mitarbeiter verwalten -->
+      <div id="tabEmployees" class="tab-content active">
+        <div style="background:#f8fafc; padding:12px; border-radius:8px; margin-bottom:12px; border:1px solid #e2e8f0;">
+          <h4 style="font-size:0.85rem; margin-bottom:8px; color:#334155;">Neuen Mitarbeiter hinzufügen</h4>
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="newEmpName" class="form-control" placeholder="z. B. Max Mustermann">
+          </div>
+          <div style="display:flex; gap:10px;">
+            <div class="form-group" style="flex:1;">
+              <label>Fokus Team</label>
+              <select id="newEmpTeam" class="form-control">
+                <option value="team-1">Fokus Team 1 (Blau)</option>
+                <option value="team-2">Fokus Team 2 (Gelb)</option>
+                <option value="team-3">Fokus Team 3 (Grün)</option>
+                <option value="team-4">Fokus Team 4 (Rot)</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label>Rolle</label>
+              <select id="newEmpRole" class="form-control"></select>
+            </div>
+          </div>
+          <button class="btn btn-primary" style="width:100%; margin-top:6px;" onclick="addEmployee()">Mitarbeiter speichern</button>
+        </div>
+
+        <h4 style="font-size:0.85rem; margin-bottom:8px; color:#334155;">Bestehende Mitarbeiter</h4>
+        <div id="employeeList" style="max-height: 200px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
+      </div>
+
+      <!-- Tab 2: Rollen verwalten -->
+      <div id="tabRoles" class="tab-content">
+        <div style="background:#f8fafc; padding:12px; border-radius:8px; margin-bottom:12px; border:1px solid #e2e8f0;">
+          <h4 style="font-size:0.85rem; margin-bottom:8px; color:#334155;">Neue Rolle definieren</h4>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="newRoleName" class="form-control" placeholder="z. B. Springer, Einrichter">
+            <button class="btn btn-primary" onclick="addRole()">Hinzufügen</button>
+          </div>
+        </div>
+
+        <h4 style="font-size:0.85rem; margin-bottom:8px; color:#334155;">Vorhandene Rollen</h4>
+        <div id="roleList" style="max-height: 220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Standard-Linien (wird im LocalStorage gespeichert und aktualisierbar)
+    const defaultLines = [
+      { id: "L32", name: "Linie 32", prio: "", tag: "", note: "" },
+      { id: "L33", name: "Linie 33", prio: "", tag: "", note: "ca. 140.000 bis CW" },
+      { id: "L34", name: "Linie 34", prio: "", tag: "", note: "" },
+      { id: "L09", name: "Linie 09", prio: "", tag: "Wartung!", note: "" },
+      { id: "L22", name: "Linie 22", prio: "PRIO 2", tag: "", note: "Noch ca. 160.000" },
+      { id: "L39", name: "Linie 39", prio: "PRIO 1", tag: "", note: "Noch ca. 25.000 bis CW" },
+      { id: "L36", name: "Linie 36", prio: "PRIO 3", tag: "", note: "Max ca. 30.000 bis PU" },
+      { id: "L37", name: "Linie 37", prio: "PRIO 7", tag: "", note: "Noch ca. 45.000 bis CW" },
+      { id: "L38", name: "Linie 38", prio: "PRIO 4", tag: "", note: "Noch 37.000 dann AW" }
+    ];
+
+    const shifts = [
+      { id: "frueh", name: "Früh" },
+      { id: "spaet", name: "Spät" },
+      { id: "nacht", name: "Nacht" }
+    ];
+
+    const defaultRoles = ["Bediener", "LOP", "TL", "Schichtexperte", "Waschraumoperator"];
+
+    const defaultEmployees = [
+      { id: "e1", name: "Kevyn Ritter", team: "team-2", role: "TL", zone: "L38_spaet" },
+      { id: "e2", name: "Danny Amsler", team: "team-4", role: "Schichtexperte", zone: "pool" },
+      { id: "e3", name: "Michael Müller", team: "team-1", role: "LOP", zone: "L38_nacht" },
+      { id: "e4", name: "Jens Becker", team: "team-2", role: "Waschraumoperator", zone: "pool" },
+      { id: "e5", name: "Christian Schenk", team: "team-4", role: "Bediener", zone: "pool" }
+    ];
+
+    // State aus localStorage laden
+    let lines = JSON.parse(localStorage.getItem("shift_lines")) || defaultLines;
+    let roles = JSON.parse(localStorage.getItem("shift_roles")) || defaultRoles;
+    let employees = JSON.parse(localStorage.getItem("shift_employees")) || defaultEmployees;
+    let isPlanner = false;
+    let sortableInstances = [];
+
+    function initBoard() {
+      renderHeaderColumns();
+
+      // Zeilen für Schichten
+      const matrixBody = document.getElementById("matrixBody");
+      matrixBody.innerHTML = "";
+      shifts.forEach(shift => {
+        const tr = document.createElement("tr");
+        
+        const thShift = document.createElement("th");
+        thShift.className = "shift-header";
+        thShift.textContent = shift.name;
+        tr.appendChild(thShift);
+
+        lines.forEach(line => {
+          const td = document.createElement("td");
+          const zoneId = `${line.id}_${shift.id}`;
+          td.innerHTML = `<div id="${zoneId}" class="card-list drop-zone" data-zone="${zoneId}"></div>`;
+          tr.appendChild(td);
+        });
+
+        matrixBody.appendChild(tr);
+      });
+
+      renderEmployees();
+      initDragAndDrop();
+      updateRoleDropdown();
+    }
+
+    function renderHeaderColumns() {
+      const headerRow = document.getElementById("headerRow");
+      headerRow.innerHTML = '<th class="shift-header">Schicht</th>';
       
+      lines.forEach(line => {
+        const th = document.createElement("th");
+        th.className = "line-header";
+        th.title = isPlanner ? "Klicken, um Priorität & Info zu ändern" : "";
+        th.onclick = () => { if (isPlanner) openLineEditModal(line.id); };
+
+        let prioClass = "";
+        if (line.prio.includes("1") || line.prio.includes("2")) prioClass = "prio-high";
+        else if (line.prio.includes("3") || line.prio.includes("4")) prioClass = "prio-mid";
+
+        th.innerHTML = `
+          <div class="line-title">${line.name}</div>
+          <div class="badge-container">
+            ${line.prio ? `<span class="line-prio ${prioClass}">${line.prio}</span>` : ''}
+            ${line.tag ? `<span class="line-status-tag">${line.tag}</span>` : ''}
+          </div>
+          ${line.note ? `<div class="line-notes">${line.note}</div>` : ''}
+        `;
+        headerRow.appendChild(th);
+      });
+    }
+
+    function renderEmployees() {
+      document.querySelectorAll(".drop-zone").forEach(el => el.innerHTML = "");
+
+      employees.forEach(emp => {
+        const card = document.createElement("div");
+        card.className = `employee-card ${emp.team}`;
+        card.setAttribute("data-id", emp.id);
+        card.innerHTML = `
+          <span class="card-name">${emp.name}</span>
+          <span class="card-role">${emp.role}</span>
+        `;
+
+        const targetZone = document.getElementById(emp.zone) || document.getElementById("pool");
+        if (targetZone) targetZone.appendChild(card);
+      });
+
+      const poolCount = document.getElementById("pool").children.length;
+      document.getElementById("poolCount").textContent = `(${poolCount})`;
+    }
+
+    function initDragAndDrop() {
+      sortableInstances.forEach(s => s.destroy());
+      sortableInstances = [];
+
+      document.querySelectorAll(".drop-zone").forEach(zone => {
+        const s = new Sortable(zone, {
+          group: "shared-shifts",
+          animation: 150,
+          disabled: !isPlanner,
+          onEnd: function (evt) {
+            const empId = evt.item.getAttribute("data-id");
+            const newZone = evt.to.getAttribute("data-zone");
+
+            const emp = employees.find(e => e.id === empId);
+            if (emp) {
+              emp.zone = newZone;
+              saveData();
+            }
+          }
+        });
+        sortableInstances.push(s);
+      });
+    }
+
+    function saveData() {
+      localStorage.setItem("shift_lines", JSON.stringify(lines));
+      localStorage.setItem("shift_employees", JSON.stringify(employees));
+      localStorage.setItem("shift_roles", JSON.stringify(roles));
+      const poolCount = document.getElementById("pool").children.length;
+      document.getElementById("poolCount").textContent = `(${poolCount})`;
+    }
+
+    // Modal: Linie bearbeiten
+    function openLineEditModal(lineId) {
+      const line = lines.find(l => l.id === lineId);
+      if (!line) return;
+
+      document.getElementById("editLineId").value = line.id;
+      document.getElementById("lineEditTitle").textContent = `${line.name} bearbeiten`;
+      document.getElementById("editLinePrio").value = line.prio || "";
+      document.getElementById("editLineTag").value = line.tag || "";
+      document.getElementById("editLineNote").value = line.note || "";
+
+      document.getElementById("lineEditModal").style.display = "flex";
+    }
+
+    function saveLineDetails() {
+      const lineId = document.getElementById("editLineId").value;
+      const line = lines.find(l => l.id === lineId);
+      if (!line) return;
+
+      line.prio = document.getElementById("editLinePrio").value;
+      line.tag = document.getElementById("editLineTag").value.trim();
+      line.note = document.getElementById("editLineNote").value.trim();
+
+      saveData();
+      renderHeaderColumns();
+      closeModal("lineEditModal");
+    }
+
+    // Auth & Modus
+    function toggleAuth() {
+      if (isPlanner) {
+        setPlannerMode(false);
+      } else {
+        document.getElementById("pinModal").style.display = "flex";
+        document.getElementById("pinInput").value = "";
+        document.getElementById("pinInput").focus();
+      }
+    }
+
+    function verifyPin() {
+      const pin = document.getElementById("pinInput").value;
+      if (pin === "1234") {
+        closeModal("pinModal");
+        setPlannerMode(true);
+      } else {
+        alert("Falsche PIN!");
+      }
+    }
+
+    function setPlannerMode(enabled) {
+      isPlanner = enabled;
+      const body = document.body;
+      const badge = document.getElementById("modeBadge");
+      const authBtn = document.getElementById("authBtn");
+
+      if (isPlanner) {
+        body.classList.remove("readonly-mode");
+        badge.className = "status-badge status-edit";
+        badge.textContent = "Planer-Modus aktiv (Klick auf Linie zum Bearbeiten)";
+        authBtn.textContent = "Abmelden";
+      } else {
+        body.classList.add("readonly-mode");
+        badge.className = "status-badge status-read";
+        badge.textContent = "Mitarbeiter-Ansicht (Nur Lesen)";
+        authBtn.textContent = "Planer-Login";
+      }
+
+      renderHeaderColumns();
+      initDragAndDrop();
+    }
+
+    // Modal & Tabs
+    function closeModal(id) {
+      document.getElementById(id).style.display = "none";
+    }
+
+    function openSettingsModal() {
+      document.getElementById("settingsModal").style.display = "flex";
+      renderSettingsLists();
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+
+      if (tabId === "tabEmployees") {
+        document.querySelectorAll(".tab-btn")[0].classList.add("active");
+      } else {
+        document.querySelectorAll(".tab-btn")[1].classList.add("active");
+      }
+      document.getElementById(tabId).classList.add("active");
+    }
+
+    // Rollen Logik
+    function updateRoleDropdown() {
+      const sel = document.getElementById("newEmpRole");
+      sel.innerHTML = "";
+      roles.forEach(role => {
+        const opt = document.createElement("option");
+        opt.value = role;
+        opt.textContent = role;
+        sel.appendChild(opt);
+      });
+    }
+
+    function renderSettingsLists() {
+      // Rollen rendern
+      const roleContainer = document.getElementById("roleList");
+      roleContainer.innerHTML = "";
+      roles.forEach((r, idx) => {
+        const row = document.createElement("div");
+        row.className = "item-row";
+        row.innerHTML = `
+          <span style="font-weight:600; font-size:0.85rem;">${r}</span>
+          <button class="btn btn-outline" style="padding:4px 8px; color:#ef4444;" onclick="deleteRole(${idx})">Löschen</button>
+        `;
+        roleContainer.appendChild(row);
+      });
+
+      // Mitarbeiter rendern
+      const empContainer = document.getElementById("employeeList");
+      empContainer.innerHTML = "";
+      employees.forEach((e) => {
+        const row = document.createElement("div");
+        row.className = "item-row";
+        row.innerHTML = `
+          <div>
+            <div style="font-weight:600; font-size:0.85rem;">${e.name}</div>
+            <div style="font-size:0.75rem; color:#64748b;">Rolle: ${e.role} | ${e.team.toUpperCase()}</div>
+          </div>
+          <button class="btn btn-outline" style="padding:4px 8px; color:#ef4444;" onclick="deleteEmployee('${e.id}')">Löschen</button>
+        `;
+        empContainer.appendChild(row);
+      });
+    }
+
+    function addRole() {
+      const input = document.getElementById("newRoleName");
+      const val = input.value.trim();
+      if (!val) return;
+      if (roles.includes(val)) return alert("Rolle existiert bereits!");
+
+      roles.push(val);
+      input.value = "";
+      saveData();
+      updateRoleDropdown();
+      renderSettingsLists();
+    }
+
+    function deleteRole(idx) {
+      if (confirm(`Rolle "${roles[idx]}" wirklich entfernen?`)) {
+        roles.splice(idx, 1);
+        saveData();
+        updateRoleDropdown();
+        renderSettingsLists();
+      }
+    }
+
+    // Mitarbeiter Logik
+    function addEmployee() {
+      const name = document.getElementById("newEmpName").value.trim();
+      const team = document.getElementById("newEmpTeam").value;
+      const role = document.getElementById("newEmpRole").value;
+
+      if (!name) return alert("Bitte einen Namen eingeben.");
+      if (!role) return alert("Bitte erst eine Rolle anlegen!");
+
+      const newEmp = {
+        id: "e_" + Date.now(),
+        name,
+        team,
+        role,
+        zone: "pool"
+      };
+
+      employees.push(newEmp);
+      document.getElementById("newEmpName").value = "";
+      saveData();
+      renderEmployees();
+      renderSettingsLists();
+    }
+
+    function deleteEmployee(empId) {
+      if (confirm("Diesen Mitarbeiter wirklich löschen?")) {
+        employees = employees.filter(e => e.id !== empId);
+        saveData();
+        renderEmployees();
+        renderSettingsLists();
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", initBoard);
+  </script>
+</body>
+</html>
