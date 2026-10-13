@@ -362,4 +362,324 @@
       storageBucket: "schichtplan-bayer.firebasestorage.app",
       messagingSenderId: "152929285194",
       appId: "1:152929285194:web:00b73aa6058a70aed3a2b3",
-      measurementId: "
+      measurementId: "G-4GPXMLNVYK"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const shifts = [
+      { id: "frueh", name: "Früh" },
+      { id: "spaet", name: "Spät" },
+      { id: "nacht", name: "Nacht" }
+    ];
+
+    const defaultLines = [
+      { id: "L32", name: "Linie 32", prio: "", tag: "", note: "" },
+      { id: "L33", name: "Linie 33", prio: "", tag: "", note: "ca. 140.000 bis CW" },
+      { id: "L34", name: "Linie 34", prio: "", tag: "", note: "" },
+      { id: "L09", name: "Linie 09", prio: "", tag: "Wartung!", note: "" },
+      { id: "L22", name: "Linie 22", prio: "PRIO 2", tag: "", note: "Noch ca. 160.000" },
+      { id: "L39", name: "Linie 39", prio: "PRIO 1", tag: "", note: "Noch ca. 25.000 bis CW" },
+      { id: "L36", name: "Linie 36", prio: "PRIO 3", tag: "", note: "Max ca. 30.000 bis PU" },
+      { id: "L37", name: "Linie 37", prio: "PRIO 7", tag: "", note: "Noch ca. 45.000 bis CW" },
+      { id: "L38", name: "Linie 38", prio: "PRIO 4", tag: "", note: "Noch 37.000 dann AW" }
+    ];
+
+    let lines = defaultLines;
+    let roles = ["Bediener", "LOP", "TL", "Schichtexperte", "Waschraumoperator"];
+    let employees = [
+      { id: "e1", name: "Kevyn Ritter", team: "team-2", role: "TL", zone: "L38_spaet" },
+      { id: "e2", name: "Danny Amsler", team: "team-4", role: "Schichtexperte", zone: "pool" },
+      { id: "e3", name: "Michael Müller", team: "team-1", role: "LOP", zone: "L38_nacht" }
+    ];
+
+    let isPlanner = false;
+    let sortableInstances = [];
+
+    function handleLogoClick() {
+      if (!isPlanner) {
+        document.getElementById("pinModal").style.display = "flex";
+        document.getElementById("pinInput").value = "";
+        document.getElementById("pinInput").focus();
+      }
+    }
+
+    function verifyPin() {
+      if (document.getElementById("pinInput").value === "1234") {
+        isPlanner = true;
+        closeModal("pinModal");
+        applyPlannerState();
+      } else {
+        alert("Falsche PIN!");
+      }
+    }
+
+    function logoutPlanner() {
+      isPlanner = false;
+      applyPlannerState();
+    }
+
+    function applyPlannerState() {
+      if (isPlanner) {
+        document.body.classList.add("planner-active");
+        document.getElementById("modeBadge").className = "status-badge status-edit";
+        document.getElementById("modeBadge").textContent = "Planer-Modus aktiv";
+      } else {
+        document.body.classList.remove("planner-active");
+        document.getElementById("modeBadge").className = "status-badge status-read";
+        document.getElementById("modeBadge").textContent = "Mitarbeiter-Ansicht";
+      }
+      initBoard();
+    }
+
+    // Firestore Live-Synchronisierung
+    db.collection("shiftplan").doc("current").onSnapshot((doc) => {
+      if (doc.exists) {
+        const d = doc.data();
+        if (d.lines) lines = d.lines;
+        if (d.roles) roles = d.roles;
+        if (d.employees) employees = d.employees;
+      } else {
+        saveToFirebase();
+      }
+      initBoard();
+    });
+
+    function saveToFirebase() {
+      db.collection("shiftplan").doc("current").set({
+        lines: lines,
+        roles: roles,
+        employees: employees
+      });
+    }
+
+    function initBoard() {
+      renderHeaderColumns();
+      const matrixBody = document.getElementById("matrixBody");
+      matrixBody.innerHTML = "";
+
+      shifts.forEach(shift => {
+        const tr = document.createElement("tr");
+        const thShift = document.createElement("th");
+        thShift.className = "shift-header";
+        thShift.textContent = shift.name;
+        tr.appendChild(thShift);
+
+        lines.forEach(line => {
+          const td = document.createElement("td");
+          const zoneId = `${line.id}_${shift.id}`;
+          td.innerHTML = `<div id="${zoneId}" class="card-list drop-zone" data-zone="${zoneId}"></div>`;
+          tr.appendChild(td);
+        });
+
+        matrixBody.appendChild(tr);
+      });
+
+      renderEmployees();
+      initDragAndDrop();
+      updateRoleDropdown();
+    }
+
+    function renderHeaderColumns() {
+      const headerRow = document.getElementById("headerRow");
+      headerRow.innerHTML = '<th class="shift-header">Schicht</th>';
+      lines.forEach(line => {
+        const th = document.createElement("th");
+        th.className = "line-header";
+        if (isPlanner) th.onclick = () => openLineEditModal(line.id);
+
+        let prioClass = "";
+        if (line.prio && (line.prio.includes("1") || line.prio.includes("2"))) prioClass = "prio-high";
+        else if (line.prio && (line.prio.includes("3") || line.prio.includes("4"))) prioClass = "prio-mid";
+
+        th.innerHTML = `
+          <div class="line-title">${line.name}</div>
+          <div class="badge-container">
+            ${line.prio ? `<span class="line-prio ${prioClass}">${line.prio}</span>` : ''}
+            ${line.tag ? `<span class="line-status-tag">${line.tag}</span>` : ''}
+          </div>
+          ${line.note ? `<div class="line-notes">${line.note}</div>` : ''}
+        `;
+        headerRow.appendChild(th);
+      });
+    }
+
+    function renderEmployees() {
+      document.querySelectorAll(".drop-zone").forEach(el => el.innerHTML = "");
+      employees.forEach(emp => {
+        const card = document.createElement("div");
+        card.className = `employee-card ${emp.team}`;
+        card.setAttribute("data-id", emp.id);
+        card.innerHTML = `<span class="card-name">${emp.name}</span><span class="card-role">${emp.role}</span>`;
+
+        const targetZone = document.getElementById(emp.zone);
+        if (targetZone) targetZone.appendChild(card);
+      });
+
+      const poolEl = document.getElementById("pool");
+      if (poolEl) {
+        document.getElementById("poolCount").textContent = `(${poolEl.children.length})`;
+      }
+    }
+
+    function initDragAndDrop() {
+      sortableInstances.forEach(s => s.destroy());
+      sortableInstances = [];
+
+      document.querySelectorAll(".drop-zone").forEach(zone => {
+        const s = new Sortable(zone, {
+          group: "shared-shifts",
+          animation: 150,
+          disabled: !isPlanner,
+          onEnd: function (evt) {
+            const empId = evt.item.getAttribute("data-id");
+            const newZone = evt.to.getAttribute("data-zone");
+            const emp = employees.find(e => e.id === empId);
+            if (emp) {
+              emp.zone = newZone;
+              saveToFirebase();
+            }
+          }
+        });
+        sortableInstances.push(s);
+      });
+    }
+
+    function openLineEditModal(lineId) {
+      const line = lines.find(l => l.id === lineId);
+      if (!line) return;
+      document.getElementById("editLineId").value = line.id;
+      document.getElementById("lineEditTitle").textContent = `${line.name} bearbeiten`;
+      document.getElementById("editLinePrio").value = line.prio || "";
+      document.getElementById("editLineTag").value = line.tag || "";
+      document.getElementById("editLineNote").value = line.note || "";
+      document.getElementById("lineEditModal").style.display = "flex";
+    }
+
+    function saveLineDetails() {
+      const lineId = document.getElementById("editLineId").value;
+      const line = lines.find(l => l.id === lineId);
+      if (!line) return;
+      line.prio = document.getElementById("editLinePrio").value;
+      line.tag = document.getElementById("editLineTag").value.trim();
+      line.note = document.getElementById("editLineNote").value.trim();
+      saveToFirebase();
+      renderHeaderColumns();
+      closeModal('lineEditModal');
+    }
+
+    function closeModal(id) { document.getElementById(id).style.display = "none"; }
+    function openSettingsModal() { document.getElementById("settingsModal").style.display = "flex"; renderSettingsLists(); }
+    
+    // ANGEPASST: Tabs umschalten für 3 Reiter
+    function switchTab(t) {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+      
+      if(t === 'tabEmployees') document.querySelectorAll(".tab-btn")[0].classList.add("active");
+      else if(t === 'tabRoles') document.querySelectorAll(".tab-btn")[1].classList.add("active");
+      else if(t === 'tabLines') document.querySelectorAll(".tab-btn")[2].classList.add("active");
+      
+      document.getElementById(t).classList.add("active");
+    }
+
+    function updateRoleDropdown() {
+      const sel = document.getElementById("newEmpRole");
+      sel.innerHTML = "";
+      roles.forEach(r => {
+        const opt = document.createElement("option");
+        opt.value = r; opt.textContent = r; sel.appendChild(opt);
+      });
+    }
+
+    // ANGEPASST: Rendert nun auch die Linien-Liste
+    function renderSettingsLists() {
+      const roleC = document.getElementById("roleList");
+      roleC.innerHTML = "";
+      roles.forEach((r, idx) => {
+        roleC.innerHTML += `<div class="item-row"><span>${r}</span><button class="btn btn-outline" style="padding:3px 7px; color:#ef4444;" onclick="deleteRole(${idx})">Löschen</button></div>`;
+      });
+
+      const empC = document.getElementById("employeeList");
+      empC.innerHTML = "";
+      employees.forEach(e => {
+        empC.innerHTML += `<div class="item-row"><div><b>${e.name}</b> <small>(${e.role})</small></div><button class="btn btn-outline" style="padding:3px 7px; color:#ef4444;" onclick="deleteEmployee('${e.id}')">Löschen</button></div>`;
+      });
+
+      const lineC = document.getElementById("lineSettingsList");
+      lineC.innerHTML = "";
+      lines.forEach(l => {
+        lineC.innerHTML += `<div class="item-row"><span>${l.name}</span><button class="btn btn-outline" style="padding:3px 7px; color:#ef4444;" onclick="deleteLine('${l.id}')">Löschen</button></div>`;
+      });
+    }
+
+    // NEU: Linie hinzufügen
+    function addLine() {
+      const name = document.getElementById("newLineName").value.trim();
+      if (!name) return;
+      const newId = "L_" + Date.now();
+      lines.push({ id: newId, name: name, prio: "", tag: "", note: "" });
+      document.getElementById("newLineName").value = "";
+      saveToFirebase();
+      initBoard(); // Aktualisiert die Tabelle
+      renderSettingsLists();
+    }
+
+    // NEU: Linie löschen
+    function deleteLine(id) {
+      if (!confirm("Möchtest du diese Linie wirklich löschen?")) return;
+      
+      lines = lines.filter(l => l.id !== id);
+      
+      // Mitarbeiter, die auf der gelöschten Linie eingeteilt waren, in den Pool verschieben
+      employees.forEach(emp => {
+        if (emp.zone && emp.zone.startsWith(id + "_")) {
+          emp.zone = "pool";
+        }
+      });
+      
+      saveToFirebase();
+      initBoard(); // Aktualisiert die Tabelle (Linie verschwindet)
+      renderSettingsLists();
+    }
+
+    function addRole() {
+      const val = document.getElementById("newRoleName").value.trim();
+      if (!val || roles.includes(val)) return;
+      roles.push(val);
+      document.getElementById("newRoleName").value = "";
+      saveToFirebase();
+      updateRoleDropdown();
+      renderSettingsLists();
+    }
+
+    function deleteRole(idx) {
+      roles.splice(idx, 1);
+      saveToFirebase();
+      updateRoleDropdown();
+      renderSettingsLists();
+    }
+
+    function addEmployee() {
+      const name = document.getElementById("newEmpName").value.trim();
+      const team = document.getElementById("newEmpTeam").value;
+      const role = document.getElementById("newEmpRole").value;
+      if (!name || !role) return;
+
+      employees.push({ id: "e_" + Date.now(), name, team, role, zone: "pool" });
+      document.getElementById("newEmpName").value = "";
+      saveToFirebase();
+      renderEmployees();
+      renderSettingsLists();
+    }
+
+    function deleteEmployee(id) {
+      employees = employees.filter(e => e.id !== id);
+      saveToFirebase();
+      renderEmployees();
+      renderSettingsLists();
+    }
+  </script>
+</body>
+</html>
