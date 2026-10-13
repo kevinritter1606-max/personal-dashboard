@@ -20,11 +20,11 @@
       --bg-gray: #f4f6f9;
       --border-color: #cbd5e1;
       
-      /* Fokus Team Farben */
-      --team-1: #0091df; /* Blau */
-      --team-2: #f59e0b; /* Gelb */
-      --team-3: #10b981; /* Grün */
-      --team-4: #f43f5e; /* Rot */
+      /* Standard Team Farben (werden dynamisch überschrieben) */
+      --team-1: #0091df;
+      --team-2: #f59e0b;
+      --team-3: #10b981;
+      --team-4: #f43f5e;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
@@ -185,13 +185,12 @@
       padding-right: 2px;
     }
 
-    /* Board-Matrix - passt sich lückenlos an */
+    /* Board-Matrix */
     .board-container { flex: 1; background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; }
     
     .board-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
     .board-table th, .board-table td { border: 1px solid #e2e8f0; vertical-align: top; }
 
-    /* Spaltenköpfe */
     .line-header { background: #f8fafc; padding: 10px 4px; text-align: center; position: relative; }
     body.planner-active .line-header { cursor: pointer; }
     body.planner-active .line-header:hover { background: #f1f5f9; }
@@ -205,10 +204,7 @@
     .line-status-tag { font-size: 0.6rem; padding: 1px 3px; border-radius: 3px; background: #fecdd3; color: #9f1239; font-weight: 700; }
     .line-notes { font-size: 0.65rem; color: #475569; margin-top: 3px; background: #ffffff; padding: 3px; border-radius: 3px; border: 1px dashed #cbd5e1; white-space: pre-wrap; word-break: break-word; }
 
-    /* Schicht-Spalte links */
     .shift-header { background: #f1f5f9; font-weight: 700; font-size: 0.9rem; width: 75px; text-align: center; padding: 15px 2px; color: #334155; vertical-align: middle; }
-    
-    /* Drop-Zonen (Felder) */
     .drop-zone { padding: 6px; min-height: 120px; display: flex; flex-direction: column; gap: 6px; background: #fafafa; }
 
     /* Modals */
@@ -220,8 +216,8 @@
     textarea.form-control { resize: vertical; min-height: 80px; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
-    .tabs { display: flex; gap: 10px; border-bottom: 2px solid #e2e8f0; margin-bottom: 16px; }
-    .tab-btn { padding: 8px 14px; background: none; border: none; border-bottom: 2px solid transparent; font-weight: 600; cursor: pointer; color: #64748b; margin-bottom: -2px; font-size: 0.95rem; }
+    .tabs { display: flex; gap: 6px; border-bottom: 2px solid #e2e8f0; margin-bottom: 16px; overflow-x: auto; }
+    .tab-btn { padding: 8px 12px; background: none; border: none; border-bottom: 2px solid transparent; font-weight: 600; cursor: pointer; color: #64748b; margin-bottom: -2px; font-size: 0.9rem; white-space: nowrap; }
     .tab-btn.active { color: var(--bayer-blue); border-bottom-color: var(--bayer-blue); }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
@@ -330,6 +326,7 @@
         <button class="tab-btn active" onclick="switchTab('tabEmployees')">Mitarbeiter</button>
         <button class="tab-btn" onclick="switchTab('tabRoles')">Rollen</button>
         <button class="tab-btn" onclick="switchTab('tabLines')">Linien</button>
+        <button class="tab-btn" onclick="switchTab('tabTeams')">Teams & Farben</button>
         <button class="tab-btn" onclick="switchTab('tabBackups')">Backups</button>
       </div>
       
@@ -384,6 +381,30 @@
         <div id="lineSettingsList" style="max-height: 250px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
 
+      <!-- Content: Teams & Farben -->
+      <div id="tabTeams" class="tab-content">
+        <p style="font-size:0.9rem; color:#64748b; margin-bottom:14px;">Passe hier die Namen und Kennzeichnungsfarben der Fokus-Teams an:</p>
+        <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <input type="color" id="teamColor1" value="#0091df" style="width:40px; height:38px; border:none; cursor:pointer; background:none;">
+            <input type="text" id="teamName1" class="form-control" placeholder="Team 1 Name">
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <input type="color" id="teamColor2" value="#f59e0b" style="width:40px; height:38px; border:none; cursor:pointer; background:none;">
+            <input type="text" id="teamName2" class="form-control" placeholder="Team 2 Name">
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <input type="color" id="teamColor3" value="#10b981" style="width:40px; height:38px; border:none; cursor:pointer; background:none;">
+            <input type="text" id="teamName3" class="form-control" placeholder="Team 3 Name">
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <input type="color" id="teamColor4" value="#f43f5e" style="width:40px; height:38px; border:none; cursor:pointer; background:none;">
+            <input type="text" id="teamName4" class="form-control" placeholder="Team 4 Name">
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;" onclick="saveTeamSettings()">Team-Änderungen speichern</button>
+      </div>
+
       <!-- Content: Backups -->
       <div id="tabBackups" class="tab-content">
         <p style="font-size:0.9rem; color:#64748b; margin-bottom:14px; line-height: 1.4;">
@@ -433,6 +454,12 @@
     let lines = defaultLines;
     let roles = ["Bediener", "LOP", "TL", "Schichtexperte", "Waschraumoperator"];
     let employees = []; 
+    let teamsConfig = {
+      "team-1": { name: "Team 1 (Blau)", color: "#0091df" },
+      "team-2": { name: "Team 2 (Gelb)", color: "#f59e0b" },
+      "team-3": { name: "Team 3 (Grün)", color: "#10b981" },
+      "team-4": { name: "Team 4 (Rot)", color: "#f43f5e" }
+    };
 
     let isPlanner = false;
     let sortableInstances = [];
@@ -482,6 +509,10 @@
         if (d.lines) lines = d.lines;
         if (d.roles) roles = d.roles;
         if (d.employees) employees = d.employees;
+        if (d.teamsConfig) teamsConfig = d.teamsConfig;
+        
+        applyTeamStyles();
+        updateTeamDropdowns();
         
         if (!backupDoneToday) {
           createDailyBackup(d);
@@ -496,8 +527,28 @@
       db.collection("shiftplan").doc("live_board").set({
         lines: lines,
         roles: roles,
-        employees: employees
+        employees: employees,
+        teamsConfig: teamsConfig
       });
+    }
+
+    function applyTeamStyles() {
+      const root = document.documentElement;
+      root.style.setProperty('--team-1', teamsConfig["team-1"].color);
+      root.style.setProperty('--team-2', teamsConfig["team-2"].color);
+      root.style.setProperty('--team-3', teamsConfig["team-3"].color);
+      root.style.setProperty('--team-4', teamsConfig["team-4"].color);
+    }
+
+    function updateTeamDropdowns() {
+      const sel = document.getElementById("newEmpTeam");
+      if(!sel) return;
+      sel.innerHTML = `
+        <option value="team-1">${teamsConfig["team-1"].name}</option>
+        <option value="team-2">${teamsConfig["team-2"].name}</option>
+        <option value="team-3">${teamsConfig["team-3"].name}</option>
+        <option value="team-4">${teamsConfig["team-4"].name}</option>
+      `;
     }
 
     function createDailyBackup(data) {
@@ -511,7 +562,8 @@
             displayDate: todayDe,
             lines: data.lines || [],
             roles: data.roles || [],
-            employees: data.employees || []
+            employees: data.employees || [],
+            teamsConfig: data.teamsConfig || teamsConfig
           }).then(() => {
             cleanupOldBackups(); 
           });
@@ -561,7 +613,8 @@
           db.collection("shiftplan").doc("live_board").set({
             lines: b.lines,
             roles: b.roles,
-            employees: b.employees
+            employees: b.employees,
+            teamsConfig: b.teamsConfig || teamsConfig
           });
           alert("Erfolgreich wiederhergestellt!");
           closeModal('settingsModal');
@@ -594,6 +647,8 @@
       renderEmployees();
       initDragAndDrop();
       updateRoleDropdown();
+      updateTeamDropdowns();
+      applyTeamStyles();
     }
 
     function renderHeaderColumns() {
@@ -698,7 +753,11 @@
       if(id === 'settingsModal') resetEmpForm();
     }
     
-    function openSettingsModal() { document.getElementById("settingsModal").style.display = "flex"; renderSettingsLists(); }
+    function openSettingsModal() { 
+      document.getElementById("settingsModal").style.display = "flex"; 
+      renderSettingsLists(); 
+      loadTeamSettingsToForm();
+    }
     
     function switchTab(t) {
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
@@ -707,8 +766,9 @@
       if(t === 'tabEmployees') document.querySelectorAll(".tab-btn")[0].classList.add("active");
       else if(t === 'tabRoles') document.querySelectorAll(".tab-btn")[1].classList.add("active");
       else if(t === 'tabLines') document.querySelectorAll(".tab-btn")[2].classList.add("active");
+      else if(t === 'tabTeams') document.querySelectorAll(".tab-btn")[3].classList.add("active");
       else if(t === 'tabBackups') {
-        document.querySelectorAll(".tab-btn")[3].classList.add("active");
+        document.querySelectorAll(".tab-btn")[4].classList.add("active");
         renderBackups(); 
       }
       
@@ -722,6 +782,28 @@
         const opt = document.createElement("option");
         opt.value = r; opt.textContent = r; sel.appendChild(opt);
       });
+    }
+
+    function loadTeamSettingsToForm() {
+      for(let i=1; i<=4; i++) {
+        document.getElementById(`teamName${i}`).value = teamsConfig[`team-${i}`].name;
+        document.getElementById(`teamColor${i}`).value = teamsConfig[`team-${i}`].color;
+      }
+    }
+
+    function saveTeamSettings() {
+      for(let i=1; i<=4; i++) {
+        const name = document.getElementById(`teamName${i}`).value.trim();
+        const color = document.getElementById(`teamColor${i}`).value;
+        if(name) {
+          teamsConfig[`team-${i}`].name = name;
+          teamsConfig[`team-${i}`].color = color;
+        }
+      }
+      saveToFirebase();
+      applyTeamStyles();
+      updateTeamDropdowns();
+      alert("Team-Einstellungen gespeichert!");
     }
 
     function renderSettingsLists() {
