@@ -211,7 +211,7 @@
 
   <header>
     <div class="header-left">
-      <!-- Lokales Logo -->
+      <!-- Lokales Logo, lädt direkt aus dem GitHub Ordner -->
       <div class="bayer-logo-btn" onclick="handleLogoClick()" title="Planer-Zugang (Klicken)">
         <img src="logo.png" alt="Bayer Logo">
       </div>
@@ -308,11 +308,11 @@
       <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('tabEmployees')">Mitarbeiter</button>
         <button class="tab-btn" onclick="switchTab('tabRoles')">Rollen</button>
-        <!-- NEU: Linien Tab Button -->
+        <!-- Reiter: Linien -->
         <button class="tab-btn" onclick="switchTab('tabLines')">Linien</button>
       </div>
       
-      <!-- Reiter: Mitarbeiter -->
+      <!-- Content: Mitarbeiter -->
       <div id="tabEmployees" class="tab-content active">
         <div style="background:#f8fafc; padding:12px; border-radius:8px; margin-bottom:12px; border:1px solid #e2e8f0;">
           <div class="form-group"><label>Name</label><input type="text" id="newEmpName" class="form-control" placeholder="Vorname Nachname"></div>
@@ -333,7 +333,7 @@
         <div id="employeeList" style="max-height: 200px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
       
-      <!-- Reiter: Rollen -->
+      <!-- Content: Rollen -->
       <div id="tabRoles" class="tab-content">
         <div style="display:flex; gap:8px; margin-bottom:12px;">
           <input type="text" id="newRoleName" class="form-control" placeholder="Neue Rolle">
@@ -342,7 +342,7 @@
         <div id="roleList" style="max-height: 220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
 
-      <!-- NEU: Reiter: Linien -->
+      <!-- Content: Linien -->
       <div id="tabLines" class="tab-content">
         <div style="display:flex; gap:8px; margin-bottom:12px;">
           <input type="text" id="newLineName" class="form-control" placeholder="Neue Linie (z.B. Linie 40)">
@@ -374,25 +374,24 @@
       { id: "nacht", name: "Nacht" }
     ];
 
+    // Komplett saubere Linien ohne Notizen oder Prioritäten
     const defaultLines = [
       { id: "L32", name: "Linie 32", prio: "", tag: "", note: "" },
-      { id: "L33", name: "Linie 33", prio: "", tag: "", note: "ca. 140.000 bis CW" },
+      { id: "L33", name: "Linie 33", prio: "", tag: "", note: "" },
       { id: "L34", name: "Linie 34", prio: "", tag: "", note: "" },
-      { id: "L09", name: "Linie 09", prio: "", tag: "Wartung!", note: "" },
-      { id: "L22", name: "Linie 22", prio: "PRIO 2", tag: "", note: "Noch ca. 160.000" },
-      { id: "L39", name: "Linie 39", prio: "PRIO 1", tag: "", note: "Noch ca. 25.000 bis CW" },
-      { id: "L36", name: "Linie 36", prio: "PRIO 3", tag: "", note: "Max ca. 30.000 bis PU" },
-      { id: "L37", name: "Linie 37", prio: "PRIO 7", tag: "", note: "Noch ca. 45.000 bis CW" },
-      { id: "L38", name: "Linie 38", prio: "PRIO 4", tag: "", note: "Noch 37.000 dann AW" }
+      { id: "L09", name: "Linie 09", prio: "", tag: "", note: "" },
+      { id: "L22", name: "Linie 22", prio: "", tag: "", note: "" },
+      { id: "L39", name: "Linie 39", prio: "", tag: "", note: "" },
+      { id: "L36", name: "Linie 36", prio: "", tag: "", note: "" },
+      { id: "L37", name: "Linie 37", prio: "", tag: "", note: "" },
+      { id: "L38", name: "Linie 38", prio: "", tag: "", note: "" }
     ];
 
     let lines = defaultLines;
     let roles = ["Bediener", "LOP", "TL", "Schichtexperte", "Waschraumoperator"];
-    let employees = [
-      { id: "e1", name: "Kevyn Ritter", team: "team-2", role: "TL", zone: "L38_spaet" },
-      { id: "e2", name: "Danny Amsler", team: "team-4", role: "Schichtexperte", zone: "pool" },
-      { id: "e3", name: "Michael Müller", team: "team-1", role: "LOP", zone: "L38_nacht" }
-    ];
+    
+    // Komplett leere Mitarbeiter-Liste zum Start
+    let employees = [];
 
     let isPlanner = false;
     let sortableInstances = [];
@@ -433,8 +432,8 @@
       initBoard();
     }
 
-    // Firestore Live-Synchronisierung
-    db.collection("shiftplan").doc("current").onSnapshot((doc) => {
+    // ACHTUNG: Hier wurde "current" zu "live_board" geändert für den 100% sauberen Neustart!
+    db.collection("shiftplan").doc("live_board").onSnapshot((doc) => {
       if (doc.exists) {
         const d = doc.data();
         if (d.lines) lines = d.lines;
@@ -447,7 +446,7 @@
     });
 
     function saveToFirebase() {
-      db.collection("shiftplan").doc("current").set({
+      db.collection("shiftplan").doc("live_board").set({
         lines: lines,
         roles: roles,
         employees: employees
@@ -572,7 +571,7 @@
     function closeModal(id) { document.getElementById(id).style.display = "none"; }
     function openSettingsModal() { document.getElementById("settingsModal").style.display = "flex"; renderSettingsLists(); }
     
-    // ANGEPASST: Tabs umschalten für 3 Reiter
+    // Tabs umschalten für 3 Reiter
     function switchTab(t) {
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
       document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
@@ -593,7 +592,6 @@
       });
     }
 
-    // ANGEPASST: Rendert nun auch die Linien-Liste
     function renderSettingsLists() {
       const roleC = document.getElementById("roleList");
       roleC.innerHTML = "";
@@ -614,7 +612,7 @@
       });
     }
 
-    // NEU: Linie hinzufügen
+    // Linie hinzufügen
     function addLine() {
       const name = document.getElementById("newLineName").value.trim();
       if (!name) return;
@@ -622,17 +620,17 @@
       lines.push({ id: newId, name: name, prio: "", tag: "", note: "" });
       document.getElementById("newLineName").value = "";
       saveToFirebase();
-      initBoard(); // Aktualisiert die Tabelle
+      initBoard(); 
       renderSettingsLists();
     }
 
-    // NEU: Linie löschen
+    // Linie löschen
     function deleteLine(id) {
       if (!confirm("Möchtest du diese Linie wirklich löschen?")) return;
       
       lines = lines.filter(l => l.id !== id);
       
-      // Mitarbeiter, die auf der gelöschten Linie eingeteilt waren, in den Pool verschieben
+      // Mitarbeiter aus der gelöschten Linie in den Pool verschieben
       employees.forEach(emp => {
         if (emp.zone && emp.zone.startsWith(id + "_")) {
           emp.zone = "pool";
@@ -640,7 +638,7 @@
       });
       
       saveToFirebase();
-      initBoard(); // Aktualisiert die Tabelle (Linie verschwindet)
+      initBoard(); 
       renderSettingsLists();
     }
 
