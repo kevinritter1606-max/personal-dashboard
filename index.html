@@ -308,8 +308,9 @@
       <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('tabEmployees')">Mitarbeiter</button>
         <button class="tab-btn" onclick="switchTab('tabRoles')">Rollen</button>
-        <!-- Reiter: Linien -->
         <button class="tab-btn" onclick="switchTab('tabLines')">Linien</button>
+        <!-- NEUER Reiter: Backups -->
+        <button class="tab-btn" onclick="switchTab('tabBackups')">Backups</button>
       </div>
       
       <!-- Content: Mitarbeiter -->
@@ -351,6 +352,16 @@
         <div id="lineSettingsList" style="max-height: 220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
 
+      <!-- NEU: Content: Backups -->
+      <div id="tabBackups" class="tab-content">
+        <p style="font-size:0.8rem; color:#64748b; margin-bottom:10px;">
+          Das System speichert jeden Tag automatisch eine Sicherung (max. die letzten 7 Tage). Klicke auf "Wiederherstellen", um einen alten Stand zu laden.
+        </p>
+        <div id="backupList" style="max-height: 220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; padding:8px;">
+          Lade Backups...
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -374,7 +385,6 @@
       { id: "nacht", name: "Nacht" }
     ];
 
-    // Komplett saubere Linien ohne Notizen oder Prioritäten
     const defaultLines = [
       { id: "L32", name: "Linie 32", prio: "", tag: "", note: "" },
       { id: "L33", name: "Linie 33", prio: "", tag: "", note: "" },
@@ -389,12 +399,11 @@
 
     let lines = defaultLines;
     let roles = ["Bediener", "LOP", "TL", "Schichtexperte", "Waschraumoperator"];
-    
-    // Komplett leere Mitarbeiter-Liste zum Start
-    let employees = [];
+    let employees = []; // Leere Liste
 
     let isPlanner = false;
     let sortableInstances = [];
+    let backupDoneToday = false; // Verhindert, dass wir mehrmals am Tag speichern
 
     function handleLogoClick() {
       if (!isPlanner) {
@@ -432,13 +441,18 @@
       initBoard();
     }
 
-    // ACHTUNG: Hier wurde "current" zu "live_board" geändert für den 100% sauberen Neustart!
+    // Live-Verbindung
     db.collection("shiftplan").doc("live_board").onSnapshot((doc) => {
       if (doc.exists) {
         const d = doc.data();
         if (d.lines) lines = d.lines;
         if (d.roles) roles = d.roles;
         if (d.employees) employees = d.employees;
+        
+        // Automatische Backup-Prüfung bei jedem Ladevorgang
+        if (!backupDoneToday) {
+          createDailyBackup(d);
+        }
       } else {
         saveToFirebase();
       }
@@ -452,6 +466,80 @@
         employees: employees
       });
     }
+
+    // --- NEU: Backup Logik ---
+    function createDailyBackup(data) {
+      const todayIso = new Date().toISOString().split('T')[0]; // z.B. "2026-10-13"
+      const todayDe = new Date().toLocaleDateString('de-DE'); // z.B. "13.10.2026"
+
+      db.collection("shiftplan_backups").doc(todayIso).get().then(snap => {
+        if (!snap.exists) {
+          // Es gibt noch kein Backup für heute -> erstellen!
+          db.collection("shiftplan_backups").doc(todayIso).set({
+            date: todayIso,
+            displayDate: todayDe,
+            lines: data.lines || [],
+            roles: data.roles || [],
+            employees: data.employees || []
+          }).then(() => {
+            cleanupOldBackups(); // Löscht ältere Backups als 7 Tage
+          });
+        }
+        backupDoneToday = true;
+      });
+    }
+
+    function cleanupOldBackups() {
+      // Holt alle Backups absteigend nach Datum
+      db.collection("shiftplan_backups").orderBy("date", "desc").get().then(snap => {
+        let count = 0;
+        snap.forEach(doc => {
+          count++;
+          if (count > 7) {
+            doc.ref.delete(); // Lösche ab dem 8. Backup
+          }
+        });
+      });
+    }
+
+    function renderBackups() {
+      const list = document.getElementById("backupList");
+      list.innerHTML = "Lade Backups...";
+      db.collection("shiftplan_backups").orderBy("date", "desc").get().then(snap => {
+        list.innerHTML = "";
+        if(snap.empty) {
+          list.innerHTML = "<div style='color:#64748b; font-size:0.85rem;'>Noch keine Backups vorhanden. Das erste Backup wird heute automatisch erstellt.</div>";
+          return;
+        }
+        snap.forEach(doc => {
+          const b = doc.data();
+          list.innerHTML += `
+            <div class="item-row">
+              <span>Stand vom <b>${b.displayDate}</b></span>
+              <button class="btn btn-outline" style="padding:3px 7px; color:var(--bayer-blue);" onclick="restoreBackup('${doc.id}')">Wiederherstellen</button>
+            </div>`;
+        });
+      });
+    }
+
+    function restoreBackup(docId) {
+      if(!confirm("Möchtest du diesen Stand wirklich laden? Die aktuelle Planung (von heute) wird dadurch überschrieben!")) return;
+      
+      db.collection("shiftplan_backups").doc(docId).get().then(snap => {
+        if(snap.exists) {
+          const b = snap.data();
+          // Überschreibe das Live-Board mit dem Backup
+          db.collection("shiftplan").doc("live_board").set({
+            lines: b.lines,
+            roles: b.roles,
+            employees: b.employees
+          });
+          alert("Erfolgreich wiederhergestellt!");
+          closeModal('settingsModal');
+        }
+      });
+    }
+    // -------------------------
 
     function initBoard() {
       renderHeaderColumns();
@@ -571,7 +659,7 @@
     function closeModal(id) { document.getElementById(id).style.display = "none"; }
     function openSettingsModal() { document.getElementById("settingsModal").style.display = "flex"; renderSettingsLists(); }
     
-    // Tabs umschalten für 3 Reiter
+    // Tabs umschalten (inklusive Backups)
     function switchTab(t) {
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
       document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
@@ -579,6 +667,10 @@
       if(t === 'tabEmployees') document.querySelectorAll(".tab-btn")[0].classList.add("active");
       else if(t === 'tabRoles') document.querySelectorAll(".tab-btn")[1].classList.add("active");
       else if(t === 'tabLines') document.querySelectorAll(".tab-btn")[2].classList.add("active");
+      else if(t === 'tabBackups') {
+        document.querySelectorAll(".tab-btn")[3].classList.add("active");
+        renderBackups(); // Liste frisch aus Firebase laden
+      }
       
       document.getElementById(t).classList.add("active");
     }
