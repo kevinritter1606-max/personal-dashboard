@@ -52,17 +52,17 @@
 
     /* Klickbares Bayer Logo */
     .bayer-logo-btn {
-      width: 44px;
-      height: 44px;
+      width: 48px;
+      height: 48px;
       cursor: pointer;
-      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: transform 0.2s, box-shadow 0.2s;
+      transition: transform 0.2s, filter 0.2s;
     }
     .bayer-logo-btn:hover {
-      transform: scale(1.06);
+      transform: scale(1.05);
+      filter: brightness(0.95);
     }
     .bayer-logo-btn svg {
       width: 100%;
@@ -94,16 +94,16 @@
 
     main { padding: 16px; display: flex; gap: 16px; flex: 1; overflow-x: auto; }
 
-    /* Sidebar für Pool & Abwesend: Im Viewer-Modus komplett unsichtbar */
+    /* Sidebar für Pool & Abwesend */
     .sidebar {
       width: 310px;
       flex-shrink: 0;
-      display: none; /* Standard: Ausgeblendet */
+      display: none;
       flex-direction: column;
       gap: 16px;
     }
     body.planner-active .sidebar {
-      display: flex; /* Nur im Planer-Modus sichtbar */
+      display: flex;
     }
 
     .panel {
@@ -203,17 +203,33 @@
     <div class="header-left">
       <!-- Bayer Logo Button -->
       <div class="bayer-logo-btn" onclick="handleLogoClick()" title="Bayer Schichtplan">
-        <svg viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="46" fill="none" stroke="#0091df" stroke-width="4.5"/>
-          <text x="50" y="32" font-size="14" font-weight="900" fill="#0091df" text-anchor="middle" font-family="Arial, sans-serif">B</text>
-          <text x="50" y="47" font-size="14" font-weight="900" fill="#0091df" text-anchor="middle" font-family="Arial, sans-serif">A</text>
-          <text x="50" y="62" font-size="14" font-weight="900" fill="#0091df" text-anchor="middle" font-family="Arial, sans-serif">Y</text>
-          <text x="50" y="77" font-size="14" font-weight="900" fill="#0091df" text-anchor="middle" font-family="Arial, sans-serif">E</text>
-          <text x="50" y="92" font-size="14" font-weight="900" fill="#0091df" text-anchor="middle" font-family="Arial, sans-serif">R</text>
-          <text x="20" y="62" font-size="14" font-weight="900" fill="#0091df" text-anchor="middle" font-family="Arial, sans-serif">B</text>
-          <text x="35" y="62" font-size="14" font-weight="900" fill="#0091df" text-anchor="middle" font-family="Arial, sans-serif">A</text>
-          <text x="65" y="62" font-size="14" font-weight="900" fill="#0091df" text-anchor="middle" font-family="Arial, sans-serif">E</text>
-          <text x="80" y="62" font-size="14" font-weight="900" fill="#0091df" text-anchor="middle" font-family="Arial, sans-serif">R</text>
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <!-- Weißer Kreis Hintergrund für maximalen Kontrast -->
+          <circle cx="50" cy="50" r="48" fill="#ffffff" />
+          
+          <!-- Grüner Halbbogen (oben links nach unten rechts überlappend) -->
+          <path d="M50,4 C24.59,4 4,24.59 4,50 C4,66.82 13.04,81.54 26.54,89.51" fill="none" stroke="#89d329" stroke-width="6.5" stroke-linecap="round" />
+          
+          <!-- Blauer Halbbogen (oben rechts nach unten links überlappend) -->
+          <path d="M50,4 C75.41,4 96,24.59 96,50 C96,69.59 83.82,86.34 66.86,92.83" fill="none" stroke="#00bcff" stroke-width="6.5" stroke-linecap="round" />
+          
+          <!-- Brücke-Bögen Abschlüsse, die ein harmonisches Bild ergeben -->
+          <path d="M26.54,89.51 C40.04,97.48 50,96 50,96 C50,96 58.43,94.83 66.86,92.83" fill="none" stroke="#00bcff" stroke-width="6.5" stroke-linecap="round" />
+
+          <!-- Die Bayer Buchstabenkreuzung, zentriert und perfekt ausgerichtet -->
+          <!-- Vertikales BAYER -->
+          <text x="50" y="24" font-size="14.5" font-weight="900" fill="#0A314A" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" letter-spacing="0">B</text>
+          <text x="50" y="38" font-size="14.5" font-weight="900" fill="#0A314A" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" letter-spacing="0">A</text>
+          <text x="50" y="52" font-size="14.5" font-weight="900" fill="#0A314A" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" letter-spacing="0">Y</text>
+          <text x="50" y="66" font-size="14.5" font-weight="900" fill="#0A314A" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" letter-spacing="0">E</text>
+          <text x="50" y="80" font-size="14.5" font-weight="900" fill="#0A314A" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" letter-spacing="0">R</text>
+
+          <!-- Horizontales BAYER -->
+          <text x="18" y="52" font-size="14.5" font-weight="900" fill="#0A314A" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" letter-spacing="0">B</text>
+          <text x="34" y="52" font-size="14.5" font-weight="900" fill="#0A314A" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" letter-spacing="0">A</text>
+          <!-- Y in der Mitte wird geteilt -->
+          <text x="66" y="52" font-size="14.5" font-weight="900" fill="#0A314A" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" letter-spacing="0">E</text>
+          <text x="82" y="52" font-size="14.5" font-weight="900" fill="#0A314A" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" letter-spacing="0">R</text>
         </svg>
       </div>
 
@@ -230,7 +246,7 @@
   </header>
 
   <main>
-    <!-- Sidebar: Nur für den Planer sichtbar -->
+    <!-- Sidebar -->
     <aside class="sidebar">
       <div class="panel">
         <h2>Verfügbarer Pool <span id="poolCount" style="font-size:0.8rem; color:#64748b;">(0)</span></h2>
@@ -382,7 +398,6 @@
     let isPlanner = false;
     let sortableInstances = [];
 
-    // Klick auf das Bayer-Logo
     function handleLogoClick() {
       if (!isPlanner) {
         document.getElementById("pinModal").style.display = "flex";
