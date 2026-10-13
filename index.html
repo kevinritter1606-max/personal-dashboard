@@ -47,13 +47,13 @@
     .header-left {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 16px;
     }
 
-    /* Klickbares Bayer Logo */
+    /* Klickbares Bayer Logo (Offizielles SVG) */
     .bayer-logo-btn {
-      width: 48px;
-      height: 48px;
+      width: 64px; /* Logo wurde hier vergrößert */
+      height: 64px; /* Logo wurde hier vergrößert */
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -64,15 +64,24 @@
       transform: scale(1.05);
       filter: brightness(0.95);
     }
-    .bayer-logo-btn svg {
+    .bayer-logo-btn img {
       width: 100%;
       height: 100%;
+      object-fit: contain;
+    }
+
+    .header-title {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 2px;
     }
 
     .header-title h1 {
-      font-size: 1.25rem;
+      font-size: 1.35rem;
       font-weight: 700;
       color: var(--bayer-blue);
+      margin: 0;
     }
 
     .status-badge {
@@ -80,6 +89,7 @@
       padding: 3px 8px;
       border-radius: 999px;
       font-weight: 600;
+      align-self: flex-start;
     }
     .status-read { background: #e2e8f0; color: #475569; }
     .status-edit { background: #dcfce7; color: #166534; }
@@ -201,36 +211,9 @@
 
   <header>
     <div class="header-left">
-      <!-- Bayer Logo Button -->
-      <div class="bayer-logo-btn" onclick="handleLogoClick()" title="Bayer Schichtplan">
-        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-          <!-- Weißer Kreis Hintergrund für maximalen Kontrast -->
-          <circle cx="50" cy="50" r="48" fill="#ffffff" />
-          
-          <!-- Grüner Halbbogen (oben links nach unten rechts überlappend) -->
-          <path d="M50,4 C24.59,4 4,24.59 4,50 C4,66.82 13.04,81.54 26.54,89.51" fill="none" stroke="#89d329" stroke-width="6.5" stroke-linecap="round" />
-          
-          <!-- Blauer Halbbogen (oben rechts nach unten links überlappend) -->
-          <path d="M50,4 C75.41,4 96,24.59 96,50 C96,69.59 83.82,86.34 66.86,92.83" fill="none" stroke="#00bcff" stroke-width="6.5" stroke-linecap="round" />
-          
-          <!-- Brücke-Bögen Abschlüsse, die ein harmonisches Bild ergeben -->
-          <path d="M26.54,89.51 C40.04,97.48 50,96 50,96 C50,96 58.43,94.83 66.86,92.83" fill="none" stroke="#00bcff" stroke-width="6.5" stroke-linecap="round" />
-
-          <!-- Die Bayer Buchstabenkreuzung, zentriert und perfekt ausgerichtet -->
-          <!-- Vertikales BAYER -->
-          <text x="50" y="24" font-size="14.5" font-weight="900" fill="#0A314A" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" letter-spacing="0">B</text>
-          <text x="50" y="38" font-size="14.5" font-weight="900" fill="#0A314A" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" letter-spacing="0">A</text>
-          <text x="50" y="52" font-size="14.5" font-weight="900" fill="#0A314A" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" letter-spacing="0">Y</text>
-          <text x="50" y="66" font-size="14.5" font-weight="900" fill="#0A314A" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" letter-spacing="0">E</text>
-          <text x="50" y="80" font-size="14.5" font-weight="900" fill="#0A314A" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" letter-spacing="0">R</text>
-
-          <!-- Horizontales BAYER -->
-          <text x="18" y="52" font-size="14.5" font-weight="900" fill="#0A314A" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" letter-spacing="0">B</text>
-          <text x="34" y="52" font-size="14.5" font-weight="900" fill="#0A314A" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" letter-spacing="0">A</text>
-          <!-- Y in der Mitte wird geteilt -->
-          <text x="66" y="52" font-size="14.5" font-weight="900" fill="#0A314A" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" letter-spacing="0">E</text>
-          <text x="82" y="52" font-size="14.5" font-weight="900" fill="#0A314A" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" letter-spacing="0">R</text>
-        </svg>
+      <!-- Offizielles SVG Bayer Logo -->
+      <div class="bayer-logo-btn" onclick="handleLogoClick()" title="Planer-Zugang (Klicken)">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/e/eb/Bayer.svg" alt="Bayer Logo">
       </div>
 
       <div class="header-title">
