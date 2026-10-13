@@ -84,15 +84,21 @@
       margin: 0;
     }
 
+    /* Modus Badge - Standardmäßig unsichtbar */
     .status-badge {
+      display: none; 
       font-size: 0.72rem;
       padding: 3px 8px;
       border-radius: 999px;
       font-weight: 600;
       align-self: flex-start;
+      background: #dcfce7; 
+      color: #166534;
     }
-    .status-read { background: #e2e8f0; color: #475569; }
-    .status-edit { background: #dcfce7; color: #166534; }
+    /* Wird nur eingeblendet, wenn der Planer eingeloggt ist */
+    body.planner-active .status-badge {
+      display: inline-block;
+    }
 
     .header-actions { display: flex; gap: 8px; align-items: center; }
 
@@ -218,7 +224,7 @@
 
       <div class="header-title">
         <h1>Schicht- und Linienübersicht</h1>
-        <span id="modeBadge" class="status-badge status-read">Mitarbeiter-Ansicht</span>
+        <span class="status-badge">Planer-Modus aktiv</span>
       </div>
     </div>
 
@@ -309,7 +315,7 @@
         <button class="tab-btn active" onclick="switchTab('tabEmployees')">Mitarbeiter</button>
         <button class="tab-btn" onclick="switchTab('tabRoles')">Rollen</button>
         <button class="tab-btn" onclick="switchTab('tabLines')">Linien</button>
-        <!-- NEUER Reiter: Backups -->
+        <!-- Reiter: Backups -->
         <button class="tab-btn" onclick="switchTab('tabBackups')">Backups</button>
       </div>
       
@@ -352,7 +358,7 @@
         <div id="lineSettingsList" style="max-height: 220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
 
-      <!-- NEU: Content: Backups -->
+      <!-- Content: Backups -->
       <div id="tabBackups" class="tab-content">
         <p style="font-size:0.8rem; color:#64748b; margin-bottom:10px;">
           Das System speichert jeden Tag automatisch eine Sicherung (max. die letzten 7 Tage). Klicke auf "Wiederherstellen", um einen alten Stand zu laden.
@@ -403,7 +409,7 @@
 
     let isPlanner = false;
     let sortableInstances = [];
-    let backupDoneToday = false; // Verhindert, dass wir mehrmals am Tag speichern
+    let backupDoneToday = false; 
 
     function handleLogoClick() {
       if (!isPlanner) {
@@ -431,12 +437,8 @@
     function applyPlannerState() {
       if (isPlanner) {
         document.body.classList.add("planner-active");
-        document.getElementById("modeBadge").className = "status-badge status-edit";
-        document.getElementById("modeBadge").textContent = "Planer-Modus aktiv";
       } else {
         document.body.classList.remove("planner-active");
-        document.getElementById("modeBadge").className = "status-badge status-read";
-        document.getElementById("modeBadge").textContent = "Mitarbeiter-Ansicht";
       }
       initBoard();
     }
@@ -449,7 +451,7 @@
         if (d.roles) roles = d.roles;
         if (d.employees) employees = d.employees;
         
-        // Automatische Backup-Prüfung bei jedem Ladevorgang
+        // Automatische Backup-Prüfung
         if (!backupDoneToday) {
           createDailyBackup(d);
         }
@@ -467,14 +469,13 @@
       });
     }
 
-    // --- NEU: Backup Logik ---
+    // Backup Logik
     function createDailyBackup(data) {
-      const todayIso = new Date().toISOString().split('T')[0]; // z.B. "2026-10-13"
-      const todayDe = new Date().toLocaleDateString('de-DE'); // z.B. "13.10.2026"
+      const todayIso = new Date().toISOString().split('T')[0]; 
+      const todayDe = new Date().toLocaleDateString('de-DE'); 
 
       db.collection("shiftplan_backups").doc(todayIso).get().then(snap => {
         if (!snap.exists) {
-          // Es gibt noch kein Backup für heute -> erstellen!
           db.collection("shiftplan_backups").doc(todayIso).set({
             date: todayIso,
             displayDate: todayDe,
@@ -482,7 +483,7 @@
             roles: data.roles || [],
             employees: data.employees || []
           }).then(() => {
-            cleanupOldBackups(); // Löscht ältere Backups als 7 Tage
+            cleanupOldBackups(); 
           });
         }
         backupDoneToday = true;
@@ -490,13 +491,12 @@
     }
 
     function cleanupOldBackups() {
-      // Holt alle Backups absteigend nach Datum
       db.collection("shiftplan_backups").orderBy("date", "desc").get().then(snap => {
         let count = 0;
         snap.forEach(doc => {
           count++;
           if (count > 7) {
-            doc.ref.delete(); // Lösche ab dem 8. Backup
+            doc.ref.delete(); 
           }
         });
       });
@@ -528,7 +528,6 @@
       db.collection("shiftplan_backups").doc(docId).get().then(snap => {
         if(snap.exists) {
           const b = snap.data();
-          // Überschreibe das Live-Board mit dem Backup
           db.collection("shiftplan").doc("live_board").set({
             lines: b.lines,
             roles: b.roles,
@@ -539,7 +538,6 @@
         }
       });
     }
-    // -------------------------
 
     function initBoard() {
       renderHeaderColumns();
@@ -669,7 +667,7 @@
       else if(t === 'tabLines') document.querySelectorAll(".tab-btn")[2].classList.add("active");
       else if(t === 'tabBackups') {
         document.querySelectorAll(".tab-btn")[3].classList.add("active");
-        renderBackups(); // Liste frisch aus Firebase laden
+        renderBackups(); 
       }
       
       document.getElementById(t).classList.add("active");
@@ -722,7 +720,6 @@
       
       lines = lines.filter(l => l.id !== id);
       
-      // Mitarbeiter aus der gelöschten Linie in den Pool verschieben
       employees.forEach(emp => {
         if (emp.zone && emp.zone.startsWith(id + "_")) {
           emp.zone = "pool";
