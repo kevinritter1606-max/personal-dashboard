@@ -28,9 +28,9 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
-    body { background-color: var(--bg-gray); min-height: 100vh; display: flex; flex-direction: column; }
+    body { background-color: var(--bg-gray); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
-    .brand-gradient { height: 6px; background: linear-gradient(90deg, #0091df 0%, #00bcff 50%, #89d329 100%); width: 100%; }
+    .brand-gradient { height: 6px; background: linear-gradient(90deg, #0091df 0%, #00bcff 50%, #89d329 100%); width: 100%; flex-shrink: 0; }
 
     header {
       background: #ffffff;
@@ -39,8 +39,7 @@
       justify-content: space-between;
       align-items: center;
       box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-      position: sticky;
-      top: 0;
+      flex-shrink: 0;
       z-index: 50;
     }
 
@@ -78,7 +77,7 @@
     }
 
     .header-title h1 {
-      font-size: 1.35rem;
+      font-size: 1.45rem;
       font-weight: 700;
       color: var(--bayer-blue);
       margin: 0;
@@ -86,7 +85,7 @@
 
     .status-badge {
       display: none; 
-      font-size: 0.72rem;
+      font-size: 0.75rem;
       padding: 3px 8px;
       border-radius: 999px;
       font-weight: 600;
@@ -100,21 +99,22 @@
 
     .header-actions { display: flex; gap: 8px; align-items: center; }
 
-    .btn { padding: 7px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
+    .btn { padding: 8px 16px; border-radius: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
     .btn-primary { background: var(--bayer-blue); color: #fff; }
     .btn-primary:hover { background: #0077b6; }
     .btn-outline { border-color: #cbd5e1; background: #fff; color: #475569; }
     .btn-outline:hover { background: #f8fafc; }
 
-    main { padding: 16px; display: flex; gap: 16px; flex: 1; overflow-x: auto; }
+    main { padding: 16px; display: flex; gap: 16px; flex: 1; overflow: hidden; }
 
     /* Sidebar für Pool & Abwesend */
     .sidebar {
-      width: 310px;
+      width: 320px;
       flex-shrink: 0;
       display: none;
       flex-direction: column;
       gap: 16px;
+      height: 100%;
     }
     body.planner-active .sidebar {
       display: flex;
@@ -128,33 +128,33 @@
       border: 1px solid #e2e8f0;
       display: flex;
       flex-direction: column;
-      max-height: 44vh;
+      flex: 1; /* Panels teilen sich die Höhe */
+      min-height: 0;
     }
-    .panel h2 { font-size: 0.9rem; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; color: #1e293b; }
+    .panel h2 { font-size: 1rem; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; color: #1e293b; }
 
     .card-list {
       flex: 1;
       overflow-y: auto;
-      min-height: 80px;
-      padding: 6px;
+      padding: 8px;
       background: #f8fafc;
       border-radius: 6px;
       border: 1px dashed #cbd5e1;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
     }
 
-    /* Mitarbeiter Kärtchen (etwas größer gemacht) */
+    /* Mitarbeiter Kärtchen (nochmals vergrößert für TV) */
     .employee-card {
       background: #fff;
-      padding: 8px 10px;
+      padding: 10px 12px;
       border-radius: 6px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.08);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-left: 5px solid #94a3b8;
+      border-left: 6px solid #94a3b8;
       user-select: none;
     }
     body.planner-active .employee-card { cursor: grab; }
@@ -165,51 +165,51 @@
     .employee-card.team-3 { border-left-color: var(--team-3); }
     .employee-card.team-4 { border-left-color: var(--team-4); }
 
-    .card-name { font-size: 0.85rem; font-weight: 600; color: #1e293b; }
-    .card-role { font-size: 0.68rem; padding: 2px 5px; background: #f1f5f9; border-radius: 4px; color: #475569; font-weight: 600; }
+    .card-name { font-size: 0.95rem; font-weight: 600; color: #1e293b; }
+    .card-role { font-size: 0.75rem; padding: 3px 6px; background: #f1f5f9; border-radius: 4px; color: #475569; font-weight: 600; }
 
-    /* Board-Matrix */
-    .board-container { flex: 1; background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow-x: auto; }
+    /* Board-Matrix füllt jetzt 100% der Höhe */
+    .board-container { flex: 1; background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow-x: auto; overflow-y: hidden; height: 100%; }
     
-    /* Tabelle breiter gemacht */
-    .board-table { width: 100%; border-collapse: collapse; min-width: 1400px; }
+    .board-table { width: 100%; height: 100%; border-collapse: collapse; min-width: 1400px; table-layout: fixed; }
     .board-table th, .board-table td { border: 1px solid #e2e8f0; vertical-align: top; }
+    .board-table td { height: 33.33%; /* 3 Schichten teilen sich den Platz exakt */ }
 
-    /* Spaltenköpfe breiter */
-    .line-header { background: #f8fafc; padding: 12px 8px; text-align: center; min-width: 175px; position: relative; }
+    /* Spaltenköpfe */
+    .line-header { background: #f8fafc; padding: 14px 8px; text-align: center; position: relative; height: 1%; /* Höhe wird auf Inhalt reduziert */ }
     body.planner-active .line-header { cursor: pointer; }
     body.planner-active .line-header:hover { background: #f1f5f9; }
-    body.planner-active .line-header::after { content: "✏️"; position: absolute; top: 4px; right: 4px; font-size: 0.65rem; opacity: 0.5; }
+    body.planner-active .line-header::after { content: "✏️"; position: absolute; top: 6px; right: 6px; font-size: 0.75rem; opacity: 0.5; }
 
-    .line-title { font-size: 0.95rem; font-weight: 700; color: #0f172a; }
-    .badge-container { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-top: 3px; }
-    .line-prio { font-size: 0.65rem; padding: 1px 5px; border-radius: 4px; background: #e2e8f0; font-weight: 700; color: #334155; }
+    .line-title { font-size: 1.05rem; font-weight: 700; color: #0f172a; }
+    .badge-container { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-top: 4px; }
+    .line-prio { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; background: #e2e8f0; font-weight: 700; color: #334155; }
     .line-prio.prio-high { background: #fee2e2; color: #b91c1c; }
     .line-prio.prio-mid { background: #fef3c7; color: #b45309; }
-    .line-status-tag { font-size: 0.65rem; padding: 1px 5px; border-radius: 4px; background: #fecdd3; color: #9f1239; font-weight: 700; }
-    .line-notes { font-size: 0.72rem; color: #475569; margin-top: 5px; background: #ffffff; padding: 4px; border-radius: 4px; border: 1px dashed #cbd5e1; white-space: pre-wrap; }
+    .line-status-tag { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; background: #fecdd3; color: #9f1239; font-weight: 700; }
+    .line-notes { font-size: 0.8rem; color: #475569; margin-top: 6px; background: #ffffff; padding: 6px; border-radius: 4px; border: 1px dashed #cbd5e1; white-space: pre-wrap; }
 
-    /* Schicht-Spalte links etwas breiter */
-    .shift-header { background: #f1f5f9; font-weight: 700; font-size: 0.95rem; width: 100px; text-align: center; padding: 20px 8px; color: #334155; }
+    /* Schicht-Spalte links */
+    .shift-header { background: #f1f5f9; font-weight: 700; font-size: 1.1rem; width: 110px; text-align: center; padding: 20px 8px; color: #334155; }
     
-    /* Die Drop-Zonen (Felder) deutlich höher und mit mehr Abstand */
-    .drop-zone { padding: 8px; min-height: 160px; display: flex; flex-direction: column; gap: 8px; background: #fafafa; }
+    /* Die Drop-Zonen (Felder) füllen nun die gesamte Zelle */
+    .drop-zone { padding: 10px; height: 100%; display: flex; flex-direction: column; gap: 10px; background: #fafafa; overflow-y: auto; }
 
     /* Modals */
     .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.45); display: none; align-items: center; justify-content: center; z-index: 100; }
-    .modal { background: #fff; padding: 22px; border-radius: 10px; width: 100%; max-width: 480px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
-    .form-group { margin-bottom: 12px; }
-    .form-group label { display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 4px; color: #475569; }
-    .form-control { width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; }
-    textarea.form-control { resize: vertical; min-height: 60px; }
-    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .modal { background: #fff; padding: 24px; border-radius: 10px; width: 100%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: #475569; }
+    .form-control { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; }
+    textarea.form-control { resize: vertical; min-height: 80px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
-    .tabs { display: flex; gap: 8px; border-bottom: 2px solid #e2e8f0; margin-bottom: 14px; }
-    .tab-btn { padding: 6px 12px; background: none; border: none; border-bottom: 2px solid transparent; font-weight: 600; cursor: pointer; color: #64748b; margin-bottom: -2px; }
+    .tabs { display: flex; gap: 10px; border-bottom: 2px solid #e2e8f0; margin-bottom: 16px; }
+    .tab-btn { padding: 8px 14px; background: none; border: none; border-bottom: 2px solid transparent; font-weight: 600; cursor: pointer; color: #64748b; margin-bottom: -2px; font-size: 0.95rem; }
     .tab-btn.active { color: var(--bayer-blue); border-bottom-color: var(--bayer-blue); }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-    .item-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 8px; border-bottom: 1px solid #f1f5f9; }
+    .item-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.95rem; }
 
     .admin-element { display: none; }
     body.planner-active .admin-element { display: inline-flex; }
@@ -221,7 +221,7 @@
 
   <header>
     <div class="header-left">
-      <!-- Lokales Logo, lädt direkt aus dem GitHub Ordner -->
+      <!-- Lokales Logo -->
       <div class="bayer-logo-btn" onclick="handleLogoClick()" title="Planer-Zugang (Klicken)">
         <img src="logo.png" alt="Bayer Logo">
       </div>
@@ -242,7 +242,7 @@
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="panel">
-        <h2>Verfügbarer Pool <span id="poolCount" style="font-size:0.8rem; color:#64748b;">(0)</span></h2>
+        <h2>Verfügbarer Pool <span id="poolCount" style="font-size:0.9rem; color:#64748b;">(0)</span></h2>
         <div id="pool" class="card-list drop-zone" data-zone="pool"></div>
       </div>
       <div class="panel">
@@ -264,11 +264,11 @@
 
   <!-- Modal: PIN Eingabe -->
   <div id="pinModal" class="modal-overlay">
-    <div class="modal" style="max-width: 330px; text-align: center;">
-      <h3 style="color: var(--bayer-blue); margin-bottom: 10px;">Planer-Freischaltung</h3>
-      <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 14px;">Bitte PIN eingeben:</p>
-      <input type="password" id="pinInput" class="form-control" placeholder="****" style="text-align: center; font-size: 1.25rem; letter-spacing: 4px;">
-      <div class="modal-actions" style="justify-content: center; gap: 10px; margin-top: 14px;">
+    <div class="modal" style="max-width: 350px; text-align: center;">
+      <h3 style="color: var(--bayer-blue); margin-bottom: 12px;">Planer-Freischaltung</h3>
+      <p style="font-size: 0.95rem; color: #64748b; margin-bottom: 16px;">Bitte PIN eingeben:</p>
+      <input type="password" id="pinInput" class="form-control" placeholder="****" style="text-align: center; font-size: 1.5rem; letter-spacing: 6px;">
+      <div class="modal-actions" style="justify-content: center; gap: 12px; margin-top: 18px;">
         <button class="btn btn-outline" onclick="closeModal('pinModal')">Abbrechen</button>
         <button class="btn btn-primary" onclick="verifyPin()">Anmelden</button>
       </div>
@@ -277,8 +277,8 @@
 
   <!-- Modal: Linie bearbeiten -->
   <div id="lineEditModal" class="modal-overlay">
-    <div class="modal" style="max-width: 400px;">
-      <h3 id="lineEditTitle" style="color: var(--bayer-blue); margin-bottom: 14px;">Linie bearbeiten</h3>
+    <div class="modal" style="max-width: 450px;">
+      <h3 id="lineEditTitle" style="color: var(--bayer-blue); margin-bottom: 16px;">Linie bearbeiten</h3>
       <input type="hidden" id="editLineId">
       <div class="form-group">
         <label>Priorität</label>
@@ -310,10 +310,10 @@
 
   <!-- Modal: Einstellungen -->
   <div id="settingsModal" class="modal-overlay">
-    <div class="modal">
-      <h3 style="display:flex; justify-content:space-between; color:var(--bayer-blue); margin-bottom:14px;">
+    <div class="modal" style="max-width: 550px;">
+      <h3 style="display:flex; justify-content:space-between; color:var(--bayer-blue); margin-bottom:16px;">
         Verwaltung
-        <button onclick="closeModal('settingsModal')" style="border:none; background:none; font-size:1.2rem; cursor:pointer;">&times;</button>
+        <button onclick="closeModal('settingsModal')" style="border:none; background:none; font-size:1.5rem; cursor:pointer;">&times;</button>
       </h3>
       <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('tabEmployees')">Mitarbeiter</button>
@@ -324,9 +324,9 @@
       
       <!-- Content: Mitarbeiter -->
       <div id="tabEmployees" class="tab-content active">
-        <div style="background:#f8fafc; padding:12px; border-radius:8px; margin-bottom:12px; border:1px solid #e2e8f0;">
+        <div style="background:#f8fafc; padding:16px; border-radius:8px; margin-bottom:16px; border:1px solid #e2e8f0;">
           <div class="form-group"><label>Name</label><input type="text" id="newEmpName" class="form-control" placeholder="Vorname Nachname"></div>
-          <div style="display:flex; gap:10px;">
+          <div style="display:flex; gap:12px;">
             <div class="form-group" style="flex:1;">
               <label>Fokus Team</label>
               <select id="newEmpTeam" class="form-control">
@@ -340,33 +340,33 @@
           </div>
           <button class="btn btn-primary" style="width:100%;" onclick="addEmployee()">Hinzufügen</button>
         </div>
-        <div id="employeeList" style="max-height: 200px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
+        <div id="employeeList" style="max-height: 250px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
       
       <!-- Content: Rollen -->
       <div id="tabRoles" class="tab-content">
-        <div style="display:flex; gap:8px; margin-bottom:12px;">
+        <div style="display:flex; gap:10px; margin-bottom:16px;">
           <input type="text" id="newRoleName" class="form-control" placeholder="Neue Rolle">
           <button class="btn btn-primary" onclick="addRole()">Hinzufügen</button>
         </div>
-        <div id="roleList" style="max-height: 220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
+        <div id="roleList" style="max-height: 250px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
 
       <!-- Content: Linien -->
       <div id="tabLines" class="tab-content">
-        <div style="display:flex; gap:8px; margin-bottom:12px;">
+        <div style="display:flex; gap:10px; margin-bottom:16px;">
           <input type="text" id="newLineName" class="form-control" placeholder="Neue Linie (z.B. Linie 40)">
           <button class="btn btn-primary" onclick="addLine()">Hinzufügen</button>
         </div>
-        <div id="lineSettingsList" style="max-height: 220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
+        <div id="lineSettingsList" style="max-height: 250px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
 
       <!-- Content: Backups -->
       <div id="tabBackups" class="tab-content">
-        <p style="font-size:0.8rem; color:#64748b; margin-bottom:10px;">
+        <p style="font-size:0.9rem; color:#64748b; margin-bottom:14px; line-height: 1.4;">
           Das System speichert jeden Tag automatisch eine Sicherung (max. die letzten 7 Tage). Klicke auf "Wiederherstellen", um einen alten Stand zu laden.
         </p>
-        <div id="backupList" style="max-height: 220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; padding:8px;">
+        <div id="backupList" style="max-height: 250px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; padding:10px;">
           Lade Backups...
         </div>
       </div>
@@ -413,6 +413,13 @@
     let isPlanner = false;
     let sortableInstances = [];
     let backupDoneToday = false; 
+
+    // Auto-Reload für Smart-TVs (Einmal pro Stunde, nur wenn NICHT im Planer-Modus)
+    setInterval(() => {
+      if (!isPlanner) {
+        window.location.reload();
+      }
+    }, 60 * 60 * 1000); 
 
     function handleLogoClick() {
       if (!isPlanner) {
@@ -511,7 +518,7 @@
       db.collection("shiftplan_backups").orderBy("date", "desc").get().then(snap => {
         list.innerHTML = "";
         if(snap.empty) {
-          list.innerHTML = "<div style='color:#64748b; font-size:0.85rem;'>Noch keine Backups vorhanden. Das erste Backup wird heute automatisch erstellt.</div>";
+          list.innerHTML = "<div style='color:#64748b; font-size:0.95rem;'>Noch keine Backups vorhanden. Das erste Backup wird heute automatisch erstellt.</div>";
           return;
         }
         snap.forEach(doc => {
@@ -519,7 +526,7 @@
           list.innerHTML += `
             <div class="item-row">
               <span>Stand vom <b>${b.displayDate}</b></span>
-              <button class="btn btn-outline" style="padding:3px 7px; color:var(--bayer-blue);" onclick="restoreBackup('${doc.id}')">Wiederherstellen</button>
+              <button class="btn btn-outline" style="padding:4px 10px; color:var(--bayer-blue);" onclick="restoreBackup('${doc.id}')">Wiederherstellen</button>
             </div>`;
         });
       });
@@ -688,19 +695,19 @@
       const roleC = document.getElementById("roleList");
       roleC.innerHTML = "";
       roles.forEach((r, idx) => {
-        roleC.innerHTML += `<div class="item-row"><span>${r}</span><button class="btn btn-outline" style="padding:3px 7px; color:#ef4444;" onclick="deleteRole(${idx})">Löschen</button></div>`;
+        roleC.innerHTML += `<div class="item-row"><span>${r}</span><button class="btn btn-outline" style="padding:4px 10px; color:#ef4444;" onclick="deleteRole(${idx})">Löschen</button></div>`;
       });
 
       const empC = document.getElementById("employeeList");
       empC.innerHTML = "";
       employees.forEach(e => {
-        empC.innerHTML += `<div class="item-row"><div><b>${e.name}</b> <small>(${e.role})</small></div><button class="btn btn-outline" style="padding:3px 7px; color:#ef4444;" onclick="deleteEmployee('${e.id}')">Löschen</button></div>`;
+        empC.innerHTML += `<div class="item-row"><div><b>${e.name}</b> <small>(${e.role})</small></div><button class="btn btn-outline" style="padding:4px 10px; color:#ef4444;" onclick="deleteEmployee('${e.id}')">Löschen</button></div>`;
       });
 
       const lineC = document.getElementById("lineSettingsList");
       lineC.innerHTML = "";
       lines.forEach(l => {
-        lineC.innerHTML += `<div class="item-row"><span>${l.name}</span><button class="btn btn-outline" style="padding:3px 7px; color:#ef4444;" onclick="deleteLine('${l.id}')">Löschen</button></div>`;
+        lineC.innerHTML += `<div class="item-row"><span>${l.name}</span><button class="btn btn-outline" style="padding:4px 10px; color:#ef4444;" onclick="deleteLine('${l.id}')">Löschen</button></div>`;
       });
     }
 
