@@ -385,6 +385,35 @@
     let sortableInstances = [];
     let backupDoneToday = false; 
 
+    function parseIsoLocal(iso) {
+      if (!iso || !iso.includes("-")) return 0;
+      const [y, m, d] = iso.split("-").map(Number);
+      return new Date(y, m - 1, d, 12, 0, 0).getTime();
+    }
+
+    function canMergeDateRanges(s1, e1, s2, e2) {
+      const msDay = 86400000;
+      const tS1 = parseIsoLocal(s1), tE1 = parseIsoLocal(e1);
+      const tS2 = parseIsoLocal(s2), tE2 = parseIsoLocal(e2);
+      if (!tS1 || !tE1 || !tS2 || !tE2) return false;
+      return (tS1 <= tE2 + msDay * 1.1) && (tS2 <= tE1 + msDay * 1.1);
+    }
+
+    function calcSickDays(s, e) {
+      const diff = Math.round((parseIsoLocal(e) - parseIsoLocal(s)) / 86400000) + 1;
+      return diff > 0 ? diff : 1;
+    }
+
+    function mergeReasonsText(r1, r2) {
+      const a = (r1 || "").trim();
+      const b = (r2 || "").trim();
+      if (!a || a === "Vom Planer eingetragen") return b || a;
+      if (!b || b === "Vom Planer eingetragen") return a;
+      if (a.toLowerCase().includes(b.toLowerCase())) return a;
+      if (b.toLowerCase().includes(a.toLowerCase())) return b;
+      return `${a} | ${b}`;
+    }
+
     window.deletePin = function(id) {
       const emp = employees.find(e => e.id === id);
       if (emp) {
@@ -499,7 +528,6 @@
       }
     };
 
-    // NEU: ENDDATUM EINER KRANKMELDUNG MANUELL ÄNDERN / VERLÄNGERN
     window.toggleEditSickDate = function(id) {
       const box = document.getElementById("editDateBox_" + id);
       if (box) {
@@ -556,6 +584,12 @@
             }
             const currentLineId = extractLineIdFromZone(e.zone);
             const currentShiftId = extractShiftIdFromZone(e.zone);
+            
+            // FEHLERBEHEBUNG 1: Fix-Mitarbeiter merken sich jetzt immer ihre letzte Schicht
+            if (e.zone !== "pool" && e.zone !== "absent") {
+                e.lastShiftId = currentShiftId;
+            }
+
             if (currentLineId && (!e.lastLineId || (currentShiftId && shiftRotation[currentShiftId] === e.team))) {
               if (e.lastLineId !== currentLineId) {
                 e.lastLineId = currentLineId;
@@ -717,6 +751,9 @@
       if (!confirm(`${shiftName}-Schicht (${inShift.length} Mitarbeiter) in den Pool leeren?`)) return;
 
       inShift.forEach(emp => {
+        // FEHLERBEHEBUNG 2: Fix-Mitarbeiter werden vom Löschen ignoriert
+        if (emp.noRotation) return;
+
         const lineId = extractLineIdFromZone(emp.zone);
         if (lineId && (!emp.lastLineId || shiftRotation[shiftId] === emp.team)) {
           emp.lastLineId = lineId;
@@ -735,6 +772,9 @@
       if (!confirm(`Alle 3 Schichten komplett in den Pool leeren?`)) return;
 
       onBoard.forEach(emp => {
+        // FEHLERBEHEBUNG 2: Fix-Mitarbeiter werden vom Löschen ignoriert
+        if (emp.noRotation) return;
+
         const lineId = extractLineIdFromZone(emp.zone);
         const shiftId = extractShiftIdFromZone(emp.zone);
         if (lineId && (!emp.lastLineId || (shiftId && shiftRotation[shiftId] === emp.team))) {
@@ -751,6 +791,29 @@
       const today = getTodayIso();
       let changed = false;
 
+      if (sickLeaves.length > 1) {
+        const mergedActive = [];
+        const sorted = [...sickLeaves].sort((a, b) => a.startDate.localeCompare(b.startDate));
+        sorted.forEach(item => {
+          const existing = mergedActive.find(m => m.empId === item.empId && canMergeDateRanges(m.startDate, m.endDate, item.startDate, item.endDate));
+          if (existing) {
+            if (item.startDate < existing.startDate) existing.startDate = item.startDate;
+            if (item.endDate > existing.endDate) existing.endDate = item.endDate;
+            existing.reason = mergeReasonsText(existing.reason, item.reason);
+            if (!item.readByPlanner) existing.readByPlanner = false;
+            if (item.returnRequestPending) {
+              existing.returnRequestPending = true;
+              existing.returnRequestDate = item.returnRequestDate;
+              existing.returnRequestCreatedAt = item.returnRequestCreatedAt;
+            }
+            changed = true;
+          } else {
+            mergedActive.push({ ...item });
+          }
+        });
+        if (changed) sickLeaves = mergedActive;
+      }
+
       const expired = sickLeaves.filter(sl => sl.endDate < today);
       if (expired.length > 0) {
         expired.forEach(exp => {
@@ -763,10 +826,16 @@
           const hasOtherActive = sickLeaves.some(sl => sl.id !== exp.id && sl.empId === exp.empId && sl.startDate <= today && sl.endDate >= today);
           if (emp && emp.zone === "absent" && !hasOtherActive) {
             const lineId = getPredeterminedLineForEmp(emp);
-            if (emp.team === shiftRotation.frueh && lineId && !emp.noRotation) emp.zone = `${lineId}_frueh`;
-            else if (emp.team === shiftRotation.spaet && lineId && !emp.noRotation) emp.zone = `${lineId}_spaet`;
-            else if (emp.team === shiftRotation.nacht && lineId && !emp.noRotation) emp.zone = `${lineId}_nacht`;
-            else emp.zone = "pool";
+            
+            // FEHLERBEHEBUNG 4: Schießt den Fix-Mitarbeiter exakt auf seine gespeicherte Schicht zurück
+            if (emp.noRotation && emp.lastShiftId && lineId) {
+                emp.zone = `${lineId}_${emp.lastShiftId}`;
+            } else {
+                if (emp.team === shiftRotation.frueh && lineId && !emp.noRotation) emp.zone = `${lineId}_frueh`;
+                else if (emp.team === shiftRotation.spaet && lineId && !emp.noRotation) emp.zone = `${lineId}_spaet`;
+                else if (emp.team === shiftRotation.nacht && lineId && !emp.noRotation) emp.zone = `${lineId}_nacht`;
+                else emp.zone = "pool";
+            }
           }
         });
         sickLeaves = sickLeaves.filter(sl => sl.endDate >= today);
@@ -778,7 +847,9 @@
           const emp = employees.find(e => e.id === sl.empId);
           if (emp && emp.zone !== "absent") {
             const currentLine = extractLineIdFromZone(emp.zone);
+            const currentShift = extractShiftIdFromZone(emp.zone);
             if (currentLine) emp.lastLineId = currentLine;
+            if (currentShift) emp.lastShiftId = currentShift;
             emp.zone = "absent";
             changed = true;
           }
@@ -900,20 +971,31 @@
       const nowStr = new Date().toLocaleString('de-DE');
       const today = getTodayIso();
 
-      sickLeaves.push({
-        id: "sl_" + Date.now(),
-        empId: emp.id,
-        empName: fullName,
-        startDate: startDate,
-        endDate: endDate,
-        reason: reason || "Vom Planer eingetragen",
-        createdAt: nowStr,
-        readByPlanner: true
-      });
+      // FEHLERBEHEBUNG 3: Merge-Logik nun auch bei manueller Eingabe durch den Planer!
+      const existingSl = sickLeaves.find(sl => sl.empId === emp.id && canMergeDateRanges(sl.startDate, sl.endDate, startDate, endDate));
+      if (existingSl) {
+        if (startDate < existingSl.startDate) existingSl.startDate = startDate;
+        if (endDate > existingSl.endDate) existingSl.endDate = endDate;
+        existingSl.reason = mergeReasonsText(existingSl.reason, reason || "Vom Planer eingetragen");
+        existingSl.createdAt = nowStr;
+      } else {
+        sickLeaves.push({
+          id: "sl_" + Date.now(),
+          empId: emp.id,
+          empName: fullName,
+          startDate: startDate,
+          endDate: endDate,
+          reason: reason || "Vom Planer eingetragen",
+          createdAt: nowStr,
+          readByPlanner: true
+        });
+      }
 
       if (startDate <= today && endDate >= today && emp.zone !== "absent") {
         const currentLine = extractLineIdFromZone(emp.zone);
+        const currentShift = extractShiftIdFromZone(emp.zone);
         if (currentLine) emp.lastLineId = currentLine;
+        if (currentShift) emp.lastShiftId = currentShift;
         emp.zone = "absent";
       }
 
@@ -960,13 +1042,14 @@
               </div>
             `;
           } else {
+            const days = calcSickDays(sl.startDate, sl.endDate);
             unreadContainer.innerHTML += `
               <div class="sick-card unread">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
                   <div>
                     <div style="font-weight:700; color:#9f1239;">${sl.empName}</div>
                     <div style="font-size:0.65rem; color:#9f1239; margin-top:2px; opacity:0.8;">🕒 Eingereicht am: ${sl.createdAt || '-'}</div>
-                    <div style="font-size:0.82rem; font-weight:600; margin-top:2px;">📅 Zeitraum: ${formatDateDe(sl.startDate)} bis ${formatDateDe(sl.endDate)}</div>
+                    <div style="font-size:0.82rem; font-weight:600; margin-top:2px;">📅 Zeitraum: ${formatDateDe(sl.startDate)} bis ${formatDateDe(sl.endDate)} (${days} ${days === 1 ? 'Tag' : 'Tage'})</div>
                     <div style="font-size:0.82rem; margin-top:6px; background:#fff; padding:6px 8px; border-radius:4px; border:1px solid #fecdd3;">
                       <b>Notiz:</b> ${sl.reason ? sl.reason : '<i>Keine Angabe</i>'}
                     </div>
@@ -991,6 +1074,7 @@
             : `<span style="background:#fef3c7; color:#b45309; font-size:0.7rem; padding:2px 6px; border-radius:4px; font-weight:700;">GEPLANT AB ${formatDateDe(sl.startDate)}</span>`;
 
           const pendingNotice = sl.returnRequestPending ? `<div style="font-size:0.72rem; color:#d97706; background:#fef3c7; padding:2px 4px; border-radius:3px; margin-top:4px; display:inline-block;">⚠️ Korrektur ausstehend</div>` : '';
+          const days = calcSickDays(sl.startDate, sl.endDate);
 
           activeContainer.innerHTML += `
             <div class="sick-card">
@@ -1002,7 +1086,7 @@
                   </div>
                   <div style="font-size:0.65rem; color:#64748b; margin-top:2px;">🕒 Eingereicht am: ${sl.createdAt || '-'}</div>
                   <div style="font-size:0.8rem; margin-top:2px;">
-                    Zeitraum: <b>${formatDateDe(sl.startDate)}</b> bis <b>${formatDateDe(sl.endDate)}</b>
+                    Zeitraum: <b>${formatDateDe(sl.startDate)}</b> bis <b>${formatDateDe(sl.endDate)}</b> <span style="color:#64748b; font-size:0.75rem;">(${days} ${days === 1 ? 'Tag' : 'Tage'})</span>
                     <button class="btn btn-outline" style="padding:1px 6px; font-size:0.7rem; margin-left:6px; color:var(--bayer-blue); border-color:#bae6fd;" onclick="toggleEditSickDate('${sl.id}')">✏️ Ändern</button>
                   </div>
                   <div id="editDateBox_${sl.id}" style="display:none; align-items:center; gap:6px; margin-top:6px; background:#fff; padding:6px; border-radius:6px; border:1px solid #cbd5e1;">
@@ -1025,13 +1109,54 @@
       const list = document.getElementById("historyList");
       list.innerHTML = "Lade Historie...";
       db.collection("shiftplan_history").orderBy("endDate", "desc").limit(200).get().then(snap => {
-        cachedHistoryData = [];
-        snap.forEach(doc => cachedHistoryData.push(doc.data()));
+        const rawDocs = [];
+        snap.forEach(doc => rawDocs.push({ docId: doc.id, ...doc.data() }));
+
+        rawDocs.sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
+
+        const mergedList = [];
+        const docsToDelete = [];
+        const docsToUpdate = [];
+
+        rawDocs.forEach(item => {
+          const empKey = item.empId || item.empName;
+          const match = mergedList.find(m => (m.empId || m.empName) === empKey && canMergeDateRanges(m.startDate, m.endDate, item.startDate, item.endDate));
+          
+          if (match) {
+            if (item.startDate < match.startDate) match.startDate = item.startDate;
+            if (item.endDate > match.endDate) match.endDate = item.endDate;
+            match.reason = mergeReasonsText(match.reason, item.reason);
+            docsToDelete.push(item.docId);
+            if (!docsToUpdate.includes(match)) docsToUpdate.push(match);
+          } else {
+            mergedList.push({ ...item });
+          }
+        });
+
+        docsToUpdate.forEach(m => {
+          const copy = { ...m };
+          delete copy.docId;
+          db.collection("shiftplan_history").doc(m.docId).set(copy).catch(()=>{});
+        });
+        docsToDelete.forEach(delId => {
+          db.collection("shiftplan_history").doc(delId).delete().catch(()=>{});
+        });
+
+        mergedList.sort((a, b) => (b.endDate || "").localeCompare(a.endDate || ""));
+        cachedHistoryData = mergedList;
         displayFilteredHistory(cachedHistoryData);
       }).catch(() => {
         list.innerHTML = "<div style='color:#b91c1c; font-size:0.9rem;'>Fehler beim Laden der Historie.</div>";
       });
     }
+
+    window.deleteHistoryEntry = function(docId) {
+      if (!confirm("Diesen Eintrag dauerhaft aus der Historie löschen?")) return;
+      db.collection("shiftplan_history").doc(docId).delete().then(() => {
+        cachedHistoryData = cachedHistoryData.filter(h => h.docId !== docId);
+        filterHistoryUnified();
+      });
+    };
 
     function displayFilteredHistory(data) {
       const list = document.getElementById("historyList");
@@ -1041,11 +1166,15 @@
         return;
       }
       data.forEach(h => {
+        const days = calcSickDays(h.startDate, h.endDate);
         list.innerHTML += `
-          <div class="item-row" style="align-items:flex-start; flex-direction:column; gap:2px; background:#f8fafc; padding:8px; border-radius:6px; margin-bottom:6px; border:1px solid #e2e8f0;">
-            <div style="display:flex; justify-content:space-between; width:100%;">
+          <div class="item-row" style="align-items:flex-start; flex-direction:column; gap:2px; background:#f8fafc; padding:10px; border-radius:6px; margin-bottom:6px; border:1px solid #e2e8f0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
               <b style="color:#0f172a;">${h.empName}</b>
-              <span style="font-size:0.75rem; color:#64748b;">📅 ${formatDateDe(h.startDate)} – ${formatDateDe(h.endDate)}</span>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:0.75rem; color:#475569; font-weight:600;">📅 ${formatDateDe(h.startDate)} – ${formatDateDe(h.endDate)} <span style="color:var(--bayer-blue);">(${days} ${days === 1 ? 'Tag' : 'Tage'})</span></span>
+                <button onclick="deleteHistoryEntry('${h.docId || h.id}')" style="border:none; background:none; cursor:pointer; font-size:0.8rem; opacity:0.6;" title="Eintrag löschen">🗑️</button>
+              </div>
             </div>
             <div style="font-size:0.78rem; color:#475569; margin-top:2px;">Notiz: ${h.reason || 'Keine Angabe'}</div>
             <div style="font-size:0.68rem; color:#94a3b8; margin-top:2px;">Eingereicht am: ${h.createdAt || '-'}</div>
@@ -1101,14 +1230,21 @@
     function deleteSickLeave(id) {
       if (!confirm("Abwesenheit beenden? Mitarbeiter kehrt in seine Schicht (oder Pool) zurück.")) return;
       const sl = sickLeaves.find(x => x.id === id);
+      const today = getTodayIso();
       if (sl) {
         const emp = employees.find(e => e.id === sl.empId);
-        if (emp && emp.zone === "absent") {
+        
+        // FEHLERBEHEBUNG 5: Nur "zurückschieben", wenn die Krankheit GENAU HEUTE aktiv ist!
+        if (emp && emp.zone === "absent" && sl.startDate <= today && sl.endDate >= today) {
           const lineId = getPredeterminedLineForEmp(emp);
-          if (emp.team === shiftRotation.frueh && lineId && !emp.noRotation) emp.zone = `${lineId}_frueh`;
-          else if (emp.team === shiftRotation.spaet && lineId && !emp.noRotation) emp.zone = `${lineId}_spaet`;
-          else if (emp.team === shiftRotation.nacht && lineId && !emp.noRotation) emp.zone = `${lineId}_nacht`;
-          else emp.zone = "pool";
+          if (emp.noRotation && emp.lastShiftId && lineId) {
+             emp.zone = `${lineId}_${emp.lastShiftId}`;
+          } else {
+             if (emp.team === shiftRotation.frueh && lineId && !emp.noRotation) emp.zone = `${lineId}_frueh`;
+             else if (emp.team === shiftRotation.spaet && lineId && !emp.noRotation) emp.zone = `${lineId}_spaet`;
+             else if (emp.team === shiftRotation.nacht && lineId && !emp.noRotation) emp.zone = `${lineId}_nacht`;
+             else emp.zone = "pool";
+          }
         }
       }
       sickLeaves = sickLeaves.filter(x => x.id !== id);
