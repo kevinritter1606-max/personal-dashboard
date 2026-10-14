@@ -84,22 +84,44 @@
       <button class="btn btn-primary" onclick="saveNewPassword()">Passwort speichern & weiter</button>
     </div>
 
-    <!-- Dashboard -->
+    <!-- Portal Dashboard -->
     <div id="portalView" style="display:none;">
+      
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div><div style="font-size:0.8rem; color:#64748b;">Angemeldet als</div><div id="empWelcomeName" style="font-size:1.3rem; font-weight:700;"></div></div>
           <span id="empRoleBadge" style="background:#f1f5f9; padding:5px 10px; border-radius:6px; font-size:0.82rem; font-weight:700;"></span>
         </div>
       </div>
+
       <div class="card"><h2>📍 Meine heutige Einteilung</h2><div id="empCurrentStatus" class="status-box status-pool"></div></div>
+      
       <div class="card">
         <h2>⚙️ Meine Linien-Qualifikationen</h2>
         <div style="margin-bottom:12px;"><div style="font-size:0.82rem; font-weight:600; color:#475569;">Meine Stammlinien (Prio-Linien):</div><div id="empPrioLines" class="line-badge-list"></div></div>
         <div><div style="font-size:0.82rem; font-weight:600; color:#475569;">Weitere Linien (Sek-Linien):</div><div id="empSecLines" class="line-badge-list"></div></div>
       </div>
+
       <div class="card">
-        <h2>🏥 Krankmeldung / Abwesenheit melden</h2>
+        <h2>🏥 Krankmeldung / Abwesenheit</h2>
+        
+        <!-- NEU: Gesundmeldung Box (Wird nur angezeigt, wenn man krankgeschrieben ist) -->
+        <div id="earlyReturnBox" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:16px; margin-bottom:20px;">
+          <h3 style="font-size:0.95rem; color:#166534; margin-bottom:8px; display:flex; align-items:center; gap:6px;">✅ Gesundmeldung (Frühere Rückkehr)</h3>
+          <p style="font-size:0.8rem; color:#15803d; margin-bottom:12px; line-height:1.4;">Bist du früher wieder fit als geplant? Hier kannst du dem Planer deinen neuen ersten Arbeitstag mitteilen.</p>
+          <div class="form-group">
+            <label style="color:#166534;">Ich bin wieder einsatzbereit am:</label>
+            <input type="date" id="earlyReturnDate" class="form-control" style="border-color:#bbf7d0;">
+          </div>
+          <button id="earlyReturnBtn" class="btn btn-primary" style="background:#16a34a; border-color:#16a34a; font-size:0.85rem;" onclick="submitEarlyReturn()">Korrektur an Planer senden</button>
+          <div id="earlyReturnSuccess" style="display:none; font-size:0.85rem; color:#166534; font-weight:bold; margin-top:10px;">✅ Deine Rückkehr-Anfrage wurde gesendet!</div>
+          <div id="earlyReturnError" style="display:none; font-size:0.85rem; color:#b91c1c; font-weight:bold; margin-top:10px;"></div>
+        </div>
+
+        <p style="font-size:0.83rem; color:#64748b; margin-bottom:14px; line-height:1.4;">
+          Hier kannst du einen neuen Zeitraum melden. Du wirst für den angegebenen Zeitraum automatisch im Schichtplan als abwesend eingetragen.
+        </p>
+
         <div id="sickSuccessBanner" class="success-banner"></div>
         <div id="sickErrorBanner" class="error-msg"></div>
         <div style="display:flex; gap:10px;">
@@ -108,9 +130,9 @@
         </div>
         <div class="form-group"><label>Begleitschreiben / Begründung</label><textarea id="sickReason" class="form-control" placeholder="z.B. Grippe, Arzttermin, AU folgt..."></textarea></div>
         
-        <button id="sickSubmitBtn" class="btn btn-primary" style="background:#dc2626; border-color:#dc2626;" onclick="submitSickLeave()">Krankmeldung jetzt absenden</button>
+        <button id="sickSubmitBtn" class="btn btn-primary" style="background:#dc2626; border-color:#dc2626;" onclick="submitSickLeave()">Krankmeldung absenden</button>
         
-        <div id="mySickLeavesHistory" style="margin-top:16px;"></div>
+        <div id="mySickLeavesHistory" style="margin-top:20px;"></div>
       </div>
     </div>
   </div>
@@ -127,17 +149,13 @@
     
     let lines = [], employees = [], sickLeaves = [], rawDocData = {};
     
-    // --- NEU: SICHERER SESSION TIMEOUT (12 Stunden) ---
     const SESSION_TIMEOUT_MS = 12 * 60 * 60 * 1000; 
     let loggedInEmpId = localStorage.getItem("portal_emp_id") || null;
     let loginTime = localStorage.getItem("portal_login_time") || 0;
     let selectedLoginEmpId = null;
 
-    // Prüft direkt beim Laden, ob die 12 Stunden schon abgelaufen sind
     if (loggedInEmpId && (Date.now() - loginTime > SESSION_TIMEOUT_MS)) {
-      loggedInEmpId = null;
-      localStorage.removeItem("portal_emp_id");
-      localStorage.removeItem("portal_login_time");
+      loggedInEmpId = null; localStorage.removeItem("portal_emp_id"); localStorage.removeItem("portal_login_time");
     }
 
     const getTodayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
@@ -146,17 +164,15 @@
     const fullName = e => `${e.firstName || ''} ${e.lastName || ''}`.trim();
 
     window.addEventListener("DOMContentLoaded", () => {
-      $("sickStartDate").value = $("sickEndDate").value = getTodayIso();
+      $("sickStartDate").value = $("sickEndDate").value = $("earlyReturnDate").value = getTodayIso();
       document.addEventListener("click", e => { if ($("nameSearchGroup") && !$("nameSearchGroup").contains(e.target)) $("loginSuggestions").style.display = "none"; });
     });
 
-    // Prüft jede Minute im Hintergrund, ob die Sitzung abgelaufen ist (falls der Tab offen bleibt)
     setInterval(() => {
       if (loggedInEmpId) {
         const time = localStorage.getItem("portal_login_time") || 0;
         if (Date.now() - time > SESSION_TIMEOUT_MS) {
-          logoutEmp();
-          alert("Deine Sitzung ist nach 12 Stunden abgelaufen. Bitte melde dich zur Sicherheit neu an.");
+          logoutEmp(); alert("Deine Sitzung ist abgelaufen. Bitte neu anmelden.");
         }
       }
     }, 60000);
@@ -191,11 +207,8 @@
       if (!emp && q) { const p = employees.filter(e => fullName(e).toLowerCase().includes(q)); if (p.length === 1) emp = p[0]; }
       if (!emp || (emp.password || "1234") !== pass) { $("loginError").style.display = "block"; return; }
       
-      $("loginError").style.display = "none"; 
-      loggedInEmpId = emp.id; 
-      localStorage.setItem("portal_emp_id", emp.id);
-      localStorage.setItem("portal_login_time", Date.now()); // Setzt den 12-Stunden Timer
-      
+      $("loginError").style.display = "none"; loggedInEmpId = emp.id; 
+      localStorage.setItem("portal_emp_id", emp.id); localStorage.setItem("portal_login_time", Date.now());
       $("loginPassword").value = ""; $("sickSuccessBanner").style.display = "none"; routeAuthenticatedEmp(emp);
     }
 
@@ -215,22 +228,20 @@
       db.collection("shiftplan").doc("live_board").set({ ...rawDocData, employees }).then(() => { $("newPasswordInput").value = $("newPasswordConfirm").value = ""; routeAuthenticatedEmp(emp); });
     }
 
-    function logoutEmp() { 
-      loggedInEmpId = selectedLoginEmpId = null; 
-      localStorage.removeItem("portal_emp_id"); 
-      localStorage.removeItem("portal_login_time");
-      $("loginEmpInput").value = ""; $("portalView").style.display = $("changePasswordView").style.display = $("logoutBtn").style.display = "none"; $("loginView").style.display = "block"; 
-    }
+    function logoutEmp() { loggedInEmpId = selectedLoginEmpId = null; localStorage.removeItem("portal_emp_id"); localStorage.removeItem("portal_login_time"); $("loginEmpInput").value = ""; $("portalView").style.display = $("changePasswordView").style.display = $("logoutBtn").style.display = "none"; $("loginView").style.display = "block"; }
 
     function showPortalFor(emp) {
       $("portalView").style.display = "block"; $("empWelcomeName").textContent = fullName(emp); 
       let bHtml = emp.role; if (emp.ersthelfer) bHtml += " (+ Ersthelfer)"; if (emp.noRotation) bHtml += " ⚓ (Fix)";
       $("empRoleBadge").textContent = bHtml;
 
-      const sb = $("empCurrentStatus"), today = getTodayIso(), actSick = sickLeaves.find(s => s.empId === emp.id && s.startDate <= today && s.endDate >= today);
-      if (emp.zone === "absent" || actSick) {
+      const sb = $("empCurrentStatus"), today = getTodayIso();
+      const myActiveSickLeaves = sickLeaves.filter(s => s.empId === emp.id && s.endDate >= today);
+      const currentlyAbsent = myActiveSickLeaves.find(s => s.startDate <= today && s.endDate >= today);
+
+      if (emp.zone === "absent" || currentlyAbsent) {
         sb.className = "status-box status-absent";
-        sb.innerHTML = `<div style="font-size:1.05rem;">🛑 Status: Abwesend / Krank gemeldet</div><div style="font-size:0.83rem; font-weight:normal;">${actSick ? `Bis einschließlich <b>${formatDateDe(actSick.endDate)}</b> als abwesend eingetragen.` : `Heute als abwesend eingetragen.`}</div>`;
+        sb.innerHTML = `<div style="font-size:1.05rem;">🛑 Status: Abwesend / Krank gemeldet</div><div style="font-size:0.83rem; font-weight:normal;">${currentlyAbsent ? `Bis einschließlich <b>${formatDateDe(currentlyAbsent.endDate)}</b> als abwesend eingetragen.` : `Heute als abwesend eingetragen.`}</div>`;
       } else if (!emp.zone || emp.zone === "pool") {
         sb.className = "status-box status-pool";
         sb.innerHTML = `<div style="font-size:1.05rem;">🏖️ Status: Schichtfrei / Pool</div><div style="font-size:0.83rem; font-weight:normal;">Du hast heute Schichtfrei (oder wartest auf Einteilung).</div>`;
@@ -239,39 +250,78 @@
         sb.className = "status-box status-assigned";
         sb.innerHTML = `<div style="font-size:0.82rem; text-transform:uppercase;">Heute eingeteilt an:</div><div style="font-size:1.35rem; font-weight:800;">✅ ${lObj ? lObj.name : emp.zone} – ${shiftsMap[shId] || shId}</div>${lObj?.note ? `<div style="font-size:0.8rem; font-weight:normal; margin-top:4px;">📌 Linien-Info: ${lObj.note}</div>` : ''}`;
       }
+
+      // KORREKTUR-BOX ANZEIGEN WENN ES AKTIVE MELDUNGEN GIBT
+      if (myActiveSickLeaves.length > 0) {
+        $("earlyReturnBox").style.display = "block";
+      } else {
+        $("earlyReturnBox").style.display = "none";
+      }
+
       const mList = (emp.mainLines||[]).map(id => lines.find(l => l.id===id)).filter(Boolean), sList = (emp.secLines||[]).map(id => lines.find(l => l.id===id)).filter(Boolean);
       $("empPrioLines").innerHTML = mList.length ? mList.map(l => `<span class="line-badge badge-prio">${l.name}</span>`).join("") : `<span style="font-size:0.82rem; color:#94a3b8;">Keine hinterlegt</span>`;
       $("empSecLines").innerHTML = sList.length ? sList.map(l => `<span class="line-badge badge-sec">${l.name}</span>`).join("") : `<span style="font-size:0.82rem; color:#94a3b8;">Keine hinterlegt</span>`;
-      const myL = sickLeaves.filter(s => s.empId === emp.id && s.endDate >= today);
-      $("mySickLeavesHistory").innerHTML = !myL.length ? "" : `<div style="font-size:0.82rem; font-weight:700; margin-bottom:6px;">Aktive / gemeldete Zeiträume:</div>` + myL.map(s => `<div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:8px 10px; font-size:0.8rem; margin-bottom:6px;"><b>📅 ${formatDateDe(s.startDate)} bis ${formatDateDe(s.endDate)}</b> <span style="color:#16a34a; font-weight:600;">(✓ Aktiv)</span>${s.reason ? `<div style="color:#64748b; margin-top:2px;">Notiz: ${s.reason}</div>` : ''}</div>`).join("");
+      
+      $("mySickLeavesHistory").innerHTML = !myActiveSickLeaves.length ? "" : `<div style="font-size:0.82rem; font-weight:700; margin-bottom:6px;">Aktive / gemeldete Zeiträume:</div>` + myActiveSickLeaves.map(s => `
+        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:8px 10px; font-size:0.8rem; margin-bottom:6px;">
+          <b>📅 ${formatDateDe(s.startDate)} bis ${formatDateDe(s.endDate)}</b> 
+          <span style="color:#16a34a; font-weight:600;">(✓ Aktiv)</span>
+          ${s.returnRequestPending ? `<div style="color:#d97706; font-weight:700; margin-top:2px;">⚠️ Rückkehr-Anfrage für den ${formatDateDe(s.returnRequestDate)} gesendet!</div>` : ''}
+          ${s.reason ? `<div style="color:#64748b; margin-top:2px;">Notiz: ${s.reason}</div>` : ''}
+        </div>`).join("");
+    }
+
+    // NEU: GESAUNDMELDUNG ABSENDEN
+    function submitEarlyReturn() {
+      const emp = employees.find(e => e.id === loggedInEmpId); if (!emp) return;
+      const rDate = $("earlyReturnDate").value, today = getTodayIso();
+      const errBox = $("earlyReturnError"), succBox = $("earlyReturnSuccess"), btn = $("earlyReturnBtn");
+      
+      errBox.style.display = "none"; succBox.style.display = "none";
+
+      if (!rDate) { errBox.textContent = "Bitte ein Datum auswählen!"; errBox.style.display = "block"; return; }
+      if (!navigator.onLine) { errBox.textContent = "⚠️ Keine Internetverbindung!"; errBox.style.display = "block"; return; }
+
+      // Finde die aktuellste Krankmeldung, die noch aktiv ist
+      const activeSlIndex = sickLeaves.findIndex(s => s.empId === emp.id && s.endDate >= today);
+      if (activeSlIndex === -1) return;
+
+      const originalText = btn.textContent;
+      btn.textContent = "Sende Korrektur... ⏳"; btn.disabled = true; btn.style.opacity = "0.7";
+
+      const updatedSickLeaves = [...sickLeaves];
+      updatedSickLeaves[activeSlIndex] = {
+        ...updatedSickLeaves[activeSlIndex],
+        returnRequestDate: rDate,
+        returnRequestPending: true,
+        readByPlanner: false // Macht sie im Planer-Postfach wieder ungelesen!
+      };
+
+      db.collection("shiftplan").doc("live_board").set({ ...rawDocData, sickLeaves: updatedSickLeaves })
+      .then(() => {
+        succBox.style.display = "block";
+        setTimeout(() => { succBox.style.display = "none"; }, 5000);
+      })
+      .catch((e) => {
+        errBox.textContent = "❌ Fehler beim Senden. Bitte neu laden."; errBox.style.display = "block";
+      })
+      .finally(() => {
+        btn.textContent = originalText; btn.disabled = false; btn.style.opacity = "1";
+      });
     }
 
     function submitSickLeave() {
       const emp = employees.find(e => e.id === loggedInEmpId); if (!emp) return;
       const sD = $("sickStartDate").value, eD = $("sickEndDate").value, r = $("sickReason").value.trim(), today = getTodayIso();
-      const errBanner = $("sickErrorBanner");
-      const succBanner = $("sickSuccessBanner");
+      const errBanner = $("sickErrorBanner"), succBanner = $("sickSuccessBanner"), btn = $("sickSubmitBtn");
       
-      errBanner.style.display = "none";
-      succBanner.style.display = "none";
+      errBanner.style.display = "none"; succBanner.style.display = "none";
 
-      if (!sD || !eD || eD < sD) {
-        errBanner.textContent = "Bitte einen korrekten Zeitraum (Von - Bis) wählen!";
-        errBanner.style.display = "block";
-        return;
-      }
+      if (!sD || !eD || eD < sD) { errBanner.textContent = "Bitte einen korrekten Zeitraum (Von - Bis) wählen!"; errBanner.style.display = "block"; return; }
+      if (!navigator.onLine) { errBanner.textContent = "⚠️ Keine Internetverbindung! Bitte überprüfe dein Netz und versuche es gleich nochmal."; errBanner.style.display = "block"; return; }
 
-      if (!navigator.onLine) {
-        errBanner.textContent = "⚠️ Keine Internetverbindung! Bitte überprüfe dein Netz und versuche es gleich nochmal.";
-        errBanner.style.display = "block";
-        return;
-      }
-
-      const btn = $("sickSubmitBtn");
       const originalText = btn.textContent;
-      btn.textContent = "Wird sicher an den Planer gesendet... ⏳";
-      btn.disabled = true;
-      btn.style.opacity = "0.7";
+      btn.textContent = "Wird sicher an den Planer gesendet... ⏳"; btn.disabled = true; btn.style.opacity = "0.7";
 
       const newSickLeave = { id: "sl_"+Date.now(), empId: emp.id, empName: fullName(emp), startDate: sD, endDate: eD, reason: r, createdAt: new Date().toLocaleString('de-DE'), readByPlanner: false };
       
@@ -284,24 +334,17 @@
         return e;
       });
 
-      db.collection("shiftplan").doc("live_board").set({ 
-        ...rawDocData, 
-        employees: updatedEmployees, 
-        sickLeaves: updatedSickLeaves 
-      })
+      db.collection("shiftplan").doc("live_board").set({ ...rawDocData, employees: updatedEmployees, sickLeaves: updatedSickLeaves })
       .then(() => {
         $("sickReason").value = ""; 
         succBanner.innerHTML = `✅ Deine Krankmeldung vom <b>${formatDateDe(sD)}</b> bis <b>${formatDateDe(eD)}</b> wurde erfolgreich übermittelt!`; 
         succBanner.style.display = "block";
       })
       .catch((error) => {
-        errBanner.textContent = "❌ Fehler beim Senden an den Server. Bitte lade die Seite neu und versuche es erneut.";
-        errBanner.style.display = "block";
+        errBanner.textContent = "❌ Fehler beim Senden an den Server. Bitte lade die Seite neu und versuche es erneut."; errBanner.style.display = "block";
       })
       .finally(() => {
-        btn.textContent = originalText;
-        btn.disabled = false;
-        btn.style.opacity = "1";
+        btn.textContent = originalText; btn.disabled = false; btn.style.opacity = "1";
       });
     }
   </script>
