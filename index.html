@@ -338,9 +338,14 @@
         <div id="teamSettingsList" style="max-height: 220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
 
+      <!-- NEU: HISTORIE MIT FILTER -->
       <div id="tabHistory" class="tab-content">
-        <p style="font-size:0.9rem; color:#64748b; margin-bottom:14px;">Archiv aller vergangenen Krankheits- und Abwesenheitstage (letzte 365 Tage):</p>
-        <div id="historyList" style="max-height: 250px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; padding:10px;">Lade Historie...</div>
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <input type="text" id="historySearchInput" class="form-control" placeholder="🔍 Nach Name filtern..." oninput="filterHistory()" style="flex:2; font-size:0.82rem; padding:6px 10px;">
+          <input type="date" id="historyDateInput" class="form-control" onchange="filterHistory()" style="flex:1.5; font-size:0.82rem; padding:6px 10px;">
+          <button class="btn btn-outline" style="padding:6px 10px; font-size:0.8rem;" onclick="resetHistoryFilter()">❌</button>
+        </div>
+        <div id="historyList" style="max-height: 220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; padding:10px;">Lade Historie...</div>
       </div>
 
       <div id="tabBackups" class="tab-content">
@@ -368,6 +373,7 @@
     let roles = ["Bediener", "LOP", "TL", "Schichtexperte", "Waschraumoperator"];
     let employees = [];
     let sickLeaves = [];
+    let cachedHistoryData = []; // Zwischenspeicher für den Filter
     let teamsConfig = {
       "team-1": { name: "Team 1", color: "#0091df" },
       "team-2": { name: "Team 2", color: "#f59e0b" },
@@ -718,14 +724,12 @@
       initBoard();
     }
 
-    // AUTOMATIK: ABGELAUFENE KRANKMELDUNGEN IN DIE HISTORIE VERSCHIEBEN (MIT 365 TAGE LÖSCHSCHREDDER)
     function processSickLeavesAutomation() {
       const today = getTodayIso();
       let changed = false;
 
       const expired = sickLeaves.filter(sl => sl.endDate < today);
       if (expired.length > 0) {
-        // In die Historie-Sammlung verschieben
         expired.forEach(exp => {
           db.collection("shiftplan_history").doc(exp.id).set({
             ...exp,
@@ -986,32 +990,60 @@
       }
     }
 
-    // LÄDT DIE HISTORIE AUS DER DATENBANK
+    // LÄDT DIE HISTORIE UND SPEICHERT SIE IM CACHE
     function renderHistory() {
       const list = document.getElementById("historyList");
       list.innerHTML = "Lade Historie...";
-      db.collection("shiftplan_history").orderBy("endDate", "desc").limit(100).get().then(snap => {
-        list.innerHTML = "";
-        if (snap.empty) {
-          list.innerHTML = "<div style='color:#64748b; font-size:0.95rem;'>Noch keine Historie-Einträge vorhanden.</div>";
-          return;
-        }
-        snap.forEach(doc => {
-          const h = doc.data();
-          list.innerHTML += `
-            <div class="item-row" style="align-items:flex-start; flex-direction:column; gap:2px; background:#f8fafc; padding:8px; border-radius:6px; margin-bottom:6px;">
-              <div style="display:flex; justify-content:space-between; width:100%;">
-                <b style="color:#0f172a;">${h.empName}</b>
-                <span style="font-size:0.75rem; color:#64748b;">📅 ${formatDateDe(h.startDate)} – ${formatDateDe(h.endDate)}</span>
-              </div>
-              <div style="font-size:0.78rem; color:#475569;">Notiz: ${h.reason || 'Keine Angabe'}</div>
-              <div style="font-size:0.68rem; color:#94a3b8;">Eingereicht am: ${h.createdAt || '-'}</div>
-            </div>
-          `;
-        });
+      db.collection("shiftplan_history").orderBy("endDate", "desc").limit(200).get().then(snap => {
+        cachedHistoryData = [];
+        snap.forEach(doc => cachedHistoryData.push(doc.data()));
+        displayFilteredHistory(cachedHistoryData);
       }).catch(() => {
         list.innerHTML = "<div style='color:#b91c1c; font-size:0.9rem;'>Fehler beim Laden der Historie.</div>";
       });
+    }
+
+    // ZEIGT DIE GEFILTERTE HISTORIE AN
+    function displayFilteredHistory(data) {
+      const list = document.getElementById("historyList");
+      list.innerHTML = "";
+      if (data.length === 0) {
+        list.innerHTML = "<div style='color:#64748b; font-size:0.95rem;'>Keine Einträge gefunden.</div>";
+        return;
+      }
+      data.forEach(h => {
+        list.innerHTML += `
+          <div class="item-row" style="align-items:flex-start; flex-direction:column; gap:2px; background:#f8fafc; padding:8px; border-radius:6px; margin-bottom:6px; border:1px solid #e2e8f0;">
+            <div style="display:flex; justify-content:space-width; width:100%; justify-content:space-between;">
+              <b style="color:#0f172a;">${h.empName}</b>
+              <span style="font-size:0.75rem; color:#64748b;">📅 ${formatDateDe(h.startDate)} – ${formatDateDe(h.endDate)}</span>
+            </div>
+            <div style="font-size:0.78rem; color:#475569; margin-top:2px;">Notiz: ${h.reason || 'Keine Angabe'}</div>
+            <div style="font-size:0.68rem; color:#94a3b8; margin-top:2px;">Eingereicht am: ${h.createdAt || '-'}</div>
+          </div>
+        `;
+      });
+    }
+
+    // LIVE FILTER LOGIK
+    function filterHistory() {
+      const query = document.getElementById("historySearchInput").value.trim().toLowerCase();
+      const dateVal = document.getElementById("historyDateInput").value; // Format: YYYY-MM-DD
+
+      const filtered = cachedHistoryData.filter(h => {
+        const nameMatch = !query || h.empName.toLowerCase().includes(query);
+        // Prüft, ob das Suchdatum im Zeitraum (startDate bis endDate) liegt
+        const dateMatch = !dateVal || (h.startDate <= dateVal && h.endDate >= dateVal);
+        return nameMatch && dateMatch;
+      });
+
+      displayFilteredHistory(filtered);
+    }
+
+    function resetHistoryFilter() {
+      document.getElementById("historySearchInput").value = "";
+      document.getElementById("historyDateInput").value = "";
+      displayFilteredHistory(cachedHistoryData);
     }
 
     function markSickLeaveRead(id) {
