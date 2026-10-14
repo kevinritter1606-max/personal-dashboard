@@ -175,7 +175,10 @@
       <div class="panel">
         <h2>
           <span>Pool <span id="poolCount" style="font-size:0.82rem; color:#64748b;">(0)</span></span>
-          <select id="freiTeamSelect" onchange="assignTeamToShift('frei', this.value)" style="font-size:0.72rem; padding:2px 4px; border-radius:4px; border:1px solid #cbd5e1; font-weight:700; color:#334155;"></select>
+          <div style="display:flex; align-items:center; gap:4px;">
+            <select id="teamSelect_frei" style="font-size:0.72rem; padding:2px 4px; border-radius:4px; border:1px solid #cbd5e1; font-weight:700; color:#334155;"></select>
+            <button class="btn btn-outline" style="padding:1px 6px; font-size:0.7rem; color:var(--bayer-blue); border-color:var(--bayer-blue);" onclick="loadTeamToShift('frei')" title="Dieses Team als Schichtfrei in den Pool setzen">📥</button>
+          </div>
         </h2>
         <div id="pool" class="card-list drop-zone" data-zone="pool"></div>
       </div>
@@ -554,31 +557,10 @@
       renderEmployees();
     };
 
-    // NEU: Lädt ein ausgewähltes Team wieder aus dem Pool
-    window.reloadShift = function(slotKey) {
-      const teamKey = shiftRotation[slotKey];
-      const today = getTodayIso();
-      let moved = 0;
-
-      employees.forEach(emp => {
-        if (emp.noRotation) return; 
-
-        const isCurrentlySick = sickLeaves.some(sl => sl.empId === emp.id && sl.startDate <= today && sl.endDate >= today);
-        if (emp.zone === "absent" || isCurrentlySick) return;
-
-        if (emp.team === teamKey && emp.zone === "pool") {
-          if (slotKey !== "frei") { 
-            const lineId = getPredeterminedLineForEmp(emp); 
-            emp.zone = lineId ? `${lineId}_${slotKey}` : "pool"; 
-            moved++;
-          }
-        } 
-      });
-
-      if (moved > 0) {
-        saveToFirebase();
-        initBoard();
-      }
+    window.loadTeamToShift = function(slotKey) {
+        const selectEl = document.getElementById("teamSelect_" + slotKey);
+        if (!selectEl) return;
+        assignTeamToShift(slotKey, selectEl.value);
     };
 
     db.collection("shiftplan").doc("live_board").onSnapshot((doc) => {
@@ -728,14 +710,16 @@
       const oldTeamInSlot = shiftRotation[slotKey];
 
       let swappedSlot = null;
-      for (const k of ["frueh", "spaet", "nacht", "frei"]) {
-        if (k !== slotKey && shiftRotation[k] === newTeamKey) {
-          shiftRotation[k] = oldTeamInSlot;
-          swappedSlot = k;
+      if (newTeamKey !== oldTeamInSlot) {
+        for (const k of ["frueh", "spaet", "nacht", "frei"]) {
+          if (k !== slotKey && shiftRotation[k] === newTeamKey) {
+            shiftRotation[k] = oldTeamInSlot;
+            swappedSlot = k;
+          }
         }
       }
+      
       shiftRotation[slotKey] = newTeamKey;
-
       const today = getTodayIso();
 
       employees.forEach(emp => {
@@ -754,7 +738,7 @@
             emp.zone = lineId ? `${lineId}_${slotKey}` : "pool"; 
           }
         } 
-        else if (emp.team === oldTeamInSlot) {
+        else if (newTeamKey !== oldTeamInSlot && emp.team === oldTeamInSlot) {
           if (swappedSlot === "frei") { 
             const lId = extractLineIdFromZone(emp.zone);
             if (lId) emp.lastLineId = lId; 
@@ -771,14 +755,13 @@
     }
 
     function clearShiftRow(shiftId, shiftName) {
-      // Nur rotierende Mitarbeiter herausfiltern
       const inShift = employees.filter(e => e.zone && e.zone.endsWith(`_${shiftId}`) && !e.noRotation);
       if (inShift.length === 0) {
         alert(`Keine rotierenden Mitarbeiter in der ${shiftName}-Schicht zum Leeren gefunden.`);
         return;
       }
 
-      if (!confirm(`${shiftName}-Schicht (${inShift.length} Mitarbeiter) in den Pool leeren?`)) return;
+      if (!confirm(`${shiftName}-Schicht (${inShift.length} Mitarbeiter) in den Pool leeren? (Fixierte bleiben erhalten)`)) return;
 
       inShift.forEach(emp => {
         const lineId = extractLineIdFromZone(emp.zone);
@@ -793,7 +776,6 @@
     }
 
     function clearEntireBoard() {
-      // Nur rotierende Mitarbeiter auf dem Board herausfiltern
       const onBoard = employees.filter(e => e.zone && e.zone !== "pool" && e.zone !== "absent" && !e.noRotation);
       if (onBoard.length === 0) {
         alert("Es befinden sich keine rotierenden Mitarbeiter auf dem Board.");
@@ -1259,7 +1241,6 @@
       if (sl) {
         const emp = employees.find(e => e.id === sl.empId);
         
-        // FEHLERBEHEBUNG 4: Nur zurückschieben, wenn Krankheit auch HEUTE aktiv ist!
         if (emp && emp.zone === "absent" && sl.startDate <= today && sl.endDate >= today) {
           const lineId = getPredeterminedLineForEmp(emp);
           if (emp.noRotation && emp.lastShiftId && lineId) {
@@ -1295,7 +1276,7 @@
       if (newEmpTeam) {
         newEmpTeam.innerHTML = keys.map(k => `<option value="${k}">${teamsConfig[k].name}</option>`).join("");
       }
-      const freiTeamSelect = document.getElementById("freiTeamSelect");
+      const freiTeamSelect = document.getElementById("teamSelect_frei");
       if (freiTeamSelect) {
         freiTeamSelect.innerHTML = keys.map(k => `<option value="${k}" ${shiftRotation.frei === k ? 'selected' : ''}>🏖️ Frei: ${teamsConfig[k].name}</option>`).join("");
       }
@@ -1487,10 +1468,10 @@
           </div>
           <div class="shift-controls">
             <div style="display:flex; gap:4px;">
-              <select class="shift-team-select" style="flex:1;" onchange="assignTeamToShift('${shift.id}', this.value)" title="Aktives Team für ${shift.name}-Schicht wählen">
+              <select id="teamSelect_${shift.id}" class="shift-team-select" style="flex:1;" title="Aktives Team für ${shift.name}-Schicht wählen (Bestätigen mit 📥)">
                 ${teamOptionsHtml}
               </select>
-              <button class="shift-clear-btn" style="width:26px; padding:0; display:flex; align-items:center; justify-content:center; color: var(--bayer-blue); border-color: var(--bayer-blue);" onclick="reloadShift('${shift.id}')" title="Ausgewähltes Team neu aus dem Pool laden">📥</button>
+              <button class="shift-clear-btn" style="width:26px; padding:0; display:flex; align-items:center; justify-content:center; color: var(--bayer-blue); border-color: var(--bayer-blue);" onclick="loadTeamToShift('${shift.id}')" title="Ausgewähltes Team auf die Linien laden">📥</button>
             </div>
             <button class="shift-clear-btn" onclick="clearShiftRow('${shift.id}', '${shift.name}')">🧹 Leeren</button>
           </div>
