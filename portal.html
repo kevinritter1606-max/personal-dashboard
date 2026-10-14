@@ -44,7 +44,7 @@
     .badge-prio { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-weight: 700; }
     .badge-sec { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
     .success-banner { display: none; background: #dcfce7; color: #166534; border: 1px solid #86efac; padding: 14px; border-radius: 8px; margin-bottom: 14px; font-size: 0.9rem; font-weight: 600; line-height: 1.4; }
-    .error-msg { display: none; background: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 12px; text-align: center; font-weight: 600; }
+    .error-msg { display: none; background: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 12px; text-align: center; font-weight: 600; line-height: 1.35; }
   </style>
 </head>
 <body>
@@ -111,7 +111,7 @@
         </div>
 
         <p style="font-size:0.83rem; color:#64748b; margin-bottom:14px; line-height:1.4;">
-          Hier kannst du einen neuen Zeitraum melden. Du wirst für den angegebenen Zeitraum automatisch im Schichtplan als abwesend eingetragen.
+          Hier kannst du eine <b>neue Krankmeldung</b> einreichen oder eine bestehende <b>verlängern</b>.
         </p>
 
         <div id="sickSuccessBanner" class="success-banner"></div>
@@ -120,7 +120,7 @@
           <div class="form-group" style="flex:1;"><label>Von (Startdatum)</label><input type="date" id="sickStartDate" class="form-control"></div>
           <div class="form-group" style="flex:1;"><label>Bis (Einschließlich)</label><input type="date" id="sickEndDate" class="form-control"></div>
         </div>
-        <div class="form-group"><label>Begleitschreiben / Begründung</label><textarea id="sickReason" class="form-control" placeholder="z.B. Grippe, Arzttermin, AU folgt..."></textarea></div>
+        <div class="form-group"><label>Begleitschreiben / Begründung</label><textarea id="sickReason" class="form-control" placeholder="z.B. Grippe, Arzttermin, Folge-AU..."></textarea></div>
         
         <button id="sickSubmitBtn" class="btn btn-primary" style="background:#dc2626; border-color:#dc2626;" onclick="submitSickLeave()">Krankmeldung absenden</button>
         
@@ -154,6 +154,30 @@
     const formatDateDe = s => s && s.includes("-") ? s.split("-").reverse().join(".") : (s || "");
     const extractLineId = z => (!z || z === "pool" || z === "absent" || !z.includes("_")) ? null : z.split("_").slice(0,-1).join("_");
     const fullName = e => `${e.firstName || ''} ${e.lastName || ''}`.trim();
+
+    function parseIsoLocal(iso) {
+      if (!iso || !iso.includes("-")) return 0;
+      const [y, m, d] = iso.split("-").map(Number);
+      return new Date(y, m - 1, d, 12, 0, 0).getTime();
+    }
+
+    function canMergeDateRanges(s1, e1, s2, e2) {
+      const msDay = 86400000;
+      const tS1 = parseIsoLocal(s1), tE1 = parseIsoLocal(e1);
+      const tS2 = parseIsoLocal(s2), tE2 = parseIsoLocal(e2);
+      if (!tS1 || !tE1 || !tS2 || !tE2) return false;
+      return (tS1 <= tE2 + msDay * 1.1) && (tS2 <= tE1 + msDay * 1.1);
+    }
+
+    function mergeReasonsText(r1, r2) {
+      const a = (r1 || "").trim();
+      const b = (r2 || "").trim();
+      if (!a) return b;
+      if (!b) return a;
+      if (a.toLowerCase().includes(b.toLowerCase())) return a;
+      if (b.toLowerCase().includes(a.toLowerCase())) return b;
+      return `${a} | ${b}`;
+    }
 
     window.addEventListener("DOMContentLoaded", () => {
       $("sickStartDate").value = $("sickEndDate").value = $("earlyReturnDate").value = getTodayIso();
@@ -275,16 +299,30 @@
       const activeSlIndex = sickLeaves.findIndex(s => s.empId === emp.id && s.endDate >= today);
       if (activeSlIndex === -1) return;
 
+      const currentSl = sickLeaves[activeSlIndex];
+      
+      // FEHLERBEHEBUNG 3: Gesundmeldung darf nicht VOR dem Startdatum der Krankheit liegen
+      if (rDate <= currentSl.startDate) {
+        errBox.textContent = `Das Rückkehrdatum muss NACH dem Startdatum (${formatDateDe(currentSl.startDate)}) deiner Krankmeldung liegen!`;
+        errBox.style.display = "block";
+        return;
+      }
+      if (rDate > currentSl.endDate) {
+        errBox.textContent = `Du bist ohnehin nur bis zum ${formatDateDe(currentSl.endDate)} krankgemeldet! Für eine Verlängerung nutze bitte das rote Formular unten.`;
+        errBox.style.display = "block";
+        return;
+      }
+
       const originalText = btn.textContent;
       btn.textContent = "Sende Korrektur... ⏳"; btn.disabled = true; btn.style.opacity = "0.7";
 
       const updatedSickLeaves = [...sickLeaves];
       updatedSickLeaves[activeSlIndex] = {
-        ...updatedSickLeaves[activeSlIndex],
+        ...currentSl,
         returnRequestDate: rDate,
         returnRequestPending: true,
         readByPlanner: false,
-        returnRequestCreatedAt: new Date().toLocaleString('de-DE') // Speichert die genaue Uhrzeit der Korrektur-Anfrage
+        returnRequestCreatedAt: new Date().toLocaleString('de-DE')
       };
 
       db.collection("shiftplan").doc("live_board").set({ ...rawDocData, sickLeaves: updatedSickLeaves })
@@ -310,17 +348,44 @@
       if (!sD || !eD || eD < sD) { errBanner.textContent = "Bitte einen korrekten Zeitraum (Von - Bis) wählen!"; errBanner.style.display = "block"; return; }
       if (!navigator.onLine) { errBanner.textContent = "⚠️ Keine Internetverbindung! Bitte überprüfe dein Netz und versuche es gleich nochmal."; errBanner.style.display = "block"; return; }
 
+      const updatedSickLeaves = [...sickLeaves];
+      const existingIdx = updatedSickLeaves.findIndex(s => s.empId === emp.id && canMergeDateRanges(s.startDate, s.endDate, sD, eD));
+
+      if (existingIdx !== -1) {
+        const ex = updatedSickLeaves[existingIdx];
+        if (sD >= ex.startDate && eD <= ex.endDate) {
+          errBanner.innerHTML = `⚠️ Du bist in diesem Zeitraum bereits bis zum <b>${formatDateDe(ex.endDate)}</b> krankgemeldet!<br><span style="font-weight:normal;">Falls du früher wieder arbeiten kommst, nutze bitte oben den grünen Kasten <b>„Gesundmeldung“</b>.</span>`;
+          errBanner.style.display = "block";
+          return;
+        }
+      }
+
       const originalText = btn.textContent;
       btn.textContent = "Wird sicher an den Planer gesendet... ⏳"; btn.disabled = true; btn.style.opacity = "0.7";
 
-      // Zeitstempel wird automatisch generiert
-      const newSickLeave = { id: "sl_"+Date.now(), empId: emp.id, empName: fullName(emp), startDate: sD, endDate: eD, reason: r, createdAt: new Date().toLocaleString('de-DE'), readByPlanner: false };
+      const nowStr = new Date().toLocaleString('de-DE');
+      let finalStart = sD, finalEnd = eD;
+
+      if (existingIdx !== -1) {
+        const ex = { ...updatedSickLeaves[existingIdx] };
+        if (sD < ex.startDate) ex.startDate = sD;
+        if (eD > ex.endDate) ex.endDate = eD;
+        ex.reason = mergeReasonsText(ex.reason, r);
+        ex.createdAt = nowStr;
+        ex.readByPlanner = false;
+        updatedSickLeaves[existingIdx] = ex;
+        finalStart = ex.startDate;
+        finalEnd = ex.endDate;
+      } else {
+        updatedSickLeaves.push({ id: "sl_"+Date.now(), empId: emp.id, empName: fullName(emp), startDate: sD, endDate: eD, reason: r, createdAt: nowStr, readByPlanner: false });
+      }
       
-      const updatedSickLeaves = [...sickLeaves, newSickLeave];
       const updatedEmployees = employees.map(e => {
-        if (e.id === emp.id && sD <= today && eD >= today && e.zone !== "absent") {
+        if (e.id === emp.id && finalStart <= today && finalEnd >= today && e.zone !== "absent") {
           const l = extractLineId(e.zone); 
-          return { ...e, lastLineId: l || e.lastLineId, zone: "absent" };
+          const s = extractShiftIdFromZone(e.zone);
+          // FEHLERBEHEBUNG 1 (Portal): Auch das Portal merkt sich die letzte Schicht des Mitarbeiters
+          return { ...e, lastLineId: l || e.lastLineId, lastShiftId: s || e.lastShiftId, zone: "absent" };
         }
         return e;
       });
@@ -328,7 +393,7 @@
       db.collection("shiftplan").doc("live_board").set({ ...rawDocData, employees: updatedEmployees, sickLeaves: updatedSickLeaves })
       .then(() => {
         $("sickReason").value = ""; 
-        succBanner.innerHTML = `✅ Deine Krankmeldung vom <b>${formatDateDe(sD)}</b> bis <b>${formatDateDe(eD)}</b> wurde erfolgreich übermittelt!`; 
+        succBanner.innerHTML = `✅ Deine Krankmeldung (${formatDateDe(finalStart)} bis ${formatDateDe(finalEnd)}) wurde erfolgreich übermittelt!`; 
         succBanner.style.display = "block";
       })
       .catch((error) => {
