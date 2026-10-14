@@ -377,7 +377,6 @@
     let sortableInstances = [];
     let backupDoneToday = false; 
 
-    // PIN LÖSCHEN FUNKTION
     window.deletePin = function(id) {
       const emp = employees.find(e => e.id === id);
       if (emp) {
@@ -460,6 +459,40 @@
       initBoard();
     }
 
+    // NEU: KORREKTUR-ANFRAGEN AKZEPTIEREN ODER ABLEHNEN
+    window.acceptReturnRequest = function(id) {
+      const sl = sickLeaves.find(x => x.id === id);
+      if (sl && sl.returnRequestDate) {
+        // Berechne neuen letzten Krankheitstag (1 Tag VOR dem Rückkehr-Datum)
+        const parts = sl.returnRequestDate.split("-");
+        const d = new Date(parts[0], parts[1] - 1, parts[2]);
+        d.setDate(d.getDate() - 1);
+        
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        
+        sl.endDate = `${y}-${m}-${day}`;
+        sl.returnRequestPending = false;
+        sl.readByPlanner = true;
+        
+        saveToFirebase(); // Das triggert onSnapshot -> processSickLeavesAutomation zieht den MA zurück!
+        renderInboxModal();
+        updateInboxBadge();
+      }
+    };
+
+    window.rejectReturnRequest = function(id) {
+      const sl = sickLeaves.find(x => x.id === id);
+      if (sl) {
+        sl.returnRequestPending = false;
+        sl.readByPlanner = true;
+        saveToFirebase();
+        renderInboxModal();
+        updateInboxBadge();
+      }
+    };
+
     db.collection("shiftplan").doc("live_board").onSnapshot((doc) => {
       if (doc.exists) {
         const d = doc.data();
@@ -489,12 +522,9 @@
               memoryUpdated = true;
             }
             const currentLineId = extractLineIdFromZone(e.zone);
-            const currentShiftId = extractShiftIdFromZone(e.zone);
-            if (currentLineId && (!e.lastLineId || (currentShiftId && shiftRotation[currentShiftId] === e.team))) {
-              if (e.lastLineId !== currentLineId) {
-                e.lastLineId = currentLineId;
-                memoryUpdated = true;
-              }
+            if (currentLineId && e.lastLineId !== currentLineId) {
+              e.lastLineId = currentLineId;
+              memoryUpdated = true;
             }
             return e;
           });
@@ -560,8 +590,7 @@
       employees.forEach(emp => {
         if (emp.noRotation) return;
         const cLine = extractLineIdFromZone(emp.zone);
-        const cShift = extractShiftIdFromZone(emp.zone);
-        if (cLine && (!emp.lastLineId || (cShift && shiftRotation[cShift] === emp.team))) {
+        if (cLine) {
           emp.lastLineId = cLine;
         }
       });
@@ -652,7 +681,7 @@
 
       inShift.forEach(emp => {
         const lineId = extractLineIdFromZone(emp.zone);
-        if (lineId && (!emp.lastLineId || shiftRotation[shiftId] === emp.team)) {
+        if (lineId) {
           emp.lastLineId = lineId;
         }
         emp.zone = "pool";
@@ -670,8 +699,7 @@
 
       onBoard.forEach(emp => {
         const lineId = extractLineIdFromZone(emp.zone);
-        const shiftId = extractShiftIdFromZone(emp.zone);
-        if (lineId && (!emp.lastLineId || (shiftId && shiftRotation[shiftId] === emp.team))) {
+        if (lineId) {
           emp.lastLineId = lineId;
         }
         emp.zone = "pool";
@@ -720,7 +748,8 @@
     function updateInboxBadge() {
       const badge = document.getElementById("inboxBadge");
       if (!badge) return;
-      const unreadCount = sickLeaves.filter(sl => !sl.readByPlanner).length;
+      // Zählt alles was unread ist ODER eine ausstehende Korrektur hat
+      const unreadCount = sickLeaves.filter(sl => (!sl.readByPlanner || sl.returnRequestPending)).length;
       if (unreadCount > 0) {
         badge.textContent = unreadCount;
         badge.style.display = "inline-flex";
@@ -860,7 +889,8 @@
       const btnMarkAll = document.getElementById("btnMarkAllRead");
       const today = getTodayIso();
 
-      const unreadList = sickLeaves.filter(sl => !sl.readByPlanner);
+      // Ungelesene Nachrichten UND anstehende Korrekturen
+      const unreadList = sickLeaves.filter(sl => !sl.readByPlanner || sl.returnRequestPending);
       btnMarkAll.style.display = unreadList.length > 0 ? "inline-block" : "none";
 
       if (unreadList.length === 0) {
@@ -868,22 +898,49 @@
       } else {
         unreadContainer.innerHTML = "";
         unreadList.forEach(sl => {
-          unreadContainer.innerHTML += `
-            <div class="sick-card unread">
-              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-                <div>
-                  <div style="font-weight:700; color:#9f1239;">${sl.empName}</div>
-                  <div style="font-size:0.82rem; font-weight:600; margin-top:2px;">
-                    📅 Zeitraum: ${formatDateDe(sl.startDate)} bis ${formatDateDe(sl.endDate)}
+          
+          // WENN ES EINE KORREKTUR-ANFRAGE IST (Gelbes Layout)
+          if (sl.returnRequestPending) {
+            unreadContainer.innerHTML += `
+              <div class="sick-card" style="background:#fffbeb; border-left-color:#f59e0b; border-color:#fde68a;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                  <div>
+                    <div style="font-weight:700; color:#b45309;">⚠️ Korrektur-Anfrage: ${sl.empName}</div>
+                    <div style="font-size:0.82rem; margin-top:4px;">
+                      Mitarbeiter meldet sich <b>früher einsatzbereit</b>!
+                    </div>
+                    <div style="font-size:0.82rem; background:#fff; padding:6px; border-radius:4px; margin-top:6px; border:1px solid #fde68a;">
+                      War abwesend bis: <span style="text-decoration:line-through; color:#94a3b8;">${formatDateDe(sl.endDate)}</span><br>
+                      Kommt wieder am: <b style="color:#16a34a; font-size:0.9rem;">${formatDateDe(sl.returnRequestDate)}</b>
+                    </div>
                   </div>
-                  <div style="font-size:0.82rem; margin-top:6px; background:#fff; padding:6px 8px; border-radius:4px; border:1px solid #fecdd3;">
-                    <b>Notiz:</b> ${sl.reason ? sl.reason : '<i>Keine Angabe</i>'}
+                  <div style="display:flex; flex-direction:column; gap:6px;">
+                    <button class="btn btn-primary" style="background:#16a34a; padding:6px 10px; font-size:0.75rem; border:none;" onclick="acceptReturnRequest('${sl.id}')">✓ Akzeptieren</button>
+                    <button class="btn btn-outline" style="padding:6px 10px; font-size:0.75rem; color:#ef4444;" onclick="rejectReturnRequest('${sl.id}')">✖ Ablehnen</button>
                   </div>
                 </div>
-                <button class="btn btn-primary" style="padding:5px 10px; font-size:0.78rem;" onclick="markSickLeaveRead('${sl.id}')">✓ Gelesen</button>
               </div>
-            </div>
-          `;
+            `;
+          } 
+          // NORMALE NEUE NACHRICHT (Rotes Layout)
+          else {
+            unreadContainer.innerHTML += `
+              <div class="sick-card unread">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                  <div>
+                    <div style="font-weight:700; color:#9f1239;">${sl.empName}</div>
+                    <div style="font-size:0.82rem; font-weight:600; margin-top:2px;">
+                      📅 Zeitraum: ${formatDateDe(sl.startDate)} bis ${formatDateDe(sl.endDate)}
+                    </div>
+                    <div style="font-size:0.82rem; margin-top:6px; background:#fff; padding:6px 8px; border-radius:4px; border:1px solid #fecdd3;">
+                      <b>Notiz:</b> ${sl.reason ? sl.reason : '<i>Keine Angabe</i>'}
+                    </div>
+                  </div>
+                  <button class="btn btn-primary" style="padding:5px 10px; font-size:0.78rem;" onclick="markSickLeaveRead('${sl.id}')">✓ Gelesen</button>
+                </div>
+              </div>
+            `;
+          }
         });
       }
 
@@ -898,6 +955,9 @@
             ? `<span style="background:#fee2e2; color:#b91c1c; font-size:0.7rem; padding:2px 6px; border-radius:4px; font-weight:700;">AKTUELL ABWESEND</span>`
             : `<span style="background:#fef3c7; color:#b45309; font-size:0.7rem; padding:2px 6px; border-radius:4px; font-weight:700;">GEPLANT AB ${formatDateDe(sl.startDate)}</span>`;
 
+          // Wenn der MA eine Korrektur ausstehen hat, zeige kleinen Warn-Hinweis
+          const pendingNotice = sl.returnRequestPending ? `<div style="font-size:0.72rem; color:#d97706; background:#fef3c7; padding:2px 4px; border-radius:3px; margin-top:4px; display:inline-block;">⚠️ Korrektur ausstehend</div>` : '';
+
           activeContainer.innerHTML += `
             <div class="sick-card">
               <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
@@ -910,6 +970,7 @@
                     Zeitraum: <b>${formatDateDe(sl.startDate)}</b> bis <b>${formatDateDe(sl.endDate)}</b>
                   </div>
                   ${sl.reason ? `<div style="font-size:0.78rem; color:#475569; margin-top:3px;">💬 "${sl.reason}"</div>` : ''}
+                  ${pendingNotice}
                 </div>
                 <button class="btn btn-outline" style="padding:4px 8px; font-size:0.75rem; color:#ef4444;" onclick="deleteSickLeave('${sl.id}')">Beenden</button>
               </div>
@@ -930,7 +991,9 @@
     }
 
     function markAllSickLeavesRead() {
-      sickLeaves.forEach(sl => sl.readByPlanner = true);
+      sickLeaves.forEach(sl => {
+        if(!sl.returnRequestPending) sl.readByPlanner = true;
+      });
       saveToFirebase();
       renderInboxModal();
       updateInboxBadge();
