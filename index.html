@@ -337,7 +337,6 @@
         <div id="teamSettingsList" style="max-height: 220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
 
-      <!-- HISTORIE MIT SAUBEREM SUCHFELD (OHNE BEISPIELE) -->
       <div id="tabHistory" class="tab-content">
         <div style="margin-bottom:12px;">
           <input type="text" id="historyUnifiedInput" class="form-control" placeholder="🔍 Nach Name oder Datum filtern..." oninput="filterHistoryUnified()" style="font-size:0.82rem; padding:8px 10px;">
@@ -498,6 +497,33 @@
         renderInboxModal();
         updateInboxBadge();
       }
+    };
+
+    // NEU: ENDDATUM EINER KRANKMELDUNG MANUELL ÄNDERN / VERLÄNGERN
+    window.toggleEditSickDate = function(id) {
+      const box = document.getElementById("editDateBox_" + id);
+      if (box) {
+        box.style.display = (box.style.display === "none") ? "flex" : "none";
+      }
+    };
+
+    window.saveSickLeaveEndDate = function(id) {
+      const input = document.getElementById("newEndDate_" + id);
+      if (!input || !input.value) return;
+      const newEnd = input.value;
+      const sl = sickLeaves.find(x => x.id === id);
+      if (!sl) return;
+
+      if (newEnd < sl.startDate) {
+        alert("Das Enddatum darf nicht vor dem Startdatum liegen!");
+        return;
+      }
+
+      sl.endDate = newEnd;
+      processSickLeavesAutomation();
+      saveToFirebase();
+      renderInboxModal();
+      renderEmployees();
     };
 
     db.collection("shiftplan").doc("live_board").onSnapshot((doc) => {
@@ -969,13 +995,21 @@
           activeContainer.innerHTML += `
             <div class="sick-card">
               <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-                <div>
+                <div style="flex:1;">
                   <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                     <span style="font-weight:700; color:#0f172a;">${sl.empName}</span>
                     ${statusBadge}
                   </div>
                   <div style="font-size:0.65rem; color:#64748b; margin-top:2px;">🕒 Eingereicht am: ${sl.createdAt || '-'}</div>
-                  <div style="font-size:0.8rem; margin-top:2px;">Zeitraum: <b>${formatDateDe(sl.startDate)}</b> bis <b>${formatDateDe(sl.endDate)}</b></div>
+                  <div style="font-size:0.8rem; margin-top:2px;">
+                    Zeitraum: <b>${formatDateDe(sl.startDate)}</b> bis <b>${formatDateDe(sl.endDate)}</b>
+                    <button class="btn btn-outline" style="padding:1px 6px; font-size:0.7rem; margin-left:6px; color:var(--bayer-blue); border-color:#bae6fd;" onclick="toggleEditSickDate('${sl.id}')">✏️ Ändern</button>
+                  </div>
+                  <div id="editDateBox_${sl.id}" style="display:none; align-items:center; gap:6px; margin-top:6px; background:#fff; padding:6px; border-radius:6px; border:1px solid #cbd5e1;">
+                    <span style="font-size:0.75rem; font-weight:600; color:#475569;">Neues Bis-Datum:</span>
+                    <input type="date" id="newEndDate_${sl.id}" value="${sl.endDate}" min="${sl.startDate}" class="form-control" style="width:auto; padding:3px 6px; font-size:0.78rem;">
+                    <button class="btn btn-primary" style="padding:4px 10px; font-size:0.75rem;" onclick="saveSickLeaveEndDate('${sl.id}')">Speichern</button>
+                  </div>
                   ${sl.reason ? `<div style="font-size:0.78rem; color:#475569; margin-top:3px;">💬 "${sl.reason}"</div>` : ''}
                   ${pendingNotice}
                 </div>
@@ -1462,7 +1496,7 @@
       line.tag = document.getElementById("editLineTag").value.trim();
       line.note = document.getElementById("editLineNote").value.trim();
       saveToFirebase();
-      renderHeaderColumns();
+      initBoard();
       closeModal('lineEditModal');
     }
 
