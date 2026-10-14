@@ -58,7 +58,6 @@
   </header>
 
   <div class="container">
-    <!-- Login -->
     <div id="loginView" class="card">
       <h2 style="color:var(--bayer-blue); justify-content:center; margin-bottom:16px;">🔐 Mitarbeiter-Anmeldung</h2>
       <div id="loginError" class="error-msg">Name oder Passwort nicht korrekt!</div>
@@ -74,7 +73,6 @@
       <button class="btn btn-primary" onclick="loginEmp()">Anmelden</button>
     </div>
 
-    <!-- Passwort ändern -->
     <div id="changePasswordView" class="card" style="display:none;">
       <h2 style="color:var(--bayer-blue); margin-bottom:8px;">🔒 Eigenes Passwort festlegen</h2>
       <p style="font-size:0.85rem; color:#64748b; margin-bottom:16px;">Hallo <b id="cpEmpName"></b>! Bitte vergib jetzt ein persönliches Passwort (mind. 4 Zeichen) für deine zukünftigen Anmeldungen.</p>
@@ -84,28 +82,22 @@
       <button class="btn btn-primary" onclick="saveNewPassword()">Passwort speichern & weiter</button>
     </div>
 
-    <!-- Portal Dashboard -->
     <div id="portalView" style="display:none;">
-      
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div><div style="font-size:0.8rem; color:#64748b;">Angemeldet als</div><div id="empWelcomeName" style="font-size:1.3rem; font-weight:700;"></div></div>
           <span id="empRoleBadge" style="background:#f1f5f9; padding:5px 10px; border-radius:6px; font-size:0.82rem; font-weight:700;"></span>
         </div>
       </div>
-
       <div class="card"><h2>📍 Meine heutige Einteilung</h2><div id="empCurrentStatus" class="status-box status-pool"></div></div>
-      
       <div class="card">
         <h2>⚙️ Meine Linien-Qualifikationen</h2>
         <div style="margin-bottom:12px;"><div style="font-size:0.82rem; font-weight:600; color:#475569;">Meine Stammlinien (Prio-Linien):</div><div id="empPrioLines" class="line-badge-list"></div></div>
         <div><div style="font-size:0.82rem; font-weight:600; color:#475569;">Weitere Linien (Sek-Linien):</div><div id="empSecLines" class="line-badge-list"></div></div>
       </div>
-
       <div class="card">
         <h2>🏥 Krankmeldung / Abwesenheit</h2>
         
-        <!-- NEU: Gesundmeldung Box (Wird nur angezeigt, wenn man krankgeschrieben ist) -->
         <div id="earlyReturnBox" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:16px; margin-bottom:20px;">
           <h3 style="font-size:0.95rem; color:#166534; margin-bottom:8px; display:flex; align-items:center; gap:6px;">✅ Gesundmeldung (Frühere Rückkehr)</h3>
           <p style="font-size:0.8rem; color:#15803d; margin-bottom:12px; line-height:1.4;">Bist du früher wieder fit als geplant? Hier kannst du dem Planer deinen neuen ersten Arbeitstag mitteilen.</p>
@@ -251,7 +243,6 @@
         sb.innerHTML = `<div style="font-size:0.82rem; text-transform:uppercase;">Heute eingeteilt an:</div><div style="font-size:1.35rem; font-weight:800;">✅ ${lObj ? lObj.name : emp.zone} – ${shiftsMap[shId] || shId}</div>${lObj?.note ? `<div style="font-size:0.8rem; font-weight:normal; margin-top:4px;">📌 Linien-Info: ${lObj.note}</div>` : ''}`;
       }
 
-      // KORREKTUR-BOX ANZEIGEN WENN ES AKTIVE MELDUNGEN GIBT
       if (myActiveSickLeaves.length > 0) {
         $("earlyReturnBox").style.display = "block";
       } else {
@@ -271,7 +262,6 @@
         </div>`).join("");
     }
 
-    // NEU: GESAUNDMELDUNG ABSENDEN
     function submitEarlyReturn() {
       const emp = employees.find(e => e.id === loggedInEmpId); if (!emp) return;
       const rDate = $("earlyReturnDate").value, today = getTodayIso();
@@ -282,7 +272,6 @@
       if (!rDate) { errBox.textContent = "Bitte ein Datum auswählen!"; errBox.style.display = "block"; return; }
       if (!navigator.onLine) { errBox.textContent = "⚠️ Keine Internetverbindung!"; errBox.style.display = "block"; return; }
 
-      // Finde die aktuellste Krankmeldung, die noch aktiv ist
       const activeSlIndex = sickLeaves.findIndex(s => s.empId === emp.id && s.endDate >= today);
       if (activeSlIndex === -1) return;
 
@@ -294,7 +283,8 @@
         ...updatedSickLeaves[activeSlIndex],
         returnRequestDate: rDate,
         returnRequestPending: true,
-        readByPlanner: false // Macht sie im Planer-Postfach wieder ungelesen!
+        readByPlanner: false,
+        returnRequestCreatedAt: new Date().toLocaleString('de-DE') // Speichert die genaue Uhrzeit der Korrektur-Anfrage
       };
 
       db.collection("shiftplan").doc("live_board").set({ ...rawDocData, sickLeaves: updatedSickLeaves })
@@ -323,6 +313,7 @@
       const originalText = btn.textContent;
       btn.textContent = "Wird sicher an den Planer gesendet... ⏳"; btn.disabled = true; btn.style.opacity = "0.7";
 
+      // Zeitstempel wird automatisch generiert
       const newSickLeave = { id: "sl_"+Date.now(), empId: emp.id, empName: fullName(emp), startDate: sD, endDate: eD, reason: r, createdAt: new Date().toLocaleString('de-DE'), readByPlanner: false };
       
       const updatedSickLeaves = [...sickLeaves, newSickLeave];
