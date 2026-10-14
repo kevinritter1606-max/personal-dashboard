@@ -58,6 +58,7 @@
   </header>
 
   <div class="container">
+    <!-- Login -->
     <div id="loginView" class="card">
       <h2 style="color:var(--bayer-blue); justify-content:center; margin-bottom:16px;">🔐 Mitarbeiter-Anmeldung</h2>
       <div id="loginError" class="error-msg">Name oder Passwort nicht korrekt!</div>
@@ -73,6 +74,7 @@
       <button class="btn btn-primary" onclick="loginEmp()">Anmelden</button>
     </div>
 
+    <!-- Passwort ändern -->
     <div id="changePasswordView" class="card" style="display:none;">
       <h2 style="color:var(--bayer-blue); margin-bottom:8px;">🔒 Eigenes Passwort festlegen</h2>
       <p style="font-size:0.85rem; color:#64748b; margin-bottom:16px;">Hallo <b id="cpEmpName"></b>! Bitte vergib jetzt ein persönliches Passwort (mind. 4 Zeichen) für deine zukünftigen Anmeldungen.</p>
@@ -82,6 +84,7 @@
       <button class="btn btn-primary" onclick="saveNewPassword()">Passwort speichern & weiter</button>
     </div>
 
+    <!-- Dashboard -->
     <div id="portalView" style="display:none;">
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -121,7 +124,21 @@
     });
     const db = firebase.firestore();
     const shiftsMap = { frueh: "Frühschicht", spaet: "Spätschicht", nacht: "Nachtschicht" };
-    let lines = [], employees = [], sickLeaves = [], rawDocData = {}, loggedInEmpId = localStorage.getItem("portal_emp_id") || null, selectedLoginEmpId = null;
+    
+    let lines = [], employees = [], sickLeaves = [], rawDocData = {};
+    
+    // --- NEU: SICHERER SESSION TIMEOUT (12 Stunden) ---
+    const SESSION_TIMEOUT_MS = 12 * 60 * 60 * 1000; 
+    let loggedInEmpId = localStorage.getItem("portal_emp_id") || null;
+    let loginTime = localStorage.getItem("portal_login_time") || 0;
+    let selectedLoginEmpId = null;
+
+    // Prüft direkt beim Laden, ob die 12 Stunden schon abgelaufen sind
+    if (loggedInEmpId && (Date.now() - loginTime > SESSION_TIMEOUT_MS)) {
+      loggedInEmpId = null;
+      localStorage.removeItem("portal_emp_id");
+      localStorage.removeItem("portal_login_time");
+    }
 
     const getTodayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
     const formatDateDe = s => s && s.includes("-") ? s.split("-").reverse().join(".") : (s || "");
@@ -132,6 +149,17 @@
       $("sickStartDate").value = $("sickEndDate").value = getTodayIso();
       document.addEventListener("click", e => { if ($("nameSearchGroup") && !$("nameSearchGroup").contains(e.target)) $("loginSuggestions").style.display = "none"; });
     });
+
+    // Prüft jede Minute im Hintergrund, ob die Sitzung abgelaufen ist (falls der Tab offen bleibt)
+    setInterval(() => {
+      if (loggedInEmpId) {
+        const time = localStorage.getItem("portal_login_time") || 0;
+        if (Date.now() - time > SESSION_TIMEOUT_MS) {
+          logoutEmp();
+          alert("Deine Sitzung ist nach 12 Stunden abgelaufen. Bitte melde dich zur Sicherheit neu an.");
+        }
+      }
+    }, 60000);
 
     db.collection("shiftplan").doc("live_board").onSnapshot(doc => {
       if (doc.exists) {
@@ -162,7 +190,12 @@
       let emp = selectedLoginEmpId ? employees.find(e => e.id === selectedLoginEmpId) : employees.find(e => fullName(e).toLowerCase() === q);
       if (!emp && q) { const p = employees.filter(e => fullName(e).toLowerCase().includes(q)); if (p.length === 1) emp = p[0]; }
       if (!emp || (emp.password || "1234") !== pass) { $("loginError").style.display = "block"; return; }
-      $("loginError").style.display = "none"; loggedInEmpId = emp.id; localStorage.setItem("portal_emp_id", emp.id);
+      
+      $("loginError").style.display = "none"; 
+      loggedInEmpId = emp.id; 
+      localStorage.setItem("portal_emp_id", emp.id);
+      localStorage.setItem("portal_login_time", Date.now()); // Setzt den 12-Stunden Timer
+      
       $("loginPassword").value = ""; $("sickSuccessBanner").style.display = "none"; routeAuthenticatedEmp(emp);
     }
 
@@ -182,7 +215,12 @@
       db.collection("shiftplan").doc("live_board").set({ ...rawDocData, employees }).then(() => { $("newPasswordInput").value = $("newPasswordConfirm").value = ""; routeAuthenticatedEmp(emp); });
     }
 
-    function logoutEmp() { loggedInEmpId = selectedLoginEmpId = null; localStorage.removeItem("portal_emp_id"); $("loginEmpInput").value = ""; $("portalView").style.display = $("changePasswordView").style.display = $("logoutBtn").style.display = "none"; $("loginView").style.display = "block"; }
+    function logoutEmp() { 
+      loggedInEmpId = selectedLoginEmpId = null; 
+      localStorage.removeItem("portal_emp_id"); 
+      localStorage.removeItem("portal_login_time");
+      $("loginEmpInput").value = ""; $("portalView").style.display = $("changePasswordView").style.display = $("logoutBtn").style.display = "none"; $("loginView").style.display = "block"; 
+    }
 
     function showPortalFor(emp) {
       $("portalView").style.display = "block"; $("empWelcomeName").textContent = fullName(emp); 
