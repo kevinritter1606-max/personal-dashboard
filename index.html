@@ -276,7 +276,8 @@
         <button class="tab-btn" onclick="switchTab('tabRoles', 1)">Rollen</button>
         <button class="tab-btn" onclick="switchTab('tabLines', 2)">Linien</button>
         <button class="tab-btn" onclick="switchTab('tabTeams', 3)">Teams</button>
-        <button class="tab-btn" onclick="switchTab('tabBackups', 4)">Backups</button>
+        <button class="tab-btn" onclick="switchTab('tabHistory', 4)">Historie</button>
+        <button class="tab-btn" onclick="switchTab('tabBackups', 5)">Backups</button>
       </div>
       
       <div id="tabEmployees" class="tab-content active">
@@ -337,8 +338,13 @@
         <div id="teamSettingsList" style="max-height: 220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
 
+      <div id="tabHistory" class="tab-content">
+        <p style="font-size:0.9rem; color:#64748b; margin-bottom:14px;">Archiv aller vergangenen Krankheits- und Abwesenheitstage (letzte 365 Tage):</p>
+        <div id="historyList" style="max-height: 250px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; padding:10px;">Lade Historie...</div>
+      </div>
+
       <div id="tabBackups" class="tab-content">
-        <p style="font-size:0.9rem; color:#64748b; margin-bottom:14px;">Automatische Sicherung:</p>
+        <p style="font-size:0.9rem; color:#64748b; margin-bottom:14px;">Automatische Sicherung (letzte 7 Tage):</p>
         <div id="backupList" style="max-height: 250px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; padding:10px;">Lade Backups...</div>
       </div>
     </div>
@@ -377,7 +383,6 @@
     let sortableInstances = [];
     let backupDoneToday = false; 
 
-    // PIN LÖSCHEN FUNKTION
     window.deletePin = function(id) {
       const emp = employees.find(e => e.id === id);
       if (emp) {
@@ -713,13 +718,20 @@
       initBoard();
     }
 
+    // AUTOMATIK: ABGELAUFENE KRANKMELDUNGEN IN DIE HISTORIE VERSCHIEBEN (MIT 365 TAGE LÖSCHSCHREDDER)
     function processSickLeavesAutomation() {
       const today = getTodayIso();
       let changed = false;
 
       const expired = sickLeaves.filter(sl => sl.endDate < today);
       if (expired.length > 0) {
+        // In die Historie-Sammlung verschieben
         expired.forEach(exp => {
+          db.collection("shiftplan_history").doc(exp.id).set({
+            ...exp,
+            archivedAt: new Date().toISOString()
+          }).catch(()=>{});
+
           const emp = employees.find(e => e.id === exp.empId);
           const hasOtherActive = sickLeaves.some(sl => sl.id !== exp.id && sl.empId === exp.empId && sl.startDate <= today && sl.endDate >= today);
           if (emp && emp.zone === "absent" && !hasOtherActive) {
@@ -900,7 +912,6 @@
       } else {
         unreadContainer.innerHTML = "";
         unreadList.forEach(sl => {
-          
           if (sl.returnRequestPending) {
             unreadContainer.innerHTML += `
               <div class="sick-card" style="background:#fffbeb; border-left-color:#f59e0b; border-color:#fde68a;">
@@ -908,9 +919,7 @@
                   <div>
                     <div style="font-weight:700; color:#b45309;">⚠️ Korrektur-Anfrage: ${sl.empName}</div>
                     <div style="font-size:0.65rem; color:#92400e; margin-top:2px;">🕒 Angefragt am: ${sl.returnRequestCreatedAt || sl.createdAt || '-'}</div>
-                    <div style="font-size:0.82rem; margin-top:4px;">
-                      Mitarbeiter meldet sich <b>früher einsatzbereit</b>!
-                    </div>
+                    <div style="font-size:0.82rem; margin-top:4px;">Mitarbeiter meldet sich <b>früher einsatzbereit</b>!</div>
                     <div style="font-size:0.82rem; background:#fff; padding:6px; border-radius:4px; margin-top:6px; border:1px solid #fde68a;">
                       War abwesend bis: <span style="text-decoration:line-through; color:#94a3b8;">${formatDateDe(sl.endDate)}</span><br>
                       Kommt wieder am: <b style="color:#16a34a; font-size:0.9rem;">${formatDateDe(sl.returnRequestDate)}</b>
@@ -923,17 +932,14 @@
                 </div>
               </div>
             `;
-          } 
-          else {
+          } else {
             unreadContainer.innerHTML += `
               <div class="sick-card unread">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
                   <div>
                     <div style="font-weight:700; color:#9f1239;">${sl.empName}</div>
                     <div style="font-size:0.65rem; color:#9f1239; margin-top:2px; opacity:0.8;">🕒 Eingereicht am: ${sl.createdAt || '-'}</div>
-                    <div style="font-size:0.82rem; font-weight:600; margin-top:2px;">
-                      📅 Zeitraum: ${formatDateDe(sl.startDate)} bis ${formatDateDe(sl.endDate)}
-                    </div>
+                    <div style="font-size:0.82rem; font-weight:600; margin-top:2px;">📅 Zeitraum: ${formatDateDe(sl.startDate)} bis ${formatDateDe(sl.endDate)}</div>
                     <div style="font-size:0.82rem; margin-top:6px; background:#fff; padding:6px 8px; border-radius:4px; border:1px solid #fecdd3;">
                       <b>Notiz:</b> ${sl.reason ? sl.reason : '<i>Keine Angabe</i>'}
                     </div>
@@ -968,9 +974,7 @@
                     ${statusBadge}
                   </div>
                   <div style="font-size:0.65rem; color:#64748b; margin-top:2px;">🕒 Eingereicht am: ${sl.createdAt || '-'}</div>
-                  <div style="font-size:0.8rem; margin-top:2px;">
-                    Zeitraum: <b>${formatDateDe(sl.startDate)}</b> bis <b>${formatDateDe(sl.endDate)}</b>
-                  </div>
+                  <div style="font-size:0.8rem; margin-top:2px;">Zeitraum: <b>${formatDateDe(sl.startDate)}</b> bis <b>${formatDateDe(sl.endDate)}</b></div>
                   ${sl.reason ? `<div style="font-size:0.78rem; color:#475569; margin-top:3px;">💬 "${sl.reason}"</div>` : ''}
                   ${pendingNotice}
                 </div>
@@ -980,6 +984,34 @@
           `;
         });
       }
+    }
+
+    // LÄDT DIE HISTORIE AUS DER DATENBANK
+    function renderHistory() {
+      const list = document.getElementById("historyList");
+      list.innerHTML = "Lade Historie...";
+      db.collection("shiftplan_history").orderBy("endDate", "desc").limit(100).get().then(snap => {
+        list.innerHTML = "";
+        if (snap.empty) {
+          list.innerHTML = "<div style='color:#64748b; font-size:0.95rem;'>Noch keine Historie-Einträge vorhanden.</div>";
+          return;
+        }
+        snap.forEach(doc => {
+          const h = doc.data();
+          list.innerHTML += `
+            <div class="item-row" style="align-items:flex-start; flex-direction:column; gap:2px; background:#f8fafc; padding:8px; border-radius:6px; margin-bottom:6px;">
+              <div style="display:flex; justify-content:space-between; width:100%;">
+                <b style="color:#0f172a;">${h.empName}</b>
+                <span style="font-size:0.75rem; color:#64748b;">📅 ${formatDateDe(h.startDate)} – ${formatDateDe(h.endDate)}</span>
+              </div>
+              <div style="font-size:0.78rem; color:#475569;">Notiz: ${h.reason || 'Keine Angabe'}</div>
+              <div style="font-size:0.68rem; color:#94a3b8;">Eingereicht am: ${h.createdAt || '-'}</div>
+            </div>
+          `;
+        });
+      }).catch(() => {
+        list.innerHTML = "<div style='color:#b91c1c; font-size:0.9rem;'>Fehler beim Laden der Historie.</div>";
+      });
     }
 
     function markSickLeaveRead(id) {
@@ -1428,9 +1460,8 @@
       contents.forEach(c => c.classList.remove("active"));
       document.getElementById(t).classList.add("active");
       
-      if(t === 'tabBackups') {
-        renderBackups(); 
-      }
+      if(t === 'tabBackups') renderBackups();
+      if(t === 'tabHistory') renderHistory();
     }
 
     function updateRoleDropdown() {
