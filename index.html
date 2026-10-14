@@ -55,7 +55,6 @@
     .search-input { width: 100%; padding: 6px 26px 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.8rem; background: #f8fafc; }
     .search-clear { display: none; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; font-weight: bold; font-size: 1rem; }
 
-    /* Mitarbeiter Kärtchen */
     .employee-card { background: #fff; padding: 6px 8px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); display: flex; flex-direction: column; border-left: 5px solid #94a3b8; user-select: none; gap: 3px; }
     body.planner-active .employee-card { cursor: grab; }
 
@@ -338,10 +337,10 @@
         <div id="teamSettingsList" style="max-height: 220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
 
-      <!-- NEU: EIN EINZIGES INTELLIGENTES SUCHFELD FÜR DIE HISTORIE -->
+      <!-- HISTORIE MIT SAUBEREM SUCHFELD (OHNE BEISPIELE) -->
       <div id="tabHistory" class="tab-content">
         <div style="margin-bottom:12px;">
-          <input type="text" id="historyUnifiedInput" class="form-control" placeholder="🔍 Nach Name oder Datum (z.B. Kevin oder 14.10) filtern..." oninput="filterHistoryUnified()" style="font-size:0.82rem; padding:8px 10px;">
+          <input type="text" id="historyUnifiedInput" class="form-control" placeholder="🔍 Nach Name oder Datum filtern..." oninput="filterHistoryUnified()" style="font-size:0.82rem; padding:8px 10px;">
         </div>
         <div id="historyList" style="max-height: 230px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; padding:10px;">Lade Historie...</div>
       </div>
@@ -988,7 +987,6 @@
       }
     }
 
-    // LÄDT DIE HISTORIE
     function renderHistory() {
       const list = document.getElementById("historyList");
       list.innerHTML = "Lade Historie...";
@@ -1022,7 +1020,6 @@
       });
     }
 
-    // EIN EINZIGES INTELLIGENTES SUCHFELD (FÜR NAME ODER DATUM)
     function filterHistoryUnified() {
       const inputVal = document.getElementById("historyUnifiedInput").value.trim().toLowerCase();
       if (!inputVal) {
@@ -1032,17 +1029,17 @@
 
       const filtered = cachedHistoryData.filter(h => {
         const nameMatch = h.empName.toLowerCase().includes(inputVal);
+        const reasonMatch = h.reason && h.reason.toLowerCase().includes(inputVal);
         
-        // Versucht das eingegebene Datum zu erkennen (z.B. "14.10", "14.10.2026", oder "2026-10-14")
         let dateMatch = false;
-        const startDe = formatDateDe(h.startDate).toLowerCase(); // z.B. 14.10.2026
+        const startDe = formatDateDe(h.startDate).toLowerCase();
         const endDe = formatDateDe(h.endDate).toLowerCase();
         
         if (startDe.includes(inputVal) || endDe.includes(inputVal) || h.startDate.includes(inputVal) || h.endDate.includes(inputVal)) {
           dateMatch = true;
         }
 
-        return nameMatch || dateMatch;
+        return nameMatch || reasonMatch || dateMatch;
       });
 
       displayFilteredHistory(filtered);
