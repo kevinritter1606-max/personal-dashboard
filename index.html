@@ -554,6 +554,33 @@
       renderEmployees();
     };
 
+    // NEU: Lädt ein ausgewähltes Team wieder aus dem Pool
+    window.reloadShift = function(slotKey) {
+      const teamKey = shiftRotation[slotKey];
+      const today = getTodayIso();
+      let moved = 0;
+
+      employees.forEach(emp => {
+        if (emp.noRotation) return; 
+
+        const isCurrentlySick = sickLeaves.some(sl => sl.empId === emp.id && sl.startDate <= today && sl.endDate >= today);
+        if (emp.zone === "absent" || isCurrentlySick) return;
+
+        if (emp.team === teamKey && emp.zone === "pool") {
+          if (slotKey !== "frei") { 
+            const lineId = getPredeterminedLineForEmp(emp); 
+            emp.zone = lineId ? `${lineId}_${slotKey}` : "pool"; 
+            moved++;
+          }
+        } 
+      });
+
+      if (moved > 0) {
+        saveToFirebase();
+        initBoard();
+      }
+    };
+
     db.collection("shiftplan").doc("live_board").onSnapshot((doc) => {
       if (doc.exists) {
         const d = doc.data();
@@ -585,7 +612,6 @@
             const currentLineId = extractLineIdFromZone(e.zone);
             const currentShiftId = extractShiftIdFromZone(e.zone);
             
-            // FEHLERBEHEBUNG 1: Fix-Mitarbeiter merken sich jetzt immer ihre letzte Schicht
             if (e.zone !== "pool" && e.zone !== "absent") {
                 e.lastShiftId = currentShiftId;
             }
@@ -745,15 +771,16 @@
     }
 
     function clearShiftRow(shiftId, shiftName) {
-      const inShift = employees.filter(e => e.zone && e.zone.endsWith(`_${shiftId}`));
-      if (inShift.length === 0) return;
+      // Nur rotierende Mitarbeiter herausfiltern
+      const inShift = employees.filter(e => e.zone && e.zone.endsWith(`_${shiftId}`) && !e.noRotation);
+      if (inShift.length === 0) {
+        alert(`Keine rotierenden Mitarbeiter in der ${shiftName}-Schicht zum Leeren gefunden.`);
+        return;
+      }
 
       if (!confirm(`${shiftName}-Schicht (${inShift.length} Mitarbeiter) in den Pool leeren?`)) return;
 
       inShift.forEach(emp => {
-        // FEHLERBEHEBUNG 2: Fix-Mitarbeiter werden vom Löschen ignoriert
-        if (emp.noRotation) return;
-
         const lineId = extractLineIdFromZone(emp.zone);
         if (lineId && (!emp.lastLineId || shiftRotation[shiftId] === emp.team)) {
           emp.lastLineId = lineId;
@@ -766,15 +793,16 @@
     }
 
     function clearEntireBoard() {
-      const onBoard = employees.filter(e => e.zone && e.zone !== "pool" && e.zone !== "absent");
-      if (onBoard.length === 0) return;
+      // Nur rotierende Mitarbeiter auf dem Board herausfiltern
+      const onBoard = employees.filter(e => e.zone && e.zone !== "pool" && e.zone !== "absent" && !e.noRotation);
+      if (onBoard.length === 0) {
+        alert("Es befinden sich keine rotierenden Mitarbeiter auf dem Board.");
+        return;
+      }
 
-      if (!confirm(`Alle 3 Schichten komplett in den Pool leeren?`)) return;
+      if (!confirm(`Alle ${onBoard.length} rotierenden Mitarbeiter in den Pool leeren?\n(Mitarbeiter mit ⚓ Fix bleiben stehen)`)) return;
 
       onBoard.forEach(emp => {
-        // FEHLERBEHEBUNG 2: Fix-Mitarbeiter werden vom Löschen ignoriert
-        if (emp.noRotation) return;
-
         const lineId = extractLineIdFromZone(emp.zone);
         const shiftId = extractShiftIdFromZone(emp.zone);
         if (lineId && (!emp.lastLineId || (shiftId && shiftRotation[shiftId] === emp.team))) {
@@ -826,8 +854,6 @@
           const hasOtherActive = sickLeaves.some(sl => sl.id !== exp.id && sl.empId === exp.empId && sl.startDate <= today && sl.endDate >= today);
           if (emp && emp.zone === "absent" && !hasOtherActive) {
             const lineId = getPredeterminedLineForEmp(emp);
-            
-            // FEHLERBEHEBUNG 4: Schießt den Fix-Mitarbeiter exakt auf seine gespeicherte Schicht zurück
             if (emp.noRotation && emp.lastShiftId && lineId) {
                 emp.zone = `${lineId}_${emp.lastShiftId}`;
             } else {
@@ -971,7 +997,6 @@
       const nowStr = new Date().toLocaleString('de-DE');
       const today = getTodayIso();
 
-      // FEHLERBEHEBUNG 3: Merge-Logik nun auch bei manueller Eingabe durch den Planer!
       const existingSl = sickLeaves.find(sl => sl.empId === emp.id && canMergeDateRanges(sl.startDate, sl.endDate, startDate, endDate));
       if (existingSl) {
         if (startDate < existingSl.startDate) existingSl.startDate = startDate;
@@ -1234,7 +1259,7 @@
       if (sl) {
         const emp = employees.find(e => e.id === sl.empId);
         
-        // FEHLERBEHEBUNG 5: Nur "zurückschieben", wenn die Krankheit GENAU HEUTE aktiv ist!
+        // FEHLERBEHEBUNG 4: Nur zurückschieben, wenn Krankheit auch HEUTE aktiv ist!
         if (emp && emp.zone === "absent" && sl.startDate <= today && sl.endDate >= today) {
           const lineId = getPredeterminedLineForEmp(emp);
           if (emp.noRotation && emp.lastShiftId && lineId) {
@@ -1461,9 +1486,12 @@
             <span style="color:${currentTeamObj.color};">■</span> ${currentTeamObj.name}
           </div>
           <div class="shift-controls">
-            <select class="shift-team-select" onchange="assignTeamToShift('${shift.id}', this.value)" title="Aktives Team für ${shift.name}-Schicht wählen">
-              ${teamOptionsHtml}
-            </select>
+            <div style="display:flex; gap:4px;">
+              <select class="shift-team-select" style="flex:1;" onchange="assignTeamToShift('${shift.id}', this.value)" title="Aktives Team für ${shift.name}-Schicht wählen">
+                ${teamOptionsHtml}
+              </select>
+              <button class="shift-clear-btn" style="width:26px; padding:0; display:flex; align-items:center; justify-content:center; color: var(--bayer-blue); border-color: var(--bayer-blue);" onclick="reloadShift('${shift.id}')" title="Ausgewähltes Team neu aus dem Pool laden">📥</button>
+            </div>
             <button class="shift-clear-btn" onclick="clearShiftRow('${shift.id}', '${shift.name}')">🧹 Leeren</button>
           </div>
         `;
