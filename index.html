@@ -101,7 +101,6 @@
     .line-status-tag { font-size: 0.6rem; padding: 1px 3px; border-radius: 3px; background: #fecdd3; color: #9f1239; font-weight: 700; }
     .line-notes { font-size: 0.65rem; color: #475569; margin-top: 3px; background: #fff; padding: 3px; border-radius: 3px; border: 1px dashed #cbd5e1; white-space: pre-wrap; word-break: break-word; }
     
-    /* SPALTENBREITE VERBREITERT, DAMIT TEAM-NAMEN NICHT MEHR ABGESCHNITTEN WERDEN */
     .shift-header { background: #f1f5f9; font-weight: 700; font-size: 0.85rem; width: 110px; text-align: center; padding: 12px 2px; color: #334155; vertical-align: middle; }
     body.planner-active .shift-header { width: 136px; padding: 10px 4px; }
 
@@ -140,22 +139,31 @@
     .settings-card-title { font-size: 0.85rem; font-weight: 700; color: #1e293b; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
     .toast-banner { display: none; position: fixed; top: 20px; right: 20px; background: #16a34a; color: #fff; padding: 10px 16px; border-radius: 8px; font-weight: 700; font-size: 0.86rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 250; }
     
-    /* 4-STUFEN BERECHTIGUNGS-KLASSEN */
+    /* BERECHTIGUNGS-KLASSEN FÜR DIE STUFEN (STUFE 2 DARF NUR ZUWEISEN & PIN ZURÜCKSETZEN) */
     .lvl-4-only, .lvl-3-only, .admin-element, .lvl-2-hide { display: none !important; }
     body.planner-active .admin-element { display: inline-flex !important; }
     body.planner-active:not(.planner-lvl-2) .lvl-2-hide { display: inline-flex !important; }
+    
+    /* Stufe 2 darf KEIN Postfach/Mails öffnen */
+    body.planner-lvl-2 button[onclick="openInboxModal()"] { display: none !important; }
+
     body.planner-lvl-3 .lvl-3-only { display: inline-flex !important; }
     body.planner-lvl-3 div.lvl-3-only { display: block !important; }
     body.planner-lvl-4 .lvl-4-only, body.planner-lvl-4 .lvl-3-only { display: inline-flex !important; }
     body.planner-lvl-4 div.lvl-4-only, body.planner-lvl-4 div.lvl-3-only { display: block !important; }
-    body.planner-lvl-2 #tabBtnEmployees, body.planner-lvl-2 #tabBtnProfile { display: inline-block !important; }
+    
+    /* Stufe 2 sieht in den Einstellungen nur "Mein Profil", KEINE Mitarbeiter-Erstellung oder System-Tabs */
+    body.planner-lvl-2 #tabBtnEmployees { display: none !important; }
+    body.planner-lvl-2 #tabBtnProfile { display: inline-block !important; }
+    body.planner-lvl-2 #tabEmployees { display: none !important; }
+    body.planner-lvl-2 #tabProfile { display: block !important; }
     body.planner-lvl-2 #tabBtnTeams, body.planner-lvl-2 #tabRoles, body.planner-lvl-2 #tabLines, body.planner-lvl-2 #tabSecurity, body.planner-lvl-2 #tabHistory, body.planner-lvl-2 #tabBackups { display: none !important; }
   </style>
 </head>
 <body>
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
-  <div class="version-footer-badge">Version 4.9.9</div>
+  <div class="version-footer-badge">Version 4.9.13</div>
 
   <div id="boardLockModal" class="modal-overlay" style="background: #f4f6f9; z-index: 180;">
     <div class="modal" style="max-width: 380px; text-align: center; padding: 0; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
@@ -549,7 +557,7 @@
     </div>
   </div>
 
-  <script src="planer.js?v=4.9.9"></script>
+  <script src="planer.js?v=4.9.13"></script>
   <script>
     let activeInboxHistoryCategory = "ALL";
 
