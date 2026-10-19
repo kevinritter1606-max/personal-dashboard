@@ -160,7 +160,7 @@
 <body>
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
-  <div class="version-footer-badge">Version 4.9.27</div>
+  <div class="version-footer-badge">Version 4.9.28</div>
 
   <div id="boardLockModal" class="modal-overlay" style="background: #f4f6f9; z-index: 180;">
     <div class="modal" style="max-width: 380px; text-align: center; padding: 0; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
@@ -512,8 +512,7 @@
                   <option value="3">Mittwoch</option><option value="4">Donnerstag</option><option value="5">Freitag</option><option value="6">Samstag</option>
                 </select>
                 <select id="cfgResetHour" class="form-control" style="flex:1; font-size:0.78rem; padding:5px;" onchange="saveShiftModelSettings()">
-                  <option value="0">00:00 Uhr</option><option value="4">04:00 Uhr</option><option value="5">05:00 Uhr</option>
-                  <option value="6" selected>06:00 Uhr</option><option value="12">12:00 Uhr</option><option value="22">22:00 Uhr</option>
+                  <option value="0">00:00 Uhr</option><option value="1">01:00 Uhr</option><option value="2">02:00 Uhr</option><option value="3">03:00 Uhr</option><option value="4">04:00 Uhr</option><option value="5">05:00 Uhr</option><option value="6" selected>06:00 Uhr</option><option value="7">07:00 Uhr</option><option value="8">08:00 Uhr</option><option value="9">09:00 Uhr</option><option value="10">10:00 Uhr</option><option value="11">11:00 Uhr</option><option value="12">12:00 Uhr</option><option value="13">13:00 Uhr</option><option value="14">14:00 Uhr</option><option value="15">15:00 Uhr</option><option value="16">16:00 Uhr</option><option value="17">17:00 Uhr</option><option value="18">18:00 Uhr</option><option value="19">19:00 Uhr</option><option value="20">20:00 Uhr</option><option value="21">21:00 Uhr</option><option value="22">22:00 Uhr</option><option value="23">23:00 Uhr</option>
                 </select>
               </div>
             </div>
@@ -529,8 +528,7 @@
                   <option value="3">Mittwoch</option><option value="4">Donnerstag</option><option value="5">Freitag</option><option value="6">Samstag</option>
                 </select>
                 <select id="cfgLoadHour" class="form-control" style="flex:1; font-size:0.78rem; padding:5px;" onchange="saveShiftModelSettings()">
-                  <option value="5">05:00 Uhr</option><option value="6">06:00 Uhr</option><option value="10">10:00 Uhr</option>
-                  <option value="12" selected>12:00 Uhr</option><option value="14">14:00 Uhr</option><option value="18">18:00 Uhr</option>
+                  <option value="0">00:00 Uhr</option><option value="1">01:00 Uhr</option><option value="2">02:00 Uhr</option><option value="3">03:00 Uhr</option><option value="4">04:00 Uhr</option><option value="5" selected>05:00 Uhr</option><option value="6">06:00 Uhr</option><option value="7">07:00 Uhr</option><option value="8">08:00 Uhr</option><option value="9">09:00 Uhr</option><option value="10">10:00 Uhr</option><option value="11">11:00 Uhr</option><option value="12">12:00 Uhr</option><option value="13">13:00 Uhr</option><option value="14">14:00 Uhr</option><option value="15">15:00 Uhr</option><option value="16">16:00 Uhr</option><option value="17">17:00 Uhr</option><option value="18">18:00 Uhr</option><option value="19">19:00 Uhr</option><option value="20">20:00 Uhr</option><option value="21">21:00 Uhr</option><option value="22">22:00 Uhr</option><option value="23">23:00 Uhr</option>
                 </select>
               </div>
             </div>
@@ -598,7 +596,7 @@
     </div>
   </div>
 
-  <script src="planer.js?v=4.9.28"></script>
+  <script src="planer.js?v=4.9.29"></script>
   <script>
     let activeInboxHistoryCategory = "ALL";
     function setInboxHistoryCategoryFilter(cat) { activeInboxHistoryCategory = cat || "ALL"; renderInboxLists(); }
