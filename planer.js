@@ -1,4 +1,4 @@
-/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.13 */
+/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.15 */
 firebase.initializeApp({
   apiKey: "AIzaSyBPOYRYyUm5gA-j7YSAZl7EJoxedFhDTl4", authDomain: "schichtplan-bayer.firebaseapp.com",
   projectId: "schichtplan-bayer", storageBucket: "schichtplan-bayer.firebasestorage.app",
@@ -306,7 +306,7 @@ function updateShiftApprovalUI() {
 }
 
 window.toggleShiftApprovalState = function() {
-  if (!isPlanner) return;
+  if (!isPlanner || plannerLevel === 2) return; // Stufe 2 darf Schichten NICHT freigeben!
   const currentKey = getCurrentShiftApprovalKey();
   approvedShiftKey = (approvedShiftKey === currentKey) ? "" : currentKey;
   logHistory("Freigabe", approvedShiftKey ? "Schicht bestätigt & freigegeben" : "Schichtfreigabe zurückgezogen");
@@ -484,7 +484,7 @@ function initBoard() {
   headerRow.innerHTML = '<th class="shift-header"><div>Schicht</div><div class="shift-controls"><button class="shift-rotate-btn" onclick="rotateAllShifts()"><span style="display:inline-flex; align-items:center; gap:5px; justify-content:center;">' + ROUND_SYNC_SVG + '<span>Rotieren</span></span></button><button class="shift-clear-btn" onclick="clearEntireBoard()">🧹 Alle leeren</button></div></th>';
   lines.forEach(line => {
     const th = document.createElement("th"); th.className = "line-header";
-    if (isPlanner) th.onclick = () => { openLineEditModal(line.id); };
+    if (isPlanner && plannerLevel > 2) th.onclick = () => { openLineEditModal(line.id); }; // Stufe 2 darf Linien-Details nicht per Klick öffnen
     let pCls = line.prio && (line.prio.indexOf("1") !== -1 || line.prio.indexOf("2") !== -1) ? "prio-high" : (line.prio ? "prio-mid" : "");
     th.innerHTML = '<div class="line-title">' + line.name + '</div><div class="badge-container">' + (line.prio ? '<span class="line-prio ' + pCls + '">' + line.prio + '</span>' : '') + (line.tag ? '<span class="line-status-tag">' + line.tag + '</span>' : '') + '</div>' + (line.note ? '<div class="line-notes">' + line.note + '</div>' : '');
     headerRow.appendChild(th);
@@ -500,7 +500,9 @@ function initBoard() {
     const sunBadge = isShiftSundayOff ? '<div style="font-size:0.64rem; color:#0284c7; background:#e0f2fe; padding:2px 4px; border-radius:4px; margin-top:3px;">So. Frei</div>' : '';
     const tr = document.createElement("tr"), thS = document.createElement("th");
     thS.className = "shift-header";
-    thS.innerHTML = '<div>' + shift.name + '</div>' + sunBadge + '<div class="shift-team-badge" style="border-left:4px solid ' + curObj.color + ';"><span style="color:' + curObj.color + ';">■</span> ' + curObj.name + '</div><div class="shift-controls"><div style="display:flex; gap:4px;"><select id="teamSelect_' + shift.id + '" class="shift-team-select" style="flex:1; border-left:6px solid ' + curObj.color + '; color:' + curObj.color + ';" onchange="onShiftTeamDropdownChange(\'' + shift.id + '\', this)">' + opts + '</select><button class="shift-clear-btn" style="width:26px; padding:0; color:var(--bayer-blue); border-color:var(--bayer-blue);" onclick="loadTeamToShift(\'' + shift.id + '\')" title="Team auf Linien laden">📥</button></div><button class="shift-clear-btn" onclick="clearShiftRow(\'' + shift.id + '\')">🧹 Leeren</button></div>';
+    // Stufe 2 darf Team-Wechsel und Zeilen-Leeren im Header nicht ausführen
+    const disableStufe2Controls = plannerLevel === 2 ? 'disabled style="background:#f1f5f9; cursor:not-allowed;"' : '';
+    thS.innerHTML = '<div>' + shift.name + '</div>' + sunBadge + '<div class="shift-team-badge" style="border-left:4px solid ' + curObj.color + ';"><span style="color:' + curObj.color + ';">■</span> ' + curObj.name + '</div><div class="shift-controls"><div style="display:flex; gap:4px;"><select id="teamSelect_' + shift.id + '" class="shift-team-select" ' + disableStufe2Controls + ' style="flex:1; border-left:6px solid ' + curObj.color + '; color:' + curObj.color + ';" onchange="onShiftTeamDropdownChange(\'' + shift.id + '\', this)">' + opts + '</select><button class="shift-clear-btn" ' + disableStufe2Controls + ' style="width:26px; padding:0; color:var(--bayer-blue); border-color:var(--bayer-blue);" onclick="loadTeamToShift(\'' + shift.id + '\')" title="Team auf Linien laden">📥</button></div><button class="shift-clear-btn" ' + disableStufe2Controls + ' onclick="clearShiftRow(\'' + shift.id + '\')">🧹 Leeren</button></div>';
     tr.appendChild(thS);
     lines.forEach(line => {
       const td = document.createElement("td"), zId = line.id + "_" + shift.id;
@@ -517,6 +519,7 @@ function initBoard() {
 }
 
 window.onShiftTeamDropdownChange = function(shiftId, selEl) {
+  if (plannerLevel === 2) return;
   styleShiftDropdown(selEl, selEl.value); shiftRotation[shiftId] = selEl.value; saveToFirebase();
 };
 
@@ -546,7 +549,7 @@ function renderEmployees() {
     if (emp.lastLineId) {
       const lastL = lines.find(x => x.id === emp.lastLineId);
       if (lastL) {
-        const delBtn = isPlanner ? '<span onclick="event.stopPropagation(); deletePin(\'' + emp.id + '\')" style="cursor:pointer; color:#ef4444; font-size:0.75rem; padding:0 3px;" title="Nadel entfernen">✖</span>' : '';
+        const delBtn = isPlanner && plannerLevel > 2 ? '<span onclick="event.stopPropagation(); deletePin(\'' + emp.id + '\')" style="cursor:pointer; color:#ef4444; font-size:0.75rem; padding:0 3px;" title="Nadel entfernen">✖</span>' : '';
         parts.push('<span style="color:#0284c7; font-weight:700;" title="Gemerkte Stammlinie">📌 ' + lastL.name.replace(/Linie\s*/i, '') + ' ' + delBtn + '</span>');
       }
     }
@@ -703,6 +706,14 @@ function applyPlannerLoginState(name, lvl, empId) {
   document.body.classList.toggle("planner-lvl-2", lvl === 2);
   document.body.classList.toggle("planner-lvl-3", lvl === 3);
   document.body.classList.toggle("planner-lvl-4", lvl >= 4);
+
+  const ind = document.getElementById("plannerApprovalIndicator");
+  if (ind && lvl === 2) {
+    ind.style.pointerEvents = "none";
+    ind.style.opacity = "0.6";
+    ind.title = "Schichtfreigabe erst ab Stufe 3 (Planer) möglich";
+  }
+
   const badge = document.getElementById("plannerStatusBadge"); if (badge) badge.textContent = "👤 " + name + " (Stufe " + lvl + ")";
   resetPlanerActivity(); checkBoardLockState();
 }
@@ -779,9 +790,13 @@ function performShiftRotationLogic(autoPlaceEmployees) {
   syncExtraZones(); saveToFirebase(); initBoard();
 }
 
-function rotateAllShifts() { logHistory("Rotation", "Schichtrotation ausgelöst"); performShiftRotationLogic(true); }
+function rotateAllShifts() {
+  if (plannerLevel === 2) return; // Stufe 2 darf nicht rotieren
+  logHistory("Rotation", "Schichtrotation ausgelöst"); performShiftRotationLogic(true);
+}
 
 window.saveShiftModelSettings = function() {
+  if (plannerLevel === 2) return;
   const chkAuto = document.getElementById("cfgAutoRotate");
   shiftModelConfig.model = "vollkonti_sonntag_frei";
   if (chkAuto) shiftModelConfig.autoRotate = chkAuto.checked;
@@ -795,6 +810,7 @@ window.openShiftModelSettingsQuick = function() {
 };
 
 window.loadTeamToShift = function(slotKey) {
+  if (plannerLevel === 2) return;
   const sel = document.getElementById("teamSelect_" + slotKey); if (!sel) return;
   const teamKey = sel.value, todayIso = getTodayIso(); shiftRotation[slotKey] = teamKey; syncAbsentZones();
   employees.forEach(emp => {
@@ -810,12 +826,12 @@ window.loadTeamToShift = function(slotKey) {
 };
 
 window.clearShiftRow = function(shiftId) {
-  if (!isPlanner) return;
+  if (!isPlanner || plannerLevel === 2) return;
   employees.forEach(emp => { if (extractShiftIdFromZone(emp.zone) === shiftId && (!emp.noRotation || !isEmpAnchorActiveToday(emp, getTodayIso()))) emp.zone = "pool"; });
   saveToFirebase(); renderEmployees();
 };
 window.clearEntireBoard = function() {
-  if (!isPlanner) return;
+  if (!isPlanner || plannerLevel === 2) return;
   employees.forEach(emp => { if (emp.zone && ["pool","absent","extra"].indexOf(emp.zone) === -1 && (!emp.noRotation || !isEmpAnchorActiveToday(emp, getTodayIso()))) emp.zone = "pool"; });
   saveToFirebase(); renderEmployees();
 };
@@ -1027,6 +1043,7 @@ function updateInboxBadge() {
 }
 
 window.openInboxModal = function(empId, openSickForm, openExtraForm) {
+  if (plannerLevel === 2) return; // Stufe 2 darf Postfach nicht öffnen
   document.getElementById("inboxModal").style.display = "flex";
   const sickContent = document.getElementById("manualEntryContent"), extraContent = document.getElementById("manualExtraContent");
   if (sickContent) sickContent.style.display = openSickForm ? "block" : "none";
@@ -1482,12 +1499,14 @@ function renderLineCheckboxes(selMain, selSec) {
   mC.innerHTML = build("main-line-chk", selMain); sC.innerHTML = build("sec-line-chk", selSec);
 }
 function openLineEditModal(lineId) {
+  if (plannerLevel === 2) return;
   const l = lines.find(x => x.id === lineId); if (!l) return;
   document.getElementById("editLineId").value = l.id; document.getElementById("lineEditTitle").textContent = l.name + " bearbeiten";
   document.getElementById("editLinePrio").value = l.prio || ""; document.getElementById("editLineTag").value = l.tag || ""; document.getElementById("editLineNote").value = l.note || "";
   document.getElementById("lineEditModal").style.display = "flex";
 }
 window.saveLineDetails = function(keepOpen) {
+  if (plannerLevel === 2) return;
   const l = lines.find(x => x.id === document.getElementById("editLineId").value); if (!l) return;
   l.prio = document.getElementById("editLinePrio").value; l.tag = document.getElementById("editLineTag").value.trim(); l.note = document.getElementById("editLineNote").value.trim();
   saveToFirebase(); initBoard(); if (!keepOpen) closeModal("lineEditModal");
@@ -1502,6 +1521,7 @@ function openSettingsModal() {
   switchTab("tabEmployees", document.getElementById("tabBtnEmployees"));
 }
 function switchTab(t, btnEl) {
+  if (plannerLevel === 2 && t !== "tabProfile") return; // Stufe 2 darf nur den Profil-Tab sehen
   document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
   if (btnEl) btnEl.classList.add("active");
   document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
@@ -1583,19 +1603,11 @@ function renderSettingsLists() {
       const tObj = teamsConfig[e.team] || { name: e.team, color: "#0091df" }, empLvl = Number(e.accessLevel || 1), manageable = canManageEmployee(e);
       const lvlBadge = '<span style="background:#e0f2fe; color:#0369a1; padding:1px 6px; border-radius:4px; font-size:0.7rem; font-weight:700; margin-left:4px;">Stufe ' + empLvl + '</span>';
       const pinBadge = manageable ? ((e.mustChangePw !== false) ? '<span style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; padding:1px 6px; border-radius:4px; font-size:0.72rem; font-weight:700; margin-left:6px;">🔑 Start-PIN: ' + (e.password || "1234") + '</span>' : '<span style="background:#dcfce7; color:#166534; padding:1px 6px; border-radius:4px; font-size:0.7rem; font-weight:600; margin-left:6px;">🔒 Eigene PIN</span>') : '<span style="background:#f1f5f9; color:#64748b; padding:1px 6px; border-radius:4px; font-size:0.7rem; font-weight:600; margin-left:6px;">🔒 Geschützt</span>';
-      const actionBtns = manageable ? '<div style="display:flex; gap:5px;"><button class="btn btn-outline" style="padding:2px 8px; font-size:0.73rem; color:#b45309; border-color:#fcd34d;" onclick="resetEmployeePin(\'' + e.id + '\')">🔑 PIN-Reset</button></div>' : '<span style="font-size:0.72rem; color:#94a3b8; font-weight:600;">Nur Stufe ' + (empLvl + 1) + '+</span>';
+      // Stufe 2 darf nur den PIN-Reset-Button sehen, keine Editier- oder Lösch-Buttons für andere MA
+      const actionBtns = manageable ? '<div style="display:flex; gap:5px;"><button class="btn btn-outline" style="padding:2px 8px; font-size:0.73rem; color:#b45309; border-color:#fcd34d;" onclick="resetEmployeePin(\'' + e.id + '\')">🔑 PIN-Reset</button>' + (plannerLevel > 2 ? '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem;" onclick="editEmployee(\'' + e.id + '\')">✏️</button><button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem; color:#dc2626;" onclick="deleteEmployee(\'' + e.id + '\')">🗑️</button>' : '') + '</div>' : '<span style="font-size:0.72rem; color:#94a3b8; font-weight:600;">Nur Stufe ' + (empLvl + 1) + '+</span>';
       return '<div class="item-row" style="flex-wrap:wrap; gap:6px;"><span style="display:flex; align-items:center; flex-wrap:wrap; gap:2px;"><span style="color:' + tObj.color + '; font-weight:700; margin-right:4px;">■</span> <b>' + fullName(e) + '</b> <small style="color:#64748b; margin-left:4px;">(' + tObj.name + ' · ' + e.role + ')</small>' + lvlBadge + pinBadge + '</span>' + actionBtns + '</div>';
     }).join("");
   }
-  const roleListEl = document.getElementById("roleList");
-  if (roleListEl) roleListEl.innerHTML = roles.map((r, idx) => '<div class="item-row"><span><b>' + r + '</b></span></div>').join("");
-  const lineListEl = document.getElementById("lineSettingsList");
-  if (lineListEl) lineListEl.innerHTML = lines.map((l, idx) => '<div class="item-row"><span><b>' + l.name + '</b> ' + (l.prio ? '<small style="color:#dc2626; font-weight:700;">[' + l.prio + ']</small>' : '') + '</span></div>').join("");
-  const teamListEl = document.getElementById("teamSettingsList");
-  if (teamListEl) teamListEl.innerHTML = Object.keys(teamsConfig).sort().map(k => '<div class="item-row"><div style="display:flex; align-items:center; gap:8px;"><span style="color:' + (teamsConfig[k].color || '#0091df') + '">■</span><b>' + teamsConfig[k].name + '</b></div></div>').join("");
-  filterHistoryUnified();
-  const backupListEl = document.getElementById("backupList");
-  if (backupListEl) backupListEl.innerHTML = backups.length ? backups.map(b => '<div class="item-row"><div><b>' + b.label + '</b><br><small style="color:#64748b;">' + b.time + ' · ' + (b.empCount || 0) + ' MA</small></div></div>').join("") : '<p style="font-size:0.82rem; color:#64748b;">Noch keine Backups vorhanden.</p>';
 }
 
 function renderProfileTab() {
@@ -1606,193 +1618,26 @@ function renderProfileTab() {
 
   const teamKeys = Object.keys(teamsConfig).sort();
   const mLines = emp.mainLines || [], sLines = emp.secLines || [];
-  const mainCheckboxes = lines.map(l => '<label style="font-size:0.78rem; display:inline-flex; align-items:center; gap:3px; cursor:pointer;"><input type="checkbox" value="' + l.id + '" class="prof-main-chk" ' + (mLines.indexOf(l.id) !== -1 ? 'checked' : '') + '> ' + l.name + '</label>').join("");
-  const secCheckboxes = lines.map(l => '<label style="font-size:0.78rem; display:inline-flex; align-items:center; gap:3px; cursor:pointer;"><input type="checkbox" value="' + l.id + '" class="prof-sec-chk" ' + (sLines.indexOf(l.id) !== -1 ? 'checked' : '') + '> ' + l.name + '</label>').join("");
-
-  const isLockedByPlanner = !!emp.profileLockedByPlanner;
+  const canEditDetails = plannerLevel >= 3; // NUR Stufe 3+ darf Stammdaten ändern!
 
   box.innerHTML =
-    '<h4 style="font-size:0.9rem; color:var(--bayer-blue); margin-bottom:10px;">👤 Meine Stammdaten bearbeiten</h4>' +
-    (isLockedByPlanner ? '<div style="background:#fef3c7; color:#b45309; padding:8px 10px; border-radius:6px; font-size:0.78rem; font-weight:700; margin-bottom:10px;">🔒 Deine Linien wurden beim Onboarding hinterlegt. Änderungen können ab jetzt nur noch vom Planer vorgenommen werden.</div>' : '') +
-    '<div style="display:flex; gap:10px; margin-bottom:10px;"><div class="form-group" style="flex:1;"><label>Vorname</label><input type="text" id="profFirstName" class="form-control" value="' + (emp.firstName || "") + '"></div><div class="form-group" style="flex:1;"><label>Nachname</label><input type="text" id="profLastName" class="form-control" value="' + (emp.lastName || "") + '"></div></div>' +
-    '<div style="display:flex; gap:10px; margin-bottom:10px;"><div class="form-group" style="flex:1;"><label>Team</label><select id="profTeam" class="form-control">' + teamKeys.map(k => '<option value="' + k + '"' + (emp.team === k ? ' selected' : '') + '>' + teamsConfig[k].name + '</option>').join("") + '</select></div><div class="form-group" style="flex:1;"><label>Rolle</label><select id="profRole" class="form-control">' + roles.map(r => '<option value="' + r + '"' + (emp.role === r ? ' selected' : '') + '>' + r + '</option>').join("") + '</select></div></div>' +
-    '<div style="display:flex; gap:14px; align-items:center; margin-bottom:10px;"><label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.84rem; font-weight:600;"><input type="checkbox" id="profFirstAider" ' + (emp.ersthelfer ? 'checked' : '') + '> Ersthelfer +</label><label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.84rem; font-weight:600;"><input type="checkbox" id="profNoRotation" onchange="document.getElementById(\'profAnchorDaysWrap\').style.display=this.checked?\'block\':\'none\'; if(this.checked) renderAnchorDayButtons([1,2,3,4,5]);" ' + (emp.noRotation ? 'checked' : '') + '> ⚓ Fix (Anker)</label></div>' +
-    '<div id="profAnchorDaysWrap" style="margin-bottom:12px; background:#f1f5f9; padding:10px; border-radius:6px; display:' + (emp.noRotation ? 'block' : 'none') + ';"><label style="display:block; font-size:0.78rem; font-weight:700; margin-bottom:6px;">Anker-Modus (Wochentage aktiv):</label><div id="anchorDaysContainer"></div></div>' +
-    '<div class="form-group"><label>Prio-Linien (Stammlinien):</label><div style="display:flex; flex-wrap:wrap; gap:6px;">' + (isLockedByPlanner ? mLines.map(id => { const l = lines.find(x => x.id === id); return '<span style="background:#e2e8f0; padding:3px 8px; border-radius:4px; font-size:0.78rem; font-weight:700;">' + (l ? l.name : id) + '</span>'; }).join(" ") : mainCheckboxes) + '</div></div>' +
-    '<div class="form-group"><label>Sek-Linien:</label><div style="display:flex; flex-wrap:wrap; gap:6px;">' + (isLockedByPlanner ? sLines.map(id => { const l = lines.find(x => x.id === id); return '<span style="background:#e2e8f0; padding:3px 8px; border-radius:4px; font-size:0.78rem; font-weight:700;">' + (l ? l.name : id) + '</span>'; }).join(" ") : secCheckboxes) + '</div></div>' +
-    '<button class="btn btn-primary" style="width:100%; margin-top:6px;" onclick="saveMyProfileData()">Änderungen speichern</button>';
-
-  renderAnchorDayButtons(emp.fixDays || [1,2,3,4,5]);
+    '<h4 style="font-size:0.9rem; color:var(--bayer-blue); margin-bottom:10px;">👤 Meine Stammdaten</h4>' +
+    (!canEditDetails ? '<div style="background:#fef3c7; color:#b45309; padding:8px 10px; border-radius:6px; font-size:0.78rem; font-weight:700; margin-bottom:10px;">🔒 Stammdaten sind gesperrt. Du kannst hier deine persönliche PIN aktualisieren.</div>' : '') +
+    '<div style="display:flex; gap:10px; margin-bottom:10px;"><div class="form-group" style="flex:1;"><label>Vorname</label><input type="text" id="profFirstName" class="form-control" value="' + (emp.firstName || "") + '" ' + (!canEditDetails ? 'disabled style="background:#f8fafc;"' : '') + '></div><div class="form-group" style="flex:1;"><label>Nachname</label><input type="text" id="profLastName" class="form-control" value="' + (emp.lastName || "") + '" ' + (!canEditDetails ? 'disabled style="background:#f8fafc;"' : '') + '></div></div>' +
+    '<div style="display:flex; gap:10px; margin-bottom:10px;"><div class="form-group" style="flex:1;"><label>Team</label><select id="profTeam" class="form-control" ' + (!canEditDetails ? 'disabled style="background:#f8fafc;"' : '') + '>' + teamKeys.map(k => '<option value="' + k + '"' + (emp.team === k ? ' selected' : '') + '>' + teamsConfig[k].name + '</option>').join("") + '</select></div><div class="form-group" style="flex:1;"><label>Rolle</label><select id="profRole" class="form-control" ' + (!canEditDetails ? 'disabled style="background:#f8fafc;"' : '') + '>' + roles.map(r => '<option value="' + r + '"' + (emp.role === r ? ' selected' : '') + '>' + r + '</option>').join("") + '</select></div></div>' +
+    (canEditDetails ? '<button class="btn btn-primary" style="width:100%; margin-top:6px;" onclick="saveMyProfileData()">Änderungen speichern</button>' : '');
 }
 
 window.saveMyProfileData = function() {
+  if (plannerLevel === 2) return; // Stufe 2 darf hier nichts speichern
   const emp = employees.find(e => e.id === currentPlannerEmpId); if (!emp) return;
   emp.firstName = document.getElementById("profFirstName").value.trim();
   emp.lastName = document.getElementById("profLastName").value.trim();
   emp.team = document.getElementById("profTeam").value;
   emp.role = document.getElementById("profRole").value;
-  emp.ersthelfer = document.getElementById("profFirstAider").checked;
-  emp.noRotation = document.getElementById("profNoRotation").checked;
-  emp.fixDays = document.getElementById("anchorDaysContainer")._selectedDays || [1,2,3,4,5];
   
-  if (!emp.profileLockedByPlanner) {
-    emp.mainLines = Array.from(document.querySelectorAll(".prof-main-chk:checked")).map(c => c.value);
-    emp.secLines = Array.from(document.querySelectorAll(".prof-sec-chk:checked")).map(c => c.value);
-  }
-
   currentPlannerName = fullName(emp);
   sessionStorage.setItem("planner_name", currentPlannerName);
-  const badge = document.getElementById("plannerStatusBadge"); if (badge) badge.textContent = "👤 " + currentPlannerName + " (Stufe " + plannerLevel + ")";
-
   logHistory("Profil", fullName(emp) + " hat die eigenen Stammdaten aktualisiert");
   saveToFirebase(); initBoard(); showToast("✅ Deine Profildaten wurden gespeichert!");
 };
-
-window.moveRole = function(idx, dir) { const t = idx + dir; if (t < 0 || t >= roles.length) return; const tmp = roles[idx]; roles[idx] = roles[t]; roles[t] = tmp; saveToFirebase(); initBoard(); };
-window.deleteRole = function(idx) { if (roles.length <= 1 || !confirm("Rolle \"" + roles[idx] + "\" wirklich löschen?")) return; roles.splice(idx, 1); saveToFirebase(); initBoard(); };
-window.moveLine = function(idx, dir) { const t = idx + dir; if (t < 0 || t >= lines.length) return; const tmp = lines[idx]; lines[idx] = lines[t]; lines[t] = tmp; saveToFirebase(); initBoard(); };
-window.deleteLine = function(id) { if (lines.length <= 1) return; const l = lines.find(x => x.id === id); if (!confirm("Linie \"" + (l ? l.name : id) + "\" wirklich löschen?")) return; lines = lines.filter(l => l.id !== id); saveToFirebase(); initBoard(); };
-window.updateTeamColor = function(k, c) { if (teamsConfig[k]) { teamsConfig[k].color = c; saveToFirebase(); initBoard(); } };
-window.toggleTeamRotateSetting = function(k, r) { if (teamsConfig[k]) { teamsConfig[k].rotates = r; saveToFirebase(); initBoard(); } };
-window.deleteTeam = function(teamKey) {
-  if (Object.keys(teamsConfig).length <= 1) return;
-  const removedName = teamsConfig[teamKey] ? teamsConfig[teamKey].name : teamKey;
-  if (!confirm("Team \"" + removedName + "\" wirklich löschen?")) return;
-  delete teamsConfig[teamKey]; delete activeTeamFilters[teamKey]; sanitizeTeamReferences();
-  logHistory("Teams", "Team \"" + removedName + "\" gelöscht"); saveToFirebase(); initBoard(); showToast("Team \"" + removedName + "\" gelöscht");
-};
-
-function classifyHistoryEntry(h) {
-  const act = (h.action || "").toLowerCase(), det = (h.details || "").toLowerCase();
-  if (act.indexOf("urlaub") !== -1 || det.indexOf("urlaub") !== -1 || det.indexOf("freizeit") !== -1) return "URLAUB";
-  if (act.indexOf("krank") !== -1 || det.indexOf("abwesen") !== -1 || det.indexOf("arbeitsunfähig") !== -1) return "KRANK";
-  if (act.indexOf("bringschicht") !== -1 || det.indexOf("bringschicht") !== -1) return "EXTRA";
-  return "SYSTEM";
-}
-window.setHistoryCategoryFilter = function(cat) { activeHistoryCategory = cat || "ALL"; filterHistoryUnified(); };
-window.filterHistoryUnified = function() {
-  const listEl = document.getElementById("historyList"); if (!listEl) return;
-  let catBar = document.getElementById("historyCategoryFilterBar");
-  if (!catBar && listEl.parentNode) {
-    catBar = document.createElement("div"); catBar.id = "historyCategoryFilterBar";
-    catBar.style.cssText = "display:flex; gap:6px; flex-wrap:wrap; margin:8px 0 10px 0; align-items:center;";
-    listEl.parentNode.insertBefore(catBar, listEl);
-  }
-  const cats = [{ id: "ALL", label: "📋 Alle" }, { id: "SYSTEM", label: "⚙️ System" }, { id: "URLAUB", label: "🌴 Urlaub" }, { id: "KRANK", label: "🏥 Krank" }, { id: "EXTRA", label: "➕ Bringschicht" }];
-  if (catBar) {
-    catBar.innerHTML = cats.map(c => { const active = activeHistoryCategory === c.id; return '<button type="button" onclick="setHistoryCategoryFilter(\'' + c.id + '\')" style="padding:5px 10px; border-radius:6px; font-size:0.75rem; font-weight:700; cursor:pointer; border:1px solid ' + (active ? '#0091df' : '#cbd5e1') + '; background:' + (active ? '#f0f9ff' : '#f8fafc') + '; color:' + (active ? '#0091df' : '#475569') + ';">' + c.label + '</button>'; }).join("");
-  }
-  const qEl = document.getElementById("historyUnifiedInput"), q = qEl ? qEl.value.trim().toLowerCase() : "";
-  const filtered = historyLogs.filter(h => (activeHistoryCategory === "ALL" || classifyHistoryEntry(h) === activeHistoryCategory) && (!q || (h.action || "").toLowerCase().indexOf(q) !== -1 || (h.details || "").toLowerCase().indexOf(q) !== -1 || (h.user || "").toLowerCase().indexOf(q) !== -1));
-  const badgeColors = { SYSTEM: { bg: "#f1f5f9", col: "#475569", icon: "⚙️" }, URLAUB: { bg: "#f0fdf4", col: "#166534", icon: "🌴" }, KRANK: { bg: "#fef2f2", col: "#b91c1c", icon: "🏥" }, EXTRA: { bg: "#eff6ff", col: "#1d4ed8", icon: "➕" } };
-  listEl.innerHTML = filtered.length ? filtered.map(h => {
-    const st = badgeColors[classifyHistoryEntry(h)] || badgeColors.SYSTEM;
-    const delBtn = isPlanner ? '<span style="cursor:pointer; color:#dc2626; font-weight:bold; margin-left:8px; font-size:0.8rem;" onclick="deleteHistoryItem(\'' + h.id + '\')" title="Eintrag löschen">✖</span>' : '';
-    return '<div class="item-row" style="flex-direction:column; align-items:flex-start; gap:3px;"><div style="display:flex; justify-content:space-between; width:100%; font-size:0.75rem; color:#64748b;"><span><span style="background:' + st.bg + '; color:' + st.col + '; padding:1px 6px; border-radius:4px; font-weight:700; margin-right:4px;">' + st.icon + ' ' + h.action + '</span> <b>' + h.user + '</b></span><span>' + h.time + delBtn + '</span></div><div style="font-size:0.82rem; color:#1e293b;">' + h.details + '</div></div>';
-  }).join("") : '<p style="font-size:0.82rem; color:#64748b;">Keine Einträge gefunden.</p>';
-};
-
-window.createManualBackup = function() {
-  backups.unshift({ id: "bk_" + Date.now(), time: new Date().toLocaleString("de-DE"), label: "Backup (" + (currentPlannerName || "Admin") + ")", empCount: employees.length, snapshot: JSON.stringify({ lines: lines, roles: roles, teamsConfig: teamsConfig, employees: employees, shiftRotation: shiftRotation }) });
-  if (backups.length > 15) backups = backups.slice(0, 15);
-  logHistory("Backup", "Manuelles Backup erstellt"); saveToFirebase(); renderSettingsLists();
-};
-window.restoreBackup = function(id) {
-  const b = backups.find(x => x.id === id); if (!b || !b.snapshot || !confirm("Backup \"" + b.label + "\" vom " + b.time + " wirklich wiederherstellen?")) return;
-  try {
-    const data = JSON.parse(b.snapshot);
-    if (data.lines) lines = data.lines; if (data.roles) roles = data.roles; if (data.teamsConfig) teamsConfig = data.teamsConfig;
-    if (data.employees) employees = data.employees; if (data.shiftRotation) shiftRotation = data.shiftRotation;
-    logHistory("Backup", "Backup wiederhergestellt"); saveToFirebase(); initBoard();
-  } catch (e) { console.error(e); }
-};
-window.deleteBackup = function(id) { backups = backups.filter(x => x.id !== id); saveToFirebase(); renderSettingsLists(); };
-window.filterSettingsEmployees = function(val) { settingsEmpSearchQuery = (val || "").trim().toLowerCase(); renderSettingsLists(); };
-
-window.editEmployee = function(id) {
-  const emp = employees.find(e => e.id === id); if (!emp) return;
-  if (!canManageEmployee(emp)) { showToast("❌ Keine Berechtigung zum Bearbeiten von Stufe " + (emp.accessLevel || 1) + "!", true); return; }
-  document.getElementById("editEmpId").value = emp.id; document.getElementById("newEmpFirstName").value = emp.firstName || ""; document.getElementById("newEmpLastName").value = emp.lastName || "";
-  document.getElementById("newEmpTeam").value = emp.team || Object.keys(teamsConfig)[0]; document.getElementById("newEmpRole").value = emp.role || roles[0];
-  updateAccessLevelDropdownOptions(emp.accessLevel || 1);
-  if (document.getElementById("newEmpFirstAider")) document.getElementById("newEmpFirstAider").checked = !!emp.ersthelfer;
-  const fixChk = document.getElementById("newEmpNoRotation");
-  if (fixChk) {
-    fixChk.checked = !!emp.noRotation;
-    const wrap = document.getElementById("newEmpAnchorDaysWrap");
-    if (wrap) wrap.style.display = emp.noRotation ? "block" : "none";
-    renderAnchorDayButtons(emp.fixDays || [1,2,3,4,5]);
-  }
-  renderLineCheckboxes(emp.mainLines || [], emp.secLines || []);
-  const cancelBtn = document.getElementById("btnCancelEditEmp"); if (cancelBtn) cancelBtn.style.display = "inline-block";
-};
-window.deleteEmployee = function(id) {
-  const emp = employees.find(e => e.id === id); if (!emp) return;
-  if (!canManageEmployee(emp)) { showToast("❌ Keine Berechtigung zum Löschen von Stufe " + (emp.accessLevel || 1) + "!", true); return; }
-  if (!confirm("Mitarbeiter \"" + fullName(emp) + "\" wirklich endgültig löschen?")) return;
-  employees = employees.filter(e => e.id !== id); sickLeaves = sickLeaves.filter(sl => sl.empId !== id);
-  extraShifts = extraShifts.filter(es => es.empId !== id); leaveRequests = leaveRequests.filter(r => r.empId !== id);
-  logHistory("Mitarbeiter", fullName(emp) + " wurde gelöscht"); saveToFirebase(); initBoard();
-};
-
-function addTeam() {
-  const name = document.getElementById("newTeamName").value.trim(), color = document.getElementById("newTeamColor").value, rotates = document.getElementById("newTeamRotates").checked;
-  if (!name) return; const k = "team_" + Date.now();
-  teamsConfig[k] = { name: name, color: color, rotates: rotates }; activeTeamFilters[k] = true;
-  document.getElementById("newTeamName").value = ""; saveToFirebase(); initBoard();
-}
-function addLine() {
-  const inp = document.getElementById("newLineName"), name = inp ? inp.value.trim() : "";
-  if (!name) return; lines.push({ id: "L_" + Date.now(), name: name, prio: "", tag: "", note: "" }); inp.value = ""; saveToFirebase(); initBoard();
-}
-function addRole() {
-  const inp = document.getElementById("newRoleName"), val = inp ? inp.value.trim() : "";
-  if (!val || roles.indexOf(val) !== -1) return; roles.push(val); activeRoleFilters[val] = true; inp.value = ""; saveToFirebase(); initBoard();
-}
-
-function saveEmployee() {
-  const idInp = document.getElementById("editEmpId").value, fName = document.getElementById("newEmpFirstName").value.trim(), lName = document.getElementById("newEmpLastName").value.trim();
-  const team = document.getElementById("newEmpTeam").value, role = document.getElementById("newEmpRole").value;
-  let lvl = Number(document.getElementById("newEmpAccessLevel").value) || 1;
-  const maxAllowedLvl = getMaxAssignableLevel();
-  const isFirstAider = document.getElementById("newEmpFirstAider") ? document.getElementById("newEmpFirstAider").checked : false, isFix = document.getElementById("newEmpNoRotation").checked;
-  const anchorDays = (document.getElementById("anchorDaysContainer") && document.getElementById("anchorDaysContainer")._selectedDays) ? document.getElementById("anchorDaysContainer")._selectedDays : [1,2,3,4,5];
-  const mLines = Array.from(document.querySelectorAll(".main-line-chk:checked")).map(c => c.value);
-  const sLines = Array.from(document.querySelectorAll(".sec-line-chk:checked")).map(c => c.value);
-  if (!fName && !lName) return;
-
-  if (idInp) {
-    const emp = employees.find(e => e.id === idInp); if (!emp) return;
-    if (!canManageEmployee(emp)) { showToast("❌ Keine Berechtigung für diesen Mitarbeiter!", true); return; }
-    if (emp.id !== currentPlannerEmpId && lvl > maxAllowedLvl) { showToast("❌ Du kannst maximal Stufe " + maxAllowedLvl + " freischalten!", true); lvl = maxAllowedLvl; }
-    emp.firstName = fName; emp.lastName = lName; emp.team = team; emp.role = role; emp.accessLevel = lvl; emp.ersthelfer = isFirstAider; emp.noRotation = isFix; emp.fixDays = anchorDays; emp.mainLines = mLines; emp.secLines = sLines;
-    logHistory("Mitarbeiter", fullName(emp) + " aktualisiert (Stufe " + lvl + ")");
-  } else {
-    if (lvl > maxAllowedLvl) { showToast("❌ Du kannst maximal Stufe " + maxAllowedLvl + " freischalten!", true); lvl = maxAllowedLvl; }
-    const startPin = generateStartPin();
-    employees.push({ id: "e_" + Date.now(), firstName: fName, lastName: lName, team: team, role: role, accessLevel: lvl, password: startPin, mustChangePw: true, ersthelfer: isFirstAider, noRotation: isFix, fixDays: anchorDays, mainLines: mLines, secLines: sLines, zone: "pool" });
-    logHistory("Mitarbeiter", fName + " " + lName + " neu angelegt (Stufe " + lvl + ")");
-    showToast("✅ Angelegt (Stufe " + lvl + ")! Start-PIN: " + startPin);
-  }
-  resetEmpForm(); saveToFirebase(); initBoard();
-}
-
-function resetEmpForm() {
-  ["editEmpId","newEmpFirstName","newEmpLastName"].forEach(id => { if (document.getElementById(id)) document.getElementById(id).value = ""; });
-  ["newEmpFirstAider","newEmpNoRotation"].forEach(id => { if (document.getElementById(id)) document.getElementById(id).checked = false; });
-  const wrap = document.getElementById("newEmpAnchorDaysWrap"); if (wrap) wrap.style.display = "none";
-  updateAccessLevelDropdownOptions(1);
-  const cancelBtn = document.getElementById("btnCancelEditEmp"); if (cancelBtn) cancelBtn.style.display = "none";
-  renderLineCheckboxes([], []);
-}
-function autoSaveSecurityConfig() {
-  const chk = document.getElementById("secBoardPwEnabled"), pwInp = document.getElementById("secBoardPwValue");
-  securityConfig.boardPwEnabled = chk ? chk.checked : false; securityConfig.boardPw = pwInp ? pwInp.value.trim() : "0110";
-  saveToFirebase();
-}
-document.addEventListener("click", e => {
-  ["plannerLoginSuggestions", "manualSickSuggestions", "manualExtraSuggestions"].forEach(boxId => {
-    const box = document.getElementById(boxId);
-    if (box && !box.contains(e.target) && e.target.tagName !== "INPUT") box.style.display = "none";
-  });
-});
