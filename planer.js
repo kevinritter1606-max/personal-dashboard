@@ -1,4 +1,4 @@
-/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.35 */
+/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.36 */
 firebase.initializeApp({
   apiKey: "AIzaSyBPOYRYyUm5gA-j7YSAZl7EJoxedFhDTl4", authDomain: "schichtplan-bayer.firebaseapp.com",
   projectId: "schichtplan-bayer", storageBucket: "schichtplan-bayer.firebasestorage.app",
