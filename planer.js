@@ -1,4 +1,4 @@
-/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.18 */
+/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.22 */
 firebase.initializeApp({
   apiKey: "AIzaSyBPOYRYyUm5gA-j7YSAZl7EJoxedFhDTl4", authDomain: "schichtplan-bayer.firebaseapp.com",
   projectId: "schichtplan-bayer", storageBucket: "schichtplan-bayer.firebasestorage.app",
@@ -20,7 +20,7 @@ let teamsConfig = {
   "team-4": { name: "Team 4", color: "#f43f5e", rotates: true }
 };
 let securityConfig = { boardPwEnabled: false, boardPw: "0110", plannerTimeoutMin: 180 };
-let shiftModelConfig = { model: "vollkonti_sonntag_frei", autoRotate: true, lastRotationStepKey: "", lastSundayResetKey: "" };
+let shiftModelConfig = { model: "vollkonti_sonntag_frei", autoRotate: true, lastRotationStepKey: "", lastSundayResetKey: "", lastSundayAutoLoadKey: "" };
 
 let approvedShiftKey = "", hasLoadedFromCloud = false, isDraggingCard = false;
 let activeTeamFilters = {}, activeRoleFilters = {}, poolSearchQuery = "", settingsEmpSearchQuery = "";
@@ -45,8 +45,8 @@ function isIsoDateSunday(iso) {
   return p.length === 3 && new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay() === 0;
 }
 function isSundayRestPeriod(baseDate) {
-  const now = baseDate || new Date(), day = now.getDay(), h = now.getHours();
-  return (day === 0 && h >= 5) || (day === 1 && h < 5);
+  const now = baseDate || new Date();
+  return now.getDay() === 0;
 }
 function isSundayDaytimeFree() { return isSundayRestPeriod(new Date()); }
 function getLogicalDateObj(baseDate) {
@@ -57,7 +57,7 @@ function getLogicalDateObj(baseDate) {
 function getLogicalDateIso(baseDate) { return getTodayIso(getLogicalDateObj(baseDate)); }
 function getCurrentActiveShiftId() {
   const h = new Date().getHours();
-  return (h >= 5 && h < 13) ? "frueh" : ((h >= 13 && h < 21) ? "spaet" : "nacht");
+  return (h >= 6 && h < 14) ? "frueh" : ((h >= 14 && h < 22) ? "spaet" : "nacht");
 }
 function getCurrentShiftApprovalKey() { return getLogicalDateIso() + "_" + getCurrentActiveShiftId(); }
 function isCurrentShiftApproved() { return approvedShiftKey === getCurrentShiftApprovalKey(); }
@@ -128,22 +128,21 @@ window.didEmpWorkNightBefore = function(emp, dateIso) {
 window.checkExtraShiftPlausibility = function(empId, dateIso, shiftId) {
   const emp = employees.find(e => e.id === empId);
   if (!emp) return { ok: false, reason: "Mitarbeiter nicht gefunden", code: "NO_EMP" };
-  if (isIsoDateSunday(dateIso)) return { ok: false, reason: "Sonntags (ab 05:00 Uhr bis Montag 05:00 Uhr) ist betriebsfrei", code: "SUNDAY_OFF" };
+  if (isIsoDateSunday(dateIso)) return { ok: false, reason: "Sonntags ist betriebsfrei", code: "SUNDAY_OFF" };
   if (hasLeaveOverlap(empId, dateIso, dateIso, null)) return { ok: false, reason: "An diesem Tag bereits als abwesend / im Urlaub eingetragen", code: "ON_LEAVE" };
   if (extraShifts.some(es => es.empId === empId && es.date === dateIso && es.status !== "rejected")) {
     return { ok: false, reason: "Für dieses Datum ist bereits eine Bringschicht gemeldet", code: "ALREADY_EXTRA" };
   }
   
   const nightBefore = window.didEmpWorkNightBefore(emp, dateIso);
-  
   if (nightBefore && shiftId === "frueh") {
-    return { ok: false, isWorkingConflict: false, reason: "Nach einer Nachtschicht (Ende 05:00 Uhr) ist direkt im Anschluss um 05:00 Uhr keine Frühschicht möglich (Ruhezeit)", code: "NIGHT_TO_EARLY_BLOCKED" };
+    return { ok: false, isWorkingConflict: false, reason: "Nach einer Nachtschicht ist direkt im Anschluss keine Frühschicht möglich (Ruhezeit)", code: "NIGHT_TO_EARLY_BLOCKED" };
   }
   if (nightBefore && shiftId === "spaet") {
     return {
       ok: false, isWorkingConflict: true, isNightShiftConflict: true, regularShift: "nacht_vortag",
-      regularShiftLabel: "Nachtschicht (bis 05:00 Uhr morgens)",
-      reason: "Mitarbeiter hatte bis 05:00 Uhr morgens Nachtschicht", code: "NIGHT_REST_WARNING"
+      regularShiftLabel: "Nachtschicht (bis morgens)",
+      reason: "Mitarbeiter hatte bis morgens Nachtschicht", code: "NIGHT_REST_WARNING"
     };
   }
   if (nightBefore && shiftId === "nacht") {
@@ -175,10 +174,10 @@ window.getEmpProbableLinesText = function(emp) {
 
 function getShiftTimeBounds(dateIso, shiftId) {
   const p = dateIso.split("-"), y = Number(p[0]), m = Number(p[1]) - 1, d = Number(p[2]);
-  let startHour = 5, endHour = 13, endDayOffset = 0;
-  if (shiftId === "frueh") { startHour = 5; endHour = 13; }
-  else if (shiftId === "spaet") { startHour = 13; endHour = 21; }
-  else if (shiftId === "nacht") { startHour = 21; endHour = 5; endDayOffset = 1; }
+  let startHour = 6, endHour = 14, endDayOffset = 0;
+  if (shiftId === "frueh") { startHour = 6; endHour = 14; }
+  else if (shiftId === "spaet") { startHour = 14; endHour = 22; }
+  else if (shiftId === "nacht") { startHour = 22; endHour = 6; endDayOffset = 1; }
   const shiftStartMs = new Date(y, m, d, startHour, 0, 0, 0).getTime();
   const shiftEndMs = new Date(y, m, d + endDayOffset, endHour, 0, 0, 0).getTime();
   return { prepStartMs: shiftStartMs - 3600000, shiftStartMs: shiftStartMs, shiftEndMs: shiftEndMs };
@@ -210,31 +209,33 @@ function syncExtraZones() {
 
 function checkAndRunSundayResetAndRotation() {
   if (!hasLoadedFromCloud || !shiftModelConfig) return;
-  const now = new Date(), todayIso = getTodayIso(now);
+  const now = new Date(), day = now.getDay(), hour = now.getHours(), todayIso = getTodayIso(now);
   let changed = false;
 
-  if (!isSundayRestPeriod(now)) {
-    employees.forEach(emp => {
-      if (emp.noRotation && emp.zone && ["pool", "absent", "extra"].indexOf(emp.zone) === -1) {
-        if (!isEmpAnchorActiveToday(emp, todayIso)) {
-          emp.zone = "pool"; changed = true;
-        }
-      }
-    });
-  }
-
-  if (isSundayRestPeriod(now)) {
-    const sunKey = "SUN_RESET_" + (now.getDay() === 0 ? todayIso : getPrevDateIso(todayIso));
-    if (shiftModelConfig.lastSundayResetKey !== sunKey) {
-      shiftModelConfig.lastSundayResetKey = sunKey;
+  if (day === 0 && hour >= 6) {
+    const sunResetKey = "SUN_POOL_RESET_" + todayIso;
+    if (shiftModelConfig.lastSundayResetKey !== sunResetKey) {
+      shiftModelConfig.lastSundayResetKey = sunResetKey;
       employees.forEach(emp => {
-        if (emp.zone && ["pool", "absent", "extra"].indexOf(emp.zone) === -1) { emp.zone = "pool"; changed = true; }
+        if (emp.noRotation && isEmpAnchorActiveToday(emp, todayIso)) return; // Anker schützen!
+        if (emp.zone && ["pool", "absent", "extra"].indexOf(emp.zone) === -1) {
+          emp.zone = "pool";
+          changed = true;
+        }
       });
-      logHistory("Sonntags-Reset", "Sonntag 05:00 Uhr: Alle Mitarbeiter in den Pool gesetzt");
+      logHistory("Sonntags-Reset", "Sonntag 06:00 Uhr: Alle nicht-Anker Mitarbeiter in den Pool verschoben");
       changed = true;
     }
-    if (changed) { saveToFirebase(); initBoard(); }
-    return;
+  }
+
+  if (day === 0 && hour >= 12) {
+    const sunLoadKey = "SUN_AUTO_LOAD_" + todayIso;
+    if (shiftModelConfig.lastSundayAutoLoadKey !== sunLoadKey) {
+      shiftModelConfig.lastSundayAutoLoadKey = sunLoadKey;
+      placeTeamsOnDefaultLines();
+      logHistory("Automatisches Laden", "Sonntag 12:00 Uhr: Teams automatisch auf Linien geladen");
+      changed = true;
+    }
   }
 
   if (shiftModelConfig.autoRotate === true) {
@@ -248,11 +249,9 @@ function checkAndRunSundayResetAndRotation() {
       performShiftRotationLogic(true);
       return;
     }
-    const anyOnLine = employees.some(e => extractLineIdFromZone(e.zone) !== null);
-    if (!anyOnLine && now.getDay() === 1 && now.getHours() >= 5) {
-      placeTeamsOnDefaultLines(); saveToFirebase(); initBoard();
-    }
   }
+
+  if (changed) { saveToFirebase(); initBoard(); }
 }
 
 const ROUND_SYNC_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>';
@@ -272,7 +271,7 @@ function updateAutoRotationUI() {
   const chkAuto = document.getElementById("cfgAutoRotate"), hintEl = document.getElementById("cfgRotationStatusHint");
   if (chkAuto) chkAuto.checked = isAuto;
   if (hintEl) {
-    hintEl.textContent = isAuto ? "✅ Aktiv (So. 05:00 Pool-Reset · Start Mo. 05:00)" : "⏸️ Automatik deaktiviert";
+    hintEl.textContent = isAuto ? "✅ Aktiv (So. 06:00 Pool-Reset · 12:00 Vorladen)" : "⏸️ Automatik deaktiviert";
     hintEl.style.color = isAuto ? "#166534" : "#64748b";
   }
   const freiWrap = document.getElementById("poolFreiControlWrap");
@@ -294,7 +293,7 @@ function updateShiftApprovalUI() {
   if (portalBadge && portalDot && portalText) {
     if (sundayFree && !approved) {
       portalBadge.className = "portal-shift-status sunday"; portalDot.style.background = "#0284c7";
-      portalText.textContent = "☀️ Sonntag – Betriebsfrei (Start Montag 05:00 Uhr)";
+      portalText.textContent = "☀️ Sonntag – Betriebsfrei";
     } else if (approved) {
       portalBadge.className = "portal-shift-status approved"; portalDot.style.background = "#16a34a";
       portalText.textContent = shiftName + " ist bestätigt & freigegeben";
@@ -306,7 +305,7 @@ function updateShiftApprovalUI() {
 }
 
 window.toggleShiftApprovalState = function() {
-  if (plannerLevel <= 2) return; // Stufe 1 & 2 dürfen niemals freigeben
+  if (plannerLevel <= 2) return;
   const currentKey = getCurrentShiftApprovalKey();
   approvedShiftKey = (approvedShiftKey === currentKey) ? "" : currentKey;
   logHistory("Freigabe", approvedShiftKey ? "Schicht bestätigt & freigegeben" : "Schichtfreigabe zurückgezogen");
@@ -758,9 +757,14 @@ function placeTeamsOnDefaultLines() {
   const sundayFree = isSundayDaytimeFree(), todayIso = getTodayIso();
   employees.forEach(emp => {
     if (emp.zone === "absent" || emp.zone === "extra") return;
-    if (sundayFree || !isEmpAnchorActiveToday(emp, todayIso)) { emp.zone = "pool"; return; }
+    
+    // 1. ANKER SCHÜTZEN: Mitarbeiter mit Fix-Anker bleiben unangetastet
+    if (emp.noRotation && isEmpAnchorActiveToday(emp, todayIso)) return;
+
+    if (sundayFree) { emp.zone = "pool"; return; }
     let targetShift = ["frueh", "spaet", "nacht"].find(sKey => shiftRotation[sKey] === emp.team) || null;
     if (targetShift) {
+      // 2. PIN-VORRANG: Stammlinie (Pin) hat absolute Priorität vor normaler Prio-Linie
       const targetLine = (emp.lastLineId && lines.some(l => l.id === emp.lastLineId)) ? emp.lastLineId : (emp.mainLines && emp.mainLines[0] ? emp.mainLines[0] : null);
       emp.zone = targetLine ? (targetLine + "_" + targetShift) : "pool";
     } else emp.zone = "pool";
@@ -797,28 +801,40 @@ window.openShiftModelSettingsQuick = function() {
 window.loadTeamToShift = function(slotKey) {
   const sel = document.getElementById("teamSelect_" + slotKey); if (!sel) return;
   const teamKey = sel.value, todayIso = getTodayIso(); shiftRotation[slotKey] = teamKey; syncAbsentZones();
+  
   employees.forEach(emp => {
+    // 1. ANKER SCHÜTZEN: Mitarbeiter mit Fix-Anker komplett in Ruhe lassen
+    if (emp.noRotation && isEmpAnchorActiveToday(emp, todayIso)) return;
+
+    // 2. Nur Mitarbeiter aus dem Pool des Teams laden, bestehende manuelle Linien-Plätze niemals überschreiben
     if (emp.team === teamKey && (!emp.zone || emp.zone === "pool")) {
-      if (slotKey === "frei" || isSundayDaytimeFree() || !isEmpAnchorActiveToday(emp, todayIso)) {
+      if (slotKey === "frei" || isSundayDaytimeFree()) {
         emp.zone = "pool";
       } else {
+        // 3. PIN-VORRANG BEIM LADEN: Stammlinie (Pin) wird vorrangig angesteuert
         const targetLine = (emp.lastLineId && lines.some(l => l.id === emp.lastLineId)) ? emp.lastLineId : (emp.mainLines && emp.mainLines[0] ? emp.mainLines[0] : null);
         emp.zone = targetLine ? (targetLine + "_" + slotKey) : "pool";
       }
     }
   });
   saveToFirebase(); initBoard();
-  showToast("Team-Mitglieder aus dem Pool auf Schicht geladen!");
+  showToast("Team erfolgreich geladen (Pins & Anker berücksichtigt)!");
 };
 
 window.clearShiftRow = function(shiftId) {
   if (!isPlanner) return;
-  employees.forEach(emp => { if (extractShiftIdFromZone(emp.zone) === shiftId && (!emp.noRotation || !isEmpAnchorActiveToday(emp, getTodayIso()))) emp.zone = "pool"; });
+  employees.forEach(emp => {
+    if (emp.noRotation && isEmpAnchorActiveToday(emp, getTodayIso())) return; // Anker schützen
+    if (extractShiftIdFromZone(emp.zone) === shiftId) emp.zone = "pool";
+  });
   saveToFirebase(); renderEmployees();
 };
 window.clearEntireBoard = function() {
   if (!isPlanner) return;
-  employees.forEach(emp => { if (emp.zone && ["pool","absent","extra"].indexOf(emp.zone) === -1 && (!emp.noRotation || !isEmpAnchorActiveToday(emp, getTodayIso()))) emp.zone = "pool"; });
+  employees.forEach(emp => {
+    if (emp.noRotation && isEmpAnchorActiveToday(emp, getTodayIso())) return; // Anker schützen
+    if (emp.zone && ["pool","absent","extra"].indexOf(emp.zone) === -1) emp.zone = "pool";
+  });
   saveToFirebase(); renderEmployees();
 };
 
@@ -1231,7 +1247,7 @@ window.renderInboxLists = function() {
     const hasConflict = !!(es.plausibilityWarning || es.isNightShiftConflict || regShift || nightBefore);
     let conflictText = es.conflictDetails || "";
     if (!conflictText) {
-      if (nightBefore) conflictText = "Mitarbeiter hatte an diesem Tag bis 05:00 Uhr morgens eine Nachtschicht!";
+      if (nightBefore) conflictText = "Mitarbeiter hatte an diesem Tag bis morgens eine Nachtschicht!";
       else if (regShift) conflictText = "Arbeitet am " + formatDateDe(es.date) + " bereits regulär in der " + (shiftsLabel[regShift] || regShift);
     }
     const forWhoInfo = es.forAbsentEmpName ? ' · <span style="color:#0369a1; font-weight:700;">Ersatz für: ' + es.forAbsentEmpName + (es.probableLines ? ' (' + es.probableLines + ')' : '') + '</span>' : '';
@@ -1506,7 +1522,7 @@ function openSettingsModal() {
   switchTab("tabEmployees", document.getElementById("tabBtnEmployees"));
 }
 function switchTab(t, btnEl) {
-  if (plannerLevel === 2 && t !== "tabProfile") return; // Stufe 2 darf nur den Profil-Tab sehen
+  if (plannerLevel === 2 && t !== "tabProfile") return;
   document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
   if (btnEl) btnEl.classList.add("active");
   document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
@@ -1531,11 +1547,7 @@ window.toggleAnchorDay = function(dayNum, btnEl) {
   const container = document.getElementById("anchorDaysContainer"); if (!container) return;
   let days = container._selectedDays || [1, 2, 3, 4, 5];
   const idx = days.indexOf(dayNum);
-  if (idx !== -1) {
-    days.splice(idx, 1);
-  } else {
-    days.push(dayNum);
-  }
+  if (idx !== -1) days.splice(idx, 1); else days.push(dayNum);
   container._selectedDays = days;
   renderAnchorDayButtons(days);
 };
@@ -1601,8 +1613,7 @@ function renderProfileTab() {
   if (!emp && isPlanner) { box.innerHTML = "<p>System-Admin Account (globaler Admin). Stammdaten können über die Mitarbeiter-Tabelle bearbeitet werden.</p>"; return; }
 
   const teamKeys = Object.keys(teamsConfig).sort();
-  const mLines = emp.mainLines || [], sLines = emp.secLines || [];
-  const canEditDetails = plannerLevel >= 3; // NUR Stufe 3+ darf Stammdaten ändern!
+  const canEditDetails = plannerLevel >= 3;
 
   box.innerHTML =
     '<h4 style="font-size:0.9rem; color:var(--bayer-blue); margin-bottom:10px;">👤 Meine Stammdaten</h4>' +
@@ -1613,7 +1624,7 @@ function renderProfileTab() {
 }
 
 window.saveMyProfileData = function() {
-  if (plannerLevel === 2) return; // Stufe 2 darf hier nichts speichern
+  if (plannerLevel === 2) return;
   const emp = employees.find(e => e.id === currentPlannerEmpId); if (!emp) return;
   emp.firstName = document.getElementById("profFirstName").value.trim();
   emp.lastName = document.getElementById("profLastName").value.trim();
