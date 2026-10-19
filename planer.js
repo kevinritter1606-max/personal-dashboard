@@ -1,4 +1,4 @@
-/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.17 */
+/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.18 */
 firebase.initializeApp({
   apiKey: "AIzaSyBPOYRYyUm5gA-j7YSAZl7EJoxedFhDTl4", authDomain: "schichtplan-bayer.firebaseapp.com",
   projectId: "schichtplan-bayer", storageBucket: "schichtplan-bayer.firebasestorage.app",
@@ -596,7 +596,7 @@ function renderApprovedExtraSidebar() {
     const isReadyNow = nowMs >= bounds.prepStartMs;
     return '<div style="display:flex; justify-content:space-between; align-items:center; padding:3px 6px; background:' + (isReadyNow ? '#bbf7d0' : '#f0fdf4') + '; color:#166534; border:1px solid #86efac; border-radius:4px; margin-bottom:3px;" title="Bereitstellung ab ' + prepTimeStr + ' Uhr">' +
       '<span>' + (isReadyNow ? '🟢 ' : '🕒 ') + '<b>' + (emp ? fullName(emp) : "Unbekannt") + '</b> · ' + formatDateDe(es.date) + ' (' + (shiftsShortLabel[es.shift] || es.shift) + ' · ab ' + prepTimeStr + ')</span>' +
-      (isPlanner && plannerLevel >= 3 ? '<span style="cursor:pointer; color:#dc2626; font-weight:bold; padding-left:6px;" onclick="deleteExtraShift(\'' + es.id + '\')" title="Bringschicht löschen">✖</span>' : '') +
+      (isPlanner && plannerLevel >= 3 ? '<span style="cursor:pointer; color:#dc2626; font-weight:bold; padding-left:6px;" onclick="deleteExtraShift(\'' + es.id + \'\')" title="Bringschicht löschen">✖</span>' : '') +
     '</div>';
   }).join("");
 }
@@ -1149,7 +1149,7 @@ function classifyInboxActiveItem(sl) {
   return "EXTRA";
 }
 
-function renderInboxLists() {
+window.renderInboxLists = function() {
   const unreadEl = document.getElementById("unreadSickList"), activeEl = document.getElementById("activeSickList"), extraEl = document.getElementById("inboxExtraList");
   if (!unreadEl || !activeEl) return;
   const today = getTodayIso();
