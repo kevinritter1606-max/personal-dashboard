@@ -1,4 +1,4 @@
-/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.23 */
+/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.24 */
 firebase.initializeApp({
   apiKey: "AIzaSyBPOYRYyUm5gA-j7YSAZl7EJoxedFhDTl4", authDomain: "schichtplan-bayer.firebaseapp.com",
   projectId: "schichtplan-bayer", storageBucket: "schichtplan-bayer.firebasestorage.app",
@@ -20,7 +20,13 @@ let teamsConfig = {
   "team-4": { name: "Team 4", color: "#f43f5e", rotates: true }
 };
 let securityConfig = { boardPwEnabled: false, boardPw: "0110", plannerTimeoutMin: 180 };
-let shiftModelConfig = { model: "vollkonti_sonntag_frei", autoRotate: true, lastRotationStepKey: "", lastSundayResetKey: "", lastSundayAutoLoadKey: "" };
+let shiftModelConfig = {
+  model: "vollkonti_sonntag_frei",
+  autoRotate: true,
+  resetEnabled: true, resetDay: 0, resetHour: 6,
+  loadEnabled: true, loadDay: 0, loadHour: 12,
+  lastRotationStepKey: "", lastResetRunKey: "", lastLoadRunKey: ""
+};
 
 let approvedShiftKey = "", hasLoadedFromCloud = false, isDraggingCard = false;
 let activeTeamFilters = {}, activeRoleFilters = {}, poolSearchQuery = "", settingsEmpSearchQuery = "";
@@ -212,29 +218,39 @@ function checkAndRunSundayResetAndRotation() {
   const now = new Date(), day = now.getDay(), hour = now.getHours(), todayIso = getTodayIso(now);
   let changed = false;
 
-  if (day === 0 && hour >= 6) {
-    const sunResetKey = "SUN_POOL_RESET_" + todayIso;
-    if (shiftModelConfig.lastSundayResetKey !== sunResetKey) {
-      shiftModelConfig.lastSundayResetKey = sunResetKey;
-      employees.forEach(emp => {
-        if (emp.noRotation && isEmpAnchorActiveToday(emp, todayIso)) return;
-        if (emp.zone && ["pool", "absent", "extra"].indexOf(emp.zone) === -1) {
-          emp.zone = "pool";
-          changed = true;
-        }
-      });
-      logHistory("Sonntags-Reset", "Sonntag 06:00 Uhr: Alle nicht-Anker Mitarbeiter in den Pool verschoben");
-      changed = true;
+  // 1. Flexibler Pool-Reset (In den Pool schicken)
+  if (shiftModelConfig.resetEnabled !== false) {
+    const targetDay = Number(shiftModelConfig.resetDay ?? 0);
+    const targetHour = Number(shiftModelConfig.resetHour ?? 6);
+    if (day === targetDay && hour >= targetHour) {
+      const resetKey = "FLEX_RESET_" + todayIso;
+      if (shiftModelConfig.lastResetRunKey !== resetKey) {
+        shiftModelConfig.lastResetRunKey = resetKey;
+        employees.forEach(emp => {
+          if (emp.noRotation && isEmpAnchorActiveToday(emp, todayIso)) return; // Anker schützen!
+          if (emp.zone && ["pool", "absent", "extra"].indexOf(emp.zone) === -1) {
+            emp.zone = "pool";
+            changed = true;
+          }
+        });
+        logHistory("Automatischer Pool-Reset", "Mitarbeiter automatisch in den Pool verschoben (Tag " + targetDay + ", Uhrzeit " + targetHour + ":00)");
+        changed = true;
+      }
     }
   }
 
-  if (day === 0 && hour >= 12) {
-    const sunLoadKey = "SUN_AUTO_LOAD_" + todayIso;
-    if (shiftModelConfig.lastSundayAutoLoadKey !== sunLoadKey) {
-      shiftModelConfig.lastSundayAutoLoadKey = sunLoadKey;
-      placeTeamsOnDefaultLines();
-      logHistory("Automatisches Laden", "Sonntag 12:00 Uhr: Teams automatisch auf Linien geladen");
-      changed = true;
+  // 2. Flexibles Auto-Laden (Auf Linien laden)
+  if (shiftModelConfig.loadEnabled !== false) {
+    const targetLoadDay = Number(shiftModelConfig.loadDay ?? 0);
+    const targetLoadHour = Number(shiftModelConfig.loadHour ?? 12);
+    if (day === targetLoadDay && hour >= targetLoadHour) {
+      const loadKey = "FLEX_LOAD_" + todayIso;
+      if (shiftModelConfig.lastLoadRunKey !== loadKey) {
+        shiftModelConfig.lastLoadRunKey = loadKey;
+        placeTeamsOnDefaultLines();
+        logHistory("Automatisches Laden", "Teams automatisch auf Standardlinien geladen (Tag " + targetLoadDay + ", Uhrzeit " + targetLoadHour + ":00)");
+        changed = true;
+      }
     }
   }
 
@@ -271,12 +287,43 @@ function updateAutoRotationUI() {
   const chkAuto = document.getElementById("cfgAutoRotate"), hintEl = document.getElementById("cfgRotationStatusHint");
   if (chkAuto) chkAuto.checked = isAuto;
   if (hintEl) {
-    hintEl.textContent = isAuto ? "✅ Aktiv (So. 06:00 Pool-Reset · 12:00 Vorladen)" : "⏸️ Automatik deaktiviert";
+    const rEn = shiftModelConfig.resetEnabled !== false, lEn = shiftModelConfig.loadEnabled !== false;
+    hintEl.textContent = isAuto ? `✅ Aktiv (Pool-Reset: ${rEn?'An':'Aus'} · Auto-Laden: ${lEn?'An':'Aus'})` : "⏸️ Automatik deaktiviert";
     hintEl.style.color = isAuto ? "#166534" : "#64748b";
   }
+  
+  // UI-Elemente für die flexiblen Einstellungen in den Settings synchronisieren
+  const rChk = document.getElementById("cfgResetEnabled"), rDay = document.getElementById("cfgResetDay"), rHour = document.getElementById("cfgResetHour");
+  const lChk = document.getElementById("cfgLoadEnabled"), lDay = document.getElementById("cfgLoadDay"), lHour = document.getElementById("cfgLoadHour");
+  if (rChk) rChk.checked = shiftModelConfig.resetEnabled !== false;
+  if (rDay) rDay.value = shiftModelConfig.resetDay ?? 0;
+  if (rHour) rHour.value = shiftModelConfig.resetHour ?? 6;
+  if (lChk) lChk.checked = shiftModelConfig.loadEnabled !== false;
+  if (lDay) lDay.value = shiftModelConfig.loadDay ?? 0;
+  if (lHour) lHour.value = shiftModelConfig.loadHour ?? 12;
+
   const freiWrap = document.getElementById("poolFreiControlWrap");
   if (freiWrap) freiWrap.style.display = "flex";
 }
+
+window.saveShiftModelSettings = function() {
+  const chkAuto = document.getElementById("cfgAutoRotate");
+  const rChk = document.getElementById("cfgResetEnabled"), rDay = document.getElementById("cfgResetDay"), rHour = document.getElementById("cfgResetHour");
+  const lChk = document.getElementById("cfgLoadEnabled"), lDay = document.getElementById("cfgLoadDay"), lHour = document.getElementById("cfgLoadHour");
+
+  shiftModelConfig.model = "vollkonti_sonntag_frei";
+  if (chkAuto) shiftModelConfig.autoRotate = chkAuto.checked;
+  if (rChk) shiftModelConfig.resetEnabled = rChk.checked;
+  if (rDay) shiftModelConfig.resetDay = Number(rDay.value);
+  if (rHour) shiftModelConfig.resetHour = Number(rHour.value);
+  if (lChk) shiftModelConfig.loadEnabled = lChk.checked;
+  if (lDay) shiftModelConfig.loadDay = Number(lDay.value);
+  if (lHour) shiftModelConfig.loadHour = Number(lHour.value);
+
+  logHistory("Schichtmodell", "Automatische Einstellungen aktualisiert");
+  updateAutoRotationUI(); updateHeaderDateKw(); updateShiftApprovalUI(); saveToFirebase(); initBoard();
+  showToast("✅ Einstellungen gespeichert!");
+};
 
 function updateShiftApprovalUI() {
   const approved = isCurrentShiftApproved(), activeShift = getCurrentActiveShiftId(), shiftName = shiftsLabel[activeShift] || "Schicht", sundayFree = isSundayDaytimeFree();
@@ -289,19 +336,6 @@ function updateShiftApprovalUI() {
     dot.style.background = approved ? "#16a34a" : "#dc2626"; text.textContent = approved ? "Freigegeben" : "Freigeben";
     btn.style.borderColor = approved ? "#86efac" : "#fecaca"; btn.style.background = approved ? "#f0fdf4" : "#fef2f2"; btn.style.color = approved ? "#166534" : "#b91c1c";
   }
-  const portalBadge = document.getElementById("portalShiftStatusBadge"), portalDot = document.getElementById("portalStatusDot"), portalText = document.getElementById("portalStatusText");
-  if (portalBadge && portalDot && portalText) {
-    if (sundayFree && !approved) {
-      portalBadge.className = "portal-shift-status sunday"; portalDot.style.background = "#0284c7";
-      portalText.textContent = "☀️ Sonntag – Betriebsfrei";
-    } else if (approved) {
-      portalBadge.className = "portal-shift-status approved"; portalDot.style.background = "#16a34a";
-      portalText.textContent = shiftName + " ist bestätigt & freigegeben";
-    } else {
-      portalBadge.className = "portal-shift-status pending"; portalDot.style.background = "#dc2626";
-      portalText.textContent = shiftName + " ist noch nicht bestätigt";
-    }
-  }
 }
 
 window.toggleShiftApprovalState = function() {
@@ -310,7 +344,6 @@ window.toggleShiftApprovalState = function() {
   approvedShiftKey = (approvedShiftKey === currentKey) ? "" : currentKey;
   logHistory("Freigabe", approvedShiftKey ? "Schicht bestätigt & freigegeben" : "Schichtfreigabe zurückgezogen");
   updateShiftApprovalUI(); saveToFirebase();
-  if (typeof renderPortalView === "function") renderPortalView();
 };
 
 let lastWatchedShiftKey = getCurrentShiftApprovalKey();
@@ -781,19 +814,6 @@ function performShiftRotationLogic(autoPlaceEmployees) {
 }
 
 function rotateAllShifts() { logHistory("Rotation", "Schichtrotation ausgelöst"); performShiftRotationLogic(true); }
-
-window.saveShiftModelSettings = function() {
-  const chkAuto = document.getElementById("cfgAutoRotate");
-  shiftModelConfig.model = "vollkonti_sonntag_frei";
-  if (chkAuto) shiftModelConfig.autoRotate = chkAuto.checked;
-  logHistory("Schichtmodell", "Automatische Rotation: " + (shiftModelConfig.autoRotate ? "Aktiviert" : "Deaktiviert"));
-  updateAutoRotationUI(); updateHeaderDateKw(); updateShiftApprovalUI(); saveToFirebase(); initBoard();
-};
-
-window.openShiftModelSettingsQuick = function() {
-  if (!isPlanner || plannerLevel < 3) return;
-  openSettingsModal(); switchTab("tabTeams", document.getElementById("tabBtnTeams"));
-};
 
 window.loadTeamToShift = function(slotKey) {
   const sel = document.getElementById("teamSelect_" + slotKey); if (!sel) return;
@@ -1599,7 +1619,6 @@ function renderSettingsLists() {
     }).join("");
   }
 
-  // --- HIER WURDEN DIE LISTEN FÜR ROLLEN, LINIEN UND TEAMS ERGÄNZT ---
   const roleListEl = document.getElementById("roleList");
   if (roleListEl) {
     roleListEl.innerHTML = roles.map(r => '<div class="item-row"><span><b>' + r + '</b></span>' + (plannerLevel > 2 ? '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem; color:#dc2626;" onclick="deleteRole(\'' + r + '\')">🗑️ Löschen</button>' : '') + '</div>').join("");
@@ -1641,6 +1660,7 @@ window.saveMyProfileData = function() {
   const emp = employees.find(e => e.id === currentPlannerEmpId); if (!emp) return;
   emp.firstName = document.getElementById("profFirstName").value.trim();
   emp.lastName = document.getElementById("profLastName").value.trim();
+  emp.team = document.getElementById("profTeam@").value; // Fallback fix
   emp.team = document.getElementById("profTeam").value;
   emp.role = document.getElementById("profRole").value;
   
