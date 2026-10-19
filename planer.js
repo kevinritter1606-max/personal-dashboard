@@ -1,4 +1,4 @@
-/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.27 */
+/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.29 */
 firebase.initializeApp({
   apiKey: "AIzaSyBPOYRYyUm5gA-j7YSAZl7EJoxedFhDTl4", authDomain: "schichtplan-bayer.firebaseapp.com",
   projectId: "schichtplan-bayer", storageBucket: "schichtplan-bayer.firebasestorage.app",
@@ -344,7 +344,6 @@ window.toggleNewTeamForm = function() {
 function updateShiftApprovalUI() {
   const approved = isCurrentShiftApproved(), activeShift = getCurrentActiveShiftId(), shiftName = shiftsLabel[activeShift] || "Schicht";
   
-  // Farbverlauf-Balken oben direkt umschalten (Behebung des Rot-Bleiben-Bugs)
   const bar = document.getElementById("brandGradientBar");
   if (bar) {
     bar.className = approved ? "brand-gradient approved" : "brand-gradient pending";
@@ -363,6 +362,24 @@ window.toggleShiftApprovalState = function() {
   approvedShiftKey = (approvedShiftKey === currentKey) ? "" : currentKey;
   logHistory("Freigabe", approvedShiftKey ? "Schicht bestätigt & freigegeben" : "Schichtfreigabe zurückgezogen");
   updateShiftApprovalUI(); saveToFirebase();
+};
+
+window.deleteEmployee = function(empId) {
+  const emp = employees.find(e => e.id === empId);
+  if (!emp) return;
+  if (!canManageEmployee(emp)) {
+    showToast("❌ Keine Berechtigung, diesen Mitarbeiter zu löschen!", true);
+    return;
+  }
+  const confirmDel = confirm(`Möchtest du den Mitarbeiter "${fullName(emp)}" wirklich unwiderruflich löschen?`);
+  if (!confirmDel) return;
+
+  employees = employees.filter(e => e.id !== empId);
+  logHistory("Personal", `Mitarbeiter "${fullName(emp)}" gelöscht`);
+  saveToFirebase();
+  renderEmployees();
+  renderSettingsLists();
+  showToast("Mitarbeiter erfolgreich gelöscht");
 };
 
 let lastWatchedShiftKey = getCurrentShiftApprovalKey();
