@@ -160,7 +160,7 @@
 <body>
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
-  <div class="version-footer-badge">Version 4.9.18</div>
+  <div class="version-footer-badge">Version 4.9.22</div>
 
   <div id="boardLockModal" class="modal-overlay" style="background: #f4f6f9; z-index: 180;">
     <div class="modal" style="max-width: 380px; text-align: center; padding: 0; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
@@ -490,7 +490,7 @@
         <div class="settings-card">
           <div class="settings-card-title">
             <span>🔄 Schichtmodell & Automatische Rotation</span>
-            <span style="font-size:0.72rem; color:#64748b; font-weight:600;">8-Werktage-Rhythmus · So. 05:00 Pool-Reset · Start Mo. 05:00</span>
+            <span style="font-size:0.72rem; color:#64748b; font-weight:600;">8-Werktage-Rhythmus · So. 06:00 Pool-Reset · 12:00 Auto-Laden</span>
           </div>
           <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
             <label style="display:flex; align-items:center; gap:8px; font-size:0.86rem; font-weight:700; color:#1e293b; cursor:pointer;">
@@ -554,23 +554,16 @@
     </div>
   </div>
 
-  <script src="planer.js?v=4.9.18"></script>
+  <script src="planer.js?v=4.9.22"></script>
   <script>
     let activeInboxHistoryCategory = "ALL";
-
-    function setInboxHistoryCategoryFilter(cat) {
-      activeInboxHistoryCategory = cat || "ALL";
-      renderInboxLists();
-    }
-
+    function setInboxHistoryCategoryFilter(cat) { activeInboxHistoryCategory = cat || "ALL"; renderInboxLists(); }
     function classifyInboxActiveItem(sl) {
       const cat = (sl.category || "").toLowerCase();
       if (cat.indexOf("urlaub") !== -1 || cat.indexOf("freizeit") !== -1) return "URLAUB";
       if (cat.indexOf("krank") !== -1 || cat.indexOf("abwesen") !== -1 || cat.indexOf("arbeitsunfähig") !== -1) return "KRANK";
       return "EXTRA";
     }
-
-    const originalRenderInboxLists = window.renderInboxLists;
   </script>
 </body>
 </html>
