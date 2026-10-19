@@ -1,4 +1,4 @@
-/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.24 */
+/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.25 */
 firebase.initializeApp({
   apiKey: "AIzaSyBPOYRYyUm5gA-j7YSAZl7EJoxedFhDTl4", authDomain: "schichtplan-bayer.firebaseapp.com",
   projectId: "schichtplan-bayer", storageBucket: "schichtplan-bayer.firebasestorage.app",
@@ -218,7 +218,6 @@ function checkAndRunSundayResetAndRotation() {
   const now = new Date(), day = now.getDay(), hour = now.getHours(), todayIso = getTodayIso(now);
   let changed = false;
 
-  // 1. Flexibler Pool-Reset (In den Pool schicken)
   if (shiftModelConfig.resetEnabled !== false) {
     const targetDay = Number(shiftModelConfig.resetDay ?? 0);
     const targetHour = Number(shiftModelConfig.resetHour ?? 6);
@@ -227,19 +226,18 @@ function checkAndRunSundayResetAndRotation() {
       if (shiftModelConfig.lastResetRunKey !== resetKey) {
         shiftModelConfig.lastResetRunKey = resetKey;
         employees.forEach(emp => {
-          if (emp.noRotation && isEmpAnchorActiveToday(emp, todayIso)) return; // Anker schützen!
+          if (emp.noRotation && isEmpAnchorActiveToday(emp, todayIso)) return;
           if (emp.zone && ["pool", "absent", "extra"].indexOf(emp.zone) === -1) {
             emp.zone = "pool";
             changed = true;
           }
         });
-        logHistory("Automatischer Pool-Reset", "Mitarbeiter automatisch in den Pool verschoben (Tag " + targetDay + ", Uhrzeit " + targetHour + ":00)");
+        logHistory("Automatischer Pool-Reset", "Mitarbeiter automatisch in den Pool verschoben");
         changed = true;
       }
     }
   }
 
-  // 2. Flexibles Auto-Laden (Auf Linien laden)
   if (shiftModelConfig.loadEnabled !== false) {
     const targetLoadDay = Number(shiftModelConfig.loadDay ?? 0);
     const targetLoadHour = Number(shiftModelConfig.loadHour ?? 12);
@@ -248,7 +246,7 @@ function checkAndRunSundayResetAndRotation() {
       if (shiftModelConfig.lastLoadRunKey !== loadKey) {
         shiftModelConfig.lastLoadRunKey = loadKey;
         placeTeamsOnDefaultLines();
-        logHistory("Automatisches Laden", "Teams automatisch auf Standardlinien geladen (Tag " + targetLoadDay + ", Uhrzeit " + targetLoadHour + ":00)");
+        logHistory("Automatisches Laden", "Teams automatisch auf Standardlinien geladen");
         changed = true;
       }
     }
@@ -292,7 +290,6 @@ function updateAutoRotationUI() {
     hintEl.style.color = isAuto ? "#166534" : "#64748b";
   }
   
-  // UI-Elemente für die flexiblen Einstellungen in den Settings synchronisieren
   const rChk = document.getElementById("cfgResetEnabled"), rDay = document.getElementById("cfgResetDay"), rHour = document.getElementById("cfgResetHour");
   const lChk = document.getElementById("cfgLoadEnabled"), lDay = document.getElementById("cfgLoadDay"), lHour = document.getElementById("cfgLoadHour");
   if (rChk) rChk.checked = shiftModelConfig.resetEnabled !== false;
@@ -325,12 +322,28 @@ window.saveShiftModelSettings = function() {
   showToast("✅ Einstellungen gespeichert!");
 };
 
-function updateShiftApprovalUI() {
-  const approved = isCurrentShiftApproved(), activeShift = getCurrentActiveShiftId(), shiftName = shiftsLabel[activeShift] || "Schicht", sundayFree = isSundayDaytimeFree();
-  
-  const bar = document.getElementById("brandGradientBar");
-  if (bar) bar.className = approved ? "brand-gradient approved" : "brand-gradient pending";
+// Neue Funktion: Direkter Checkbox-Wechsel in der Team-Liste
+window.toggleTeamRotationSetting = function(teamKey, isChecked) {
+  if (teamsConfig[teamKey]) {
+    teamsConfig[teamKey].rotates = isChecked;
+    saveToFirebase();
+    initBoard();
+    showToast("Team-Rotation für " + teamsConfig[teamKey].name + " aktualisiert!");
+  }
+};
 
+window.toggleNewTeamForm = function() {
+  const wrap = document.getElementById("newTeamFormWrapper");
+  const btn = document.getElementById("toggleNewTeamBtn");
+  if (wrap) {
+    const isHidden = wrap.style.display === "none";
+    wrap.style.display = isHidden ? "block" : "none";
+    if (btn) btn.textContent = isHidden ? "✖ Abbrechen" : "+ Neues Team hinzufügen";
+  }
+};
+
+function updateShiftApprovalUI() {
+  const approved = isCurrentShiftApproved(), activeShift = getCurrentActiveShiftId(), shiftName = shiftsLabel[activeShift] || "Schicht";
   const dot = document.getElementById("indicatorDot"), text = document.getElementById("indicatorText"), btn = document.getElementById("plannerApprovalIndicator");
   if (dot && text && btn) {
     dot.style.background = approved ? "#16a34a" : "#dc2626"; text.textContent = approved ? "Freigegeben" : "Freigeben";
@@ -1387,34 +1400,16 @@ window.renderInboxLists = function() {
 
 window.quickApproveLeave = function(slId, isApproved) {
   const sl = sickLeaves.find(x => x.id === slId); if (!sl) return;
-
   if (!isApproved) {
     const reasonInput = prompt("Bitte gib einen Grund für die Ablehnung an (optional):", "Leider aktuell nicht möglich");
     if (reasonInput === null) return;
     sl.reason = reasonInput.trim() || "Vom Planer abgelehnt";
   }
-
-  if (isApproved && sl.lineRequestData && sl.lineRequestData.lineId) {
-    const targetEmp = employees.find(e => e.id === sl.empId);
-    if (targetEmp) {
-      const lId = sl.lineRequestData.lineId;
-      if (sl.lineRequestData.type === 'prio') {
-        if (!targetEmp.mainLines) targetEmp.mainLines = [];
-        if (targetEmp.mainLines.indexOf(lId) === -1) targetEmp.mainLines.push(lId);
-      } else {
-        if (!targetEmp.secLines) targetEmp.secLines = [];
-        if (targetEmp.secLines.indexOf(lId) === -1) targetEmp.secLines.push(lId);
-      }
-    }
-  }
-
   sl.status = isApproved ? "approved" : "rejected"; sl.plannerUnreadInfo = false;
   if (sl.blocks && sl.blocks.length) sl.blocks.forEach(b => { b.status = isApproved ? "approved" : "rejected"; });
   sl.reviewedBy = currentPlannerName || "Planer"; sl.reviewedAt = new Date().toLocaleString("de-DE");
   if (isApproved) generateCoveragePromptForLeave(sl);
   syncAbsentZones();
-  const emp = employees.find(e => e.id === sl.empId);
-  logHistory("Antrag", (emp ? fullName(emp) : "") + ": " + sl.category + " (" + (isApproved ? "Genehmigt" : "Abgelehnt") + ")");
   saveToFirebase(); renderEmployees(); renderInboxLists(); updateInboxBadge();
   showToast(isApproved ? "Antrag angenommen" : "Antrag abgelehnt");
 };
@@ -1431,7 +1426,7 @@ window.openReviewLeaveModal = function(slId) {
   let blocksHtml = (sl.blocks && sl.blocks.length ? sl.blocks : [{ start: sl.startDate, end: sl.endDate, status: "approved", reason: "" }]).map(b =>
     '<div class="review-block-row" style="background:#f8fafc; border:1px solid #cbd5e1; padding:10px; border-radius:6px; margin-bottom:8px; display:flex; flex-direction:column; gap:6px;"><div style="display:flex; gap:8px; align-items:center;"><input type="date" class="rb-start form-control" value="' + b.start + '" style="font-size:0.8rem;"><input type="date" class="rb-end form-control" value="' + b.end + '" style="font-size:0.8rem;"><select class="rb-status form-control" style="font-size:0.8rem; font-weight:700;"><option value="approved"' + (b.status === 'approved' ? ' selected' : '') + '>✅ Genehmigt</option><option value="rejected"' + (b.status === 'rejected' ? ' selected' : '') + '>❌ Abgelehnt</option></select></div><input type="text" class="rb-reason form-control" placeholder="Begründung / Hinweis zum Gegenvorschlag..." value="' + (b.reason || '') + '" style="font-size:0.8rem;"></div>'
   ).join("");
-  modal.innerHTML = '<div style="background:#fff; border-radius:12px; max-width:500px; width:100%; padding:22px; box-shadow:0 10px 25px rgba(0,0,0,0.2); max-height:90vh; overflow-y:auto;"><h3 style="margin:0 0 4px 0; color:#10384f; font-size:1.1rem;">Gegenvorschlag / Teilgenehmigung</h3><p style="font-size:0.84rem; color:#475569; margin-bottom:12px;">Mitarbeiter: <b>' + (emp ? fullName(emp) : 'Unbekannt') + '</b> · <b>' + (sl.category || '') + '</b></p><div id="reviewBlocksContainer" style="margin-bottom:10px;">' + blocksHtml + '</div><button class="btn btn-outline" style="font-size:0.75rem; margin-bottom:14px;" onclick="addReviewBlockRow()">+ Weiteren Zeitraum hinzufügen</button><div style="display:flex; gap:8px;"><button class="btn btn-primary" style="flex:1;" onclick="saveReviewLeave(\'' + sl.id + '\')">Gegenvorschlag senden</button><button class="btn btn-outline" onclick="closeModal(\'reviewLeaveModal\')">Abbrechen</button></div></div>';
+  modal.innerHTML = '<div style="background:#fff; border-radius:12px; max-width:500px; width:100%; padding:22px; box-shadow:0 10px 25px rgba(0,0,0,0.2); max-height:90vh; overflow-y:auto;"><h3 style="margin:0 0 4px 0; color:#10384f; font-size:1.1rem;">Gegenvorschlag / Teilgenehmigung</h3><p style="font-size:0.84rem; color:#475569; margin-bottom:12px;">Mitarbeiter: <b>' + (emp ? fullName(emp) : 'Unbekannt') + '</b></p><div id="reviewBlocksContainer" style="margin-bottom:10px;">' + blocksHtml + '</div><button class="btn btn-outline" style="font-size:0.75rem; margin-bottom:14px;" onclick="addReviewBlockRow()">+ Weiteren Zeitraum hinzufügen</button><div style="display:flex; gap:8px;"><button class="btn btn-primary" style="flex:1;" onclick="saveReviewLeave(\'' + sl.id + '\')">Gegenvorschlag senden</button><button class="btn btn-outline" onclick="closeModal(\'reviewLeaveModal\')">Abbrechen</button></div></div>';
   modal.style.display = "flex";
 };
 
@@ -1456,8 +1451,6 @@ window.saveReviewLeave = function(slId) {
   sl.reviewedBy = currentPlannerName || "Planer"; sl.reviewedAt = new Date().toLocaleString("de-DE");
   if (sl.status === "approved") generateCoveragePromptForLeave(sl);
   syncAbsentZones();
-  const emp = employees.find(e => e.id === sl.empId);
-  logHistory("Antrag", (emp ? fullName(emp) : "") + ": " + sl.category + " (" + (sl.status === "approved" ? "Genehmigt" : sl.status === "rejected" ? "Abgelehnt" : "Gegenvorschlag gesendet") + ")");
   saveToFirebase(); renderEmployees(); renderInboxLists(); updateInboxBadge(); closeModal("reviewLeaveModal"); showToast("Entscheidung gespeichert");
 };
 
@@ -1633,7 +1626,16 @@ function renderSettingsLists() {
   if (teamListEl) {
     teamListEl.innerHTML = Object.keys(teamsConfig).sort().map(k => {
       const t = teamsConfig[k];
-      return '<div class="item-row"><span style="display:flex; align-items:center; gap:6px;"><span style="width:14px; height:14px; background:' + t.color + '; border-radius:3px; display:inline-block;"></span><b>' + t.name + '</b> ' + (t.rotates ? '<small style="color:#0284c7;">(Rotiert)</small>' : '<small style="color:#64748b;">(Fest)</small>') + '</span>' + (plannerLevel > 2 ? '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem; color:#dc2626;" onclick="deleteTeam(\'' + k + '\')">🗑️ Löschen</button>' : '') + '</div>';
+      const isRot = t.rotates !== false;
+      return '<div class="item-row" style="display:flex; justify-content:space-between; align-items:center; gap:8px;">' +
+        '<span style="display:flex; align-items:center; gap:8px;"><span style="width:14px; height:14px; background:' + t.color + '; border-radius:3px; display:inline-block;"></span><b>' + t.name + '</b></span>' +
+        '<div style="display:flex; align-items:center; gap:10px;">' +
+          '<label style="display:inline-flex; align-items:center; gap:4px; font-size:0.78rem; font-weight:600; cursor:pointer;" title="Direkt einstellen ob das Team rotiert">' +
+            '<input type="checkbox" ' + (isRot ? 'checked' : '') + ' onchange="toggleTeamRotationSetting(\'' + k + '\', this.checked)"> Rotiert' +
+          '</label>' +
+          (plannerLevel > 2 ? '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.73rem; color:#dc2626;" onclick="deleteTeam(\'' + k + '\')">Löschen</button>' : '') +
+        '</div>' +
+      '</div>';
     }).join("");
   }
 }
@@ -1660,7 +1662,6 @@ window.saveMyProfileData = function() {
   const emp = employees.find(e => e.id === currentPlannerEmpId); if (!emp) return;
   emp.firstName = document.getElementById("profFirstName").value.trim();
   emp.lastName = document.getElementById("profLastName").value.trim();
-  emp.team = document.getElementById("profTeam@").value; // Fallback fix
   emp.team = document.getElementById("profTeam").value;
   emp.role = document.getElementById("profRole").value;
   
