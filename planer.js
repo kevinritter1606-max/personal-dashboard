@@ -596,7 +596,7 @@ function renderApprovedExtraSidebar() {
     const isReadyNow = nowMs >= bounds.prepStartMs;
     return '<div style="display:flex; justify-content:space-between; align-items:center; padding:3px 6px; background:' + (isReadyNow ? '#bbf7d0' : '#f0fdf4') + '; color:#166534; border:1px solid #86efac; border-radius:4px; margin-bottom:3px;" title="Bereitstellung ab ' + prepTimeStr + ' Uhr">' +
       '<span>' + (isReadyNow ? '🟢 ' : '🕒 ') + '<b>' + (emp ? fullName(emp) : "Unbekannt") + '</b> · ' + formatDateDe(es.date) + ' (' + (shiftsShortLabel[es.shift] || es.shift) + ' · ab ' + prepTimeStr + ')</span>' +
-      (isPlanner && plannerLevel >= 3 ? '<span style="cursor:pointer; color:#dc2626; font-weight:bold; padding-left:6px;" onclick="deleteExtraShift(\'' + es.id + \'\')" title="Bringschicht löschen">✖</span>' : '') +
+      (isPlanner && plannerLevel >= 3 ? '<span style="cursor:pointer; color:#dc2626; font-weight:bold; padding-left:6px;" onclick="deleteExtraShift(\'' + es.id + '\')" title="Bringschicht löschen">✖</span>' : '') +
     '</div>';
   }).join("");
 }
@@ -798,15 +798,17 @@ window.loadTeamToShift = function(slotKey) {
   const sel = document.getElementById("teamSelect_" + slotKey); if (!sel) return;
   const teamKey = sel.value, todayIso = getTodayIso(); shiftRotation[slotKey] = teamKey; syncAbsentZones();
   employees.forEach(emp => {
-    if (emp.team === teamKey && emp.zone !== "absent" && emp.zone !== "extra") {
-      if (slotKey === "frei" || isSundayDaytimeFree() || !isEmpAnchorActiveToday(emp, todayIso)) emp.zone = "pool";
-      else {
+    if (emp.team === teamKey && (!emp.zone || emp.zone === "pool")) {
+      if (slotKey === "frei" || isSundayDaytimeFree() || !isEmpAnchorActiveToday(emp, todayIso)) {
+        emp.zone = "pool";
+      } else {
         const targetLine = (emp.lastLineId && lines.some(l => l.id === emp.lastLineId)) ? emp.lastLineId : (emp.mainLines && emp.mainLines[0] ? emp.mainLines[0] : null);
         emp.zone = targetLine ? (targetLine + "_" + slotKey) : "pool";
       }
     }
   });
   saveToFirebase(); initBoard();
+  showToast("Team-Mitglieder aus dem Pool auf Schicht geladen!");
 };
 
 window.clearShiftRow = function(shiftId) {
