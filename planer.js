@@ -1,4 +1,4 @@
-/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.31 */
+/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.32 */
 firebase.initializeApp({
   apiKey: "AIzaSyBPOYRYyUm5gA-j7YSAZl7EJoxedFhDTl4", authDomain: "schichtplan-bayer.firebaseapp.com",
   projectId: "schichtplan-bayer", storageBucket: "schichtplan-bayer.firebasestorage.app",
@@ -670,6 +670,39 @@ function renderEmployees() {
     if (targetZone) targetZone.appendChild(card);
   });
 
+  // Dynamische Personalbedarf-Prüfung & farbliche Markierung in den Linien-Headern
+  lines.forEach(l => {
+    if (!l.targetStaff) l.targetStaff = { frueh: 3, spaet: 3, nacht: 2 };
+    shifts.forEach(s => {
+      const zoneEl = document.getElementById(l.id + "_" + s.id);
+      const count = zoneEl ? zoneEl.children.length : 0;
+      const target = Number(l.targetStaff[s.id] ?? 3);
+      
+      // Wir suchen den Spaltenkopf / Header-Zelle für diese Linie
+      // Da die Matrix zeilenbasiert ist (Schichten als Zeilen, Linien als Spalten), 
+      // färben wir den entsprechenden Drop-Zone Container oder fügen ein Badge hinzu.
+      if (zoneEl) {
+        let badge = zoneEl.parentNode.querySelector('.staff-indicator');
+        if (!badge) {
+          badge = document.createElement("div");
+          badge.className = "staff-indicator";
+          badge.style.cssText = "font-size:0.68rem; font-weight:700; padding:2px 4px; border-radius:4px; margin-bottom:4px; text-align:center;";
+          zoneEl.parentNode.insertBefore(badge, zoneEl);
+        }
+        if (count < target) {
+          badge.style.background = "#fee2e2"; badge.style.color = "#b91c1c";
+          badge.textContent = `👥 ${count} / ${target} (Zu wenig)`;
+        } else if (count === target) {
+          badge.style.background = "#dcfce7"; badge.style.color = "#166534";
+          badge.textContent = `👥 ${count} / ${target} (Perfekt)`;
+        } else {
+          badge.style.background = "#dbeafe"; badge.style.color = "#1e40af";
+          badge.textContent = `👥 ${count} / ${target} (Voll)`;
+        }
+      }
+    });
+  });
+
   const pEl = document.getElementById("pool"), eEl = document.getElementById("extra"), aEl = document.getElementById("absent");
   if (document.getElementById("poolCount")) document.getElementById("poolCount").textContent = "(" + (pEl ? pEl.children.length : 0) + ")";
   if (document.getElementById("extraCount")) document.getElementById("extraCount").textContent = "(" + (eEl ? eEl.children.length : 0) + ")";
@@ -769,7 +802,7 @@ window.openForcePinChangeModal = function(emp, onSuccess) {
     if (p1 !== p2) { errBox.textContent = "❌ Die beiden PIN-Eingaben stimmen nicht überein!"; errBox.style.display = "block"; return; }
     if (p1 === (emp.password || "")) { errBox.textContent = "❌ Bitte wählen Sie eine andere PIN als die Start-PIN!"; errBox.style.display = "block"; return; }
     emp.password = p1; emp.mustChangePw = false;
-    logHistory("Sicherheit", fullName(emp) + " hat the Start-PIN in eine persönliche PIN geändert");
+    logHistory("Sicherheit", fullName(emp) + " hat die Start-PIN in eine persönliche PIN geändert");
     saveToFirebase(); modal.style.display = "none"; showToast("✅ Persönliche PIN wurde gespeichert!");
     if (typeof onSuccess === "function") onSuccess();
   };
@@ -930,7 +963,6 @@ window.deleteEmployee = function(empId) {
   showToast("Mitarbeiter erfolgreich gelöscht");
 };
 
-// LINIE BEARBEITEN (Öffnen des Modals)
 function openLineEditModal(lineId) {
   if (plannerLevel === 2) return;
   const l = lines.find(x => x.id === lineId); if (!l) return;
@@ -942,7 +974,6 @@ function openLineEditModal(lineId) {
   document.getElementById("editLineTag").value = l.tag || ""; 
   document.getElementById("editLineNote").value = l.note || "";
   
-  // Falls die Input-Felder für den Personalbedarf im HTML existieren, setzen:
   if (document.getElementById("editLineStaffFrueh")) document.getElementById("editLineStaffFrueh").value = l.targetStaff.frueh;
   if (document.getElementById("editLineStaffSpaet")) document.getElementById("editLineStaffSpaet").value = l.targetStaff.spaet;
   if (document.getElementById("editLineStaffNacht")) document.getElementById("editLineStaffNacht").value = l.targetStaff.nacht;
@@ -964,5 +995,3 @@ window.saveLineDetails = function(keepOpen) {
 
   saveToFirebase(); initBoard(); if (!keepOpen) closeModal("lineEditModal");
 };
-
-// Restliche Funktionen unverändert...
