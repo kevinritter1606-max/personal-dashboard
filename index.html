@@ -160,7 +160,7 @@
 <body>
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
-  <div class="version-footer-badge">Version 4.9.22</div>
+  <div class="version-footer-badge">Version 4.9.26</div>
 
   <div id="boardLockModal" class="modal-overlay" style="background: #f4f6f9; z-index: 180;">
     <div class="modal" style="max-width: 380px; text-align: center; padding: 0; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
@@ -490,16 +490,59 @@
         <div class="settings-card">
           <div class="settings-card-title">
             <span>🔄 Schichtmodell & Automatische Rotation</span>
-            <span style="font-size:0.72rem; color:#64748b; font-weight:600;">8-Werktage-Rhythmus · So. 06:00 Pool-Reset · 12:00 Auto-Laden</span>
           </div>
-          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+          
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom: 12px;">
             <label style="display:flex; align-items:center; gap:8px; font-size:0.86rem; font-weight:700; color:#1e293b; cursor:pointer;">
-              <input type="checkbox" id="cfgAutoRotate" checked onchange="saveShiftModelSettings()"> Automatische Rotation & Sonntags-Pool-Reset aktiv
+              <input type="checkbox" id="cfgAutoRotate" checked onchange="saveShiftModelSettings()"> Automatische Schicht-Rotation aktiv
             </label>
             <span id="cfgRotationStatusHint" style="font-size:0.75rem; color:#166534; font-weight:700;"></span>
           </div>
+
+          <div style="border-top: 1px solid #cbd5e1; padding-top: 10px; margin-top: 10px; display:flex; flex-direction:column; gap:10px;">
+            
+            <div style="background:#f8fafc; padding:8px 10px; border-radius:6px; border:1px solid #e2e8f0;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom: 6px;">
+                <input type="checkbox" id="cfgResetEnabled" onchange="saveShiftModelSettings()">
+                <label style="font-size:0.81rem; font-weight:700; color:#1e293b; margin:0; cursor:pointer;">Mitarbeiter automatisch in den Pool schicken</label>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <select id="cfgResetDay" class="form-control" style="flex:1; font-size:0.78rem; padding:5px;" onchange="saveShiftModelSettings()">
+                  <option value="0">Sonntag</option><option value="1">Montag</option><option value="2">Dienstag</option>
+                  <option value="3">Mittwoch</option><option value="4">Donnerstag</option><option value="5">Freitag</option><option value="6">Samstag</option>
+                </select>
+                <select id="cfgResetHour" class="form-control" style="flex:1; font-size:0.78rem; padding:5px;" onchange="saveShiftModelSettings()">
+                  <option value="0">00:00 Uhr</option><option value="4">04:00 Uhr</option><option value="5">05:00 Uhr</option>
+                  <option value="6" selected>06:00 Uhr</option><option value="12">12:00 Uhr</option><option value="22">22:00 Uhr</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="background:#f8fafc; padding:8px 10px; border-radius:6px; border:1px solid #e2e8f0;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom: 6px;">
+                <input type="checkbox" id="cfgLoadEnabled" onchange="saveShiftModelSettings()">
+                <label style="font-size:0.81rem; font-weight:700; color:#1e293b; margin:0; cursor:pointer;">Teams automatisch auf ihre Positionen verteilen</label>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <select id="cfgLoadDay" class="form-control" style="flex:1; font-size:0.78rem; padding:5px;" onchange="saveShiftModelSettings()">
+                  <option value="0" selected>Sonntag</option><option value="1">Montag</option><option value="2">Dienstag</option>
+                  <option value="3">Mittwoch</option><option value="4">Donnerstag</option><option value="5">Freitag</option><option value="6">Samstag</option>
+                </select>
+                <select id="cfgLoadHour" class="form-control" style="flex:1; font-size:0.78rem; padding:5px;" onchange="saveShiftModelSettings()">
+                  <option value="5">05:00 Uhr</option><option value="6">06:00 Uhr</option><option value="10">10:00 Uhr</option>
+                  <option value="12" selected>12:00 Uhr</option><option value="14">14:00 Uhr</option><option value="18">18:00 Uhr</option>
+                </select>
+              </div>
+            </div>
+
+          </div>
         </div>
-        <div class="settings-card">
+
+        <div style="margin-bottom: 12px; text-align: right;">
+          <button id="toggleNewTeamBtn" class="btn btn-outline" style="font-size: 0.8rem; padding: 6px 12px; color: var(--bayer-blue); border-color: var(--bayer-blue);" onclick="toggleNewTeamForm()">+ Neues Team hinzufügen</button>
+        </div>
+
+        <div id="newTeamFormWrapper" class="settings-card" style="display: none; border-left: 4px solid var(--bayer-blue);">
           <label style="font-size:0.82rem; font-weight:700; color:#1e293b; display:block; margin-bottom:8px;">Neues Team anlegen</label>
           <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
             <input type="color" id="newTeamColor" value="#3b82f6" style="width:40px; height:38px; border:1px solid #cbd5e1; border-radius:6px; cursor:pointer; background:#fff; padding:2px;">
@@ -507,10 +550,11 @@
             <label style="display:flex; align-items:center; gap:5px; font-size:0.82rem; font-weight:600; cursor:pointer; background:#fff; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1;">
               <input type="checkbox" id="newTeamRotates" checked> Rotiert
             </label>
-            <button class="btn btn-primary" onclick="addTeam()">+ Hinzufügen</button>
+            <button class="btn btn-primary" onclick="addTeam()">Hinzufügen</button>
           </div>
         </div>
-        <div id="teamSettingsList" style="max-height: 190px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
+
+        <div id="teamSettingsList" style="max-height: 220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
 
       <div id="tabSecurity" class="tab-content">
@@ -554,8 +598,7 @@
     </div>
   </div>
 
-  <script src="planer.js?v=4.9.23"></script>
-
+  <script src="planer.js?v=4.9.26"></script>
   <script>
     let activeInboxHistoryCategory = "ALL";
     function setInboxHistoryCategoryFilter(cat) { activeInboxHistoryCategory = cat || "ALL"; renderInboxLists(); }
