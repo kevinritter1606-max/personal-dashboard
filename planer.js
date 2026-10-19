@@ -1,4 +1,4 @@
-/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.30 */
+/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.31 */
 firebase.initializeApp({
   apiKey: "AIzaSyBPOYRYyUm5gA-j7YSAZl7EJoxedFhDTl4", authDomain: "schichtplan-bayer.firebaseapp.com",
   projectId: "schichtplan-bayer", storageBucket: "schichtplan-bayer.firebasestorage.app",
@@ -135,7 +135,6 @@ window.didEmpWorkNightBefore = function(emp, dateIso) {
   return extraShifts.some(es => es.empId === emp.id && es.date === prevIso && es.shift === "nacht" && (es.status === "approved" || es.status === "pending"));
 };
 
-// VERBESSERTE PLAUSIBILITÄTSPRÜFUNG (Inkl. Sperre für Nachtschicht vor geplanter Frühschicht am Folgetag)
 window.checkExtraShiftPlausibility = function(empId, dateIso, shiftId) {
   const emp = employees.find(e => e.id === empId);
   if (!emp) return { ok: false, reason: "Mitarbeiter nicht gefunden", code: "NO_EMP" };
@@ -145,7 +144,6 @@ window.checkExtraShiftPlausibility = function(empId, dateIso, shiftId) {
     return { ok: false, reason: "Für dieses Datum ist bereits eine Bringschicht gemeldet", code: "ALREADY_EXTRA" };
   }
   
-  // 1. Prüfung auf Nachtschicht vom Vortag (falls user hier Nachtschicht am 27. macht, hat er am 28. Frühschicht-Konflikt)
   const nightBefore = window.didEmpWorkNightBefore(emp, dateIso);
   if (nightBefore && shiftId === "frueh") {
     return { ok: false, isWorkingConflict: false, reason: "Nach einer Nachtschicht ist direkt im Anschluss keine Frühschicht möglich (Ruhezeit)", code: "NIGHT_TO_EARLY_BLOCKED" };
@@ -161,7 +159,6 @@ window.checkExtraShiftPlausibility = function(empId, dateIso, shiftId) {
     return { ok: true, regularShift: null, reason: "" };
   }
 
-  // 2. NEU: Prüfung für den Folgetag, falls hier eine NACHTSCHICHT gewählt wird und am Folgetag eine FRÜHSCHICHT ansteht!
   if (shiftId === "nacht") {
     const nextIso = getNextDateIso(dateIso);
     const nextRegShift = window.getEmpRegularShiftOnDate(emp, nextIso);
@@ -176,7 +173,6 @@ window.checkExtraShiftPlausibility = function(empId, dateIso, shiftId) {
     }
   }
 
-  // 3. Normale Prüfung auf reguläre Schicht am selben Tag
   const regShift = window.getEmpRegularShiftOnDate(emp, dateIso);
   if (regShift) {
     return {
@@ -713,7 +709,7 @@ function initDragAndDrop() {
 }
 
 window.addEventListener("DOMContentLoaded", function() {
-  Object.keys(teamsConfig).forEach(k => { activeTeamFilters[k] = true; });
+  Object.keys(teamsConfig).sort().forEach(k => { activeTeamFilters[k] = true; });
   roles.forEach(r => { activeRoleFilters[r] = true; });
   updateHeaderDateKw(); updateShiftApprovalUI(); updateAutoRotationUI();
   const savedName = sessionStorage.getItem("planner_name"), savedLvl = Number(sessionStorage.getItem("planner_level") || 0);
@@ -798,7 +794,7 @@ function applyPlannerLoginState(name, lvl, empId) {
 }
 
 function logoutPlanner() {
-  isPlanner = false; plannerLevel = 0; currentPlannerName = "", currentPlannerEmpId = null;
+  isPlanner = false; plannerLevel = 0; currentPlannerName = ""; currentPlannerEmpId = null;
   ["planner_name","planner_level","planner_emp_id","planner_last_active"].forEach(k => sessionStorage.removeItem(k));
   document.body.classList.remove("planner-active", "planner-lvl-2", "planner-lvl-3", "planner-lvl-4");
   ["pinModal","inboxModal","settingsModal","lineEditModal"].forEach(closeModal); initBoard();
