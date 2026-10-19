@@ -1,4 +1,4 @@
-/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.25 */
+/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.26 */
 firebase.initializeApp({
   apiKey: "AIzaSyBPOYRYyUm5gA-j7YSAZl7EJoxedFhDTl4", authDomain: "schichtplan-bayer.firebaseapp.com",
   projectId: "schichtplan-bayer", storageBucket: "schichtplan-bayer.firebasestorage.app",
@@ -246,7 +246,7 @@ function checkAndRunSundayResetAndRotation() {
       if (shiftModelConfig.lastLoadRunKey !== loadKey) {
         shiftModelConfig.lastLoadRunKey = loadKey;
         placeTeamsOnDefaultLines();
-        logHistory("Automatisches Laden", "Teams automatisch auf Standardlinien geladen");
+        logHistory("Automatisches Laden", "Teams automatisch auf Positionen geladen");
         changed = true;
       }
     }
@@ -322,7 +322,6 @@ window.saveShiftModelSettings = function() {
   showToast("✅ Einstellungen gespeichert!");
 };
 
-// Neue Funktion: Direkter Checkbox-Wechsel in der Team-Liste
 window.toggleTeamRotationSetting = function(teamKey, isChecked) {
   if (teamsConfig[teamKey]) {
     teamsConfig[teamKey].rotates = isChecked;
