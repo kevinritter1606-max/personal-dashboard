@@ -538,7 +538,24 @@ window.unlockBoardView = function() {
     document.getElementById("boardLockError").style.display = "none"; checkBoardLockState();
   } else showTimedBoxMsg("boardLockError", "❌ Falsches Zugangs-Passwort!", false);
 };
-window.openPlannerLoginFromLock = function() { handleLogoClick(); };
+// Öffnet die Planer-Anmeldung zuverlässig über das Logo und den Sperrbildschirm.
+// Die Funktion ist in der gelieferten Datei referenziert, war aber nicht definiert.
+window.handleLogoClick = function() {
+  const modal = document.getElementById("pinModal");
+  if (!modal) {
+    console.error("Planer-Login: Element #pinModal wurde nicht gefunden.");
+    return;
+  }
+  modal.style.display = "flex";
+  const err = document.getElementById("loginModalError");
+  if (err) { err.style.display = "none"; err.textContent = ""; }
+  const nameInput = document.getElementById("loginPlannerName");
+  const pinInput = document.getElementById("pinInput");
+  if (pinInput) pinInput.value = "";
+  if (nameInput) window.setTimeout(() => nameInput.focus(), 50);
+};
+
+window.openPlannerLoginFromLock = function() { window.handleLogoClick(); };
 
 function logHistory(action, details) {
   const nowTs = Date.now();
