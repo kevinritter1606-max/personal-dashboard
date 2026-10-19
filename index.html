@@ -612,6 +612,7 @@
     let activeInboxHistoryCategory = "ALL";
     function setInboxHistoryCategoryFilter(cat) { activeInboxHistoryCategory = cat || "ALL"; renderInboxLists(); }
     function classifyInboxActiveItem(sl) {
+      if (!sl) return "EXTRA";
       const cat = (sl.category || "").toLowerCase();
       if (cat.indexOf("urlaub") !== -1 || cat.indexOf("freizeit") !== -1) return "URLAUB";
       if (cat.indexOf("krank") !== -1 || cat.indexOf("abwesen") !== -1 || cat.indexOf("arbeitsunfähig") !== -1) return "KRANK";
