@@ -1,4 +1,4 @@
-/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.26 */
+/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.27 */
 firebase.initializeApp({
   apiKey: "AIzaSyBPOYRYyUm5gA-j7YSAZl7EJoxedFhDTl4", authDomain: "schichtplan-bayer.firebaseapp.com",
   projectId: "schichtplan-bayer", storageBucket: "schichtplan-bayer.firebasestorage.app",
@@ -343,6 +343,13 @@ window.toggleNewTeamForm = function() {
 
 function updateShiftApprovalUI() {
   const approved = isCurrentShiftApproved(), activeShift = getCurrentActiveShiftId(), shiftName = shiftsLabel[activeShift] || "Schicht";
+  
+  // Farbverlauf-Balken oben direkt umschalten (Behebung des Rot-Bleiben-Bugs)
+  const bar = document.getElementById("brandGradientBar");
+  if (bar) {
+    bar.className = approved ? "brand-gradient approved" : "brand-gradient pending";
+  }
+
   const dot = document.getElementById("indicatorDot"), text = document.getElementById("indicatorText"), btn = document.getElementById("plannerApprovalIndicator");
   if (dot && text && btn) {
     dot.style.background = approved ? "#16a34a" : "#dc2626"; text.textContent = approved ? "Freigegeben" : "Freigeben";
