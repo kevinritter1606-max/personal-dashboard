@@ -1,4 +1,4 @@
-/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.34 */
+/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.35 */
 firebase.initializeApp({
   apiKey: "AIzaSyBPOYRYyUm5gA-j7YSAZl7EJoxedFhDTl4", authDomain: "schichtplan-bayer.firebaseapp.com",
   projectId: "schichtplan-bayer", storageBucket: "schichtplan-bayer.firebasestorage.app",
@@ -670,7 +670,7 @@ function renderEmployees() {
     if (targetZone) targetZone.appendChild(card);
   });
 
-  // Personalbedarf-Auswertung für jede Schicht/Linie
+  // Personalbedarf-Auswertung & farbige Anzeige
   lines.forEach(l => {
     if (!l.targetStaff) l.targetStaff = { frueh: 3, spaet: 3, nacht: 2 };
     shifts.forEach(s => {
