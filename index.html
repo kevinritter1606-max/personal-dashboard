@@ -139,13 +139,10 @@
     .settings-card-title { font-size: 0.85rem; font-weight: 700; color: #1e293b; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
     .toast-banner { display: none; position: fixed; top: 20px; right: 20px; background: #16a34a; color: #fff; padding: 10px 16px; border-radius: 8px; font-weight: 700; font-size: 0.86rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 250; }
     
-    /* BERECHTIGUNGS-KLASSEN FÜR DIE STUFEN (STUFE 2 DARF NUR ZUWEISEN & PIN ZURÜCKSETZEN) */
     .lvl-4-only, .lvl-3-only, .admin-element, .lvl-2-hide { display: none !important; }
     body.planner-active .admin-element { display: inline-flex !important; }
-    
-    /* Stufe 2 darf weder Postfach öffnen noch Schichten freigeben */
     body.planner-active:not(.planner-lvl-2) .lvl-2-hide { display: inline-flex !important; }
-    body.planner-lvl-2 #plannerApprovalIndicator { display: none !important; }
+    
     body.planner-lvl-2 button[onclick="openInboxModal()"] { display: none !important; }
 
     body.planner-lvl-3 .lvl-3-only { display: inline-flex !important; }
@@ -153,7 +150,6 @@
     body.planner-lvl-4 .lvl-4-only, body.planner-lvl-4 .lvl-3-only { display: inline-flex !important; }
     body.planner-lvl-4 div.lvl-4-only, body.planner-lvl-4 div.lvl-3-only { display: block !important; }
     
-    /* Stufe 2 sieht in den Einstellungen NUR "Mein Profil" (zum PIN ändern), kein Mitarbeiter-Erstellen */
     body.planner-lvl-2 #tabBtnEmployees { display: none !important; }
     body.planner-lvl-2 #tabBtnProfile { display: inline-block !important; }
     body.planner-lvl-2 #tabEmployees { display: none !important; }
@@ -164,7 +160,7 @@
 <body>
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
-  <div class="version-footer-badge">Version 4.9.14</div>
+  <div class="version-footer-badge">Version 4.9.16</div>
 
   <div id="boardLockModal" class="modal-overlay" style="background: #f4f6f9; z-index: 180;">
     <div class="modal" style="max-width: 380px; text-align: center; padding: 0; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
@@ -558,7 +554,7 @@
     </div>
   </div>
 
-  <script src="planer.js?v=4.9.16"></script>
+  <script src="planer.js?v=4.9.17"></script>
   <script>
     let activeInboxHistoryCategory = "ALL";
 
