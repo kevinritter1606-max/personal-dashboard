@@ -1,4 +1,4 @@
-/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.22 */
+/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.23 */
 firebase.initializeApp({
   apiKey: "AIzaSyBPOYRYyUm5gA-j7YSAZl7EJoxedFhDTl4", authDomain: "schichtplan-bayer.firebaseapp.com",
   projectId: "schichtplan-bayer", storageBucket: "schichtplan-bayer.firebasestorage.app",
@@ -217,7 +217,7 @@ function checkAndRunSundayResetAndRotation() {
     if (shiftModelConfig.lastSundayResetKey !== sunResetKey) {
       shiftModelConfig.lastSundayResetKey = sunResetKey;
       employees.forEach(emp => {
-        if (emp.noRotation && isEmpAnchorActiveToday(emp, todayIso)) return; // Anker schützen!
+        if (emp.noRotation && isEmpAnchorActiveToday(emp, todayIso)) return;
         if (emp.zone && ["pool", "absent", "extra"].indexOf(emp.zone) === -1) {
           emp.zone = "pool";
           changed = true;
@@ -757,14 +757,11 @@ function placeTeamsOnDefaultLines() {
   const sundayFree = isSundayDaytimeFree(), todayIso = getTodayIso();
   employees.forEach(emp => {
     if (emp.zone === "absent" || emp.zone === "extra") return;
-    
-    // 1. ANKER SCHÜTZEN: Mitarbeiter mit Fix-Anker bleiben unangetastet
     if (emp.noRotation && isEmpAnchorActiveToday(emp, todayIso)) return;
 
     if (sundayFree) { emp.zone = "pool"; return; }
     let targetShift = ["frueh", "spaet", "nacht"].find(sKey => shiftRotation[sKey] === emp.team) || null;
     if (targetShift) {
-      // 2. PIN-VORRANG: Stammlinie (Pin) hat absolute Priorität vor normaler Prio-Linie
       const targetLine = (emp.lastLineId && lines.some(l => l.id === emp.lastLineId)) ? emp.lastLineId : (emp.mainLines && emp.mainLines[0] ? emp.mainLines[0] : null);
       emp.zone = targetLine ? (targetLine + "_" + targetShift) : "pool";
     } else emp.zone = "pool";
@@ -803,15 +800,12 @@ window.loadTeamToShift = function(slotKey) {
   const teamKey = sel.value, todayIso = getTodayIso(); shiftRotation[slotKey] = teamKey; syncAbsentZones();
   
   employees.forEach(emp => {
-    // 1. ANKER SCHÜTZEN: Mitarbeiter mit Fix-Anker komplett in Ruhe lassen
     if (emp.noRotation && isEmpAnchorActiveToday(emp, todayIso)) return;
 
-    // 2. Nur Mitarbeiter aus dem Pool des Teams laden, bestehende manuelle Linien-Plätze niemals überschreiben
     if (emp.team === teamKey && (!emp.zone || emp.zone === "pool")) {
       if (slotKey === "frei" || isSundayDaytimeFree()) {
         emp.zone = "pool";
       } else {
-        // 3. PIN-VORRANG BEIM LADEN: Stammlinie (Pin) wird vorrangig angesteuert
         const targetLine = (emp.lastLineId && lines.some(l => l.id === emp.lastLineId)) ? emp.lastLineId : (emp.mainLines && emp.mainLines[0] ? emp.mainLines[0] : null);
         emp.zone = targetLine ? (targetLine + "_" + slotKey) : "pool";
       }
@@ -824,7 +818,7 @@ window.loadTeamToShift = function(slotKey) {
 window.clearShiftRow = function(shiftId) {
   if (!isPlanner) return;
   employees.forEach(emp => {
-    if (emp.noRotation && isEmpAnchorActiveToday(emp, getTodayIso())) return; // Anker schützen
+    if (emp.noRotation && isEmpAnchorActiveToday(emp, getTodayIso())) return;
     if (extractShiftIdFromZone(emp.zone) === shiftId) emp.zone = "pool";
   });
   saveToFirebase(); renderEmployees();
@@ -832,7 +826,7 @@ window.clearShiftRow = function(shiftId) {
 window.clearEntireBoard = function() {
   if (!isPlanner) return;
   employees.forEach(emp => {
-    if (emp.noRotation && isEmpAnchorActiveToday(emp, getTodayIso())) return; // Anker schützen
+    if (emp.noRotation && isEmpAnchorActiveToday(emp, getTodayIso())) return;
     if (emp.zone && ["pool","absent","extra"].indexOf(emp.zone) === -1) emp.zone = "pool";
   });
   saveToFirebase(); renderEmployees();
@@ -1602,6 +1596,25 @@ function renderSettingsLists() {
       const pinBadge = manageable ? ((e.mustChangePw !== false) ? '<span style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; padding:1px 6px; border-radius:4px; font-size:0.72rem; font-weight:700; margin-left:6px;">🔑 Start-PIN: ' + (e.password || "1234") + '</span>' : '<span style="background:#dcfce7; color:#166534; padding:1px 6px; border-radius:4px; font-size:0.7rem; font-weight:600; margin-left:6px;">🔒 Eigene PIN</span>') : '<span style="background:#f1f5f9; color:#64748b; padding:1px 6px; border-radius:4px; font-size:0.7rem; font-weight:600; margin-left:6px;">🔒 Geschützt</span>';
       const actionBtns = manageable ? '<div style="display:flex; gap:5px;"><button class="btn btn-outline" style="padding:2px 8px; font-size:0.73rem; color:#b45309; border-color:#fcd34d;" onclick="resetEmployeePin(\'' + e.id + '\')">🔑 PIN-Reset</button>' + (plannerLevel > 2 ? '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem;" onclick="editEmployee(\'' + e.id + '\')">✏️</button><button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem; color:#dc2626;" onclick="deleteEmployee(\'' + e.id + '\')">🗑️</button>' : '') + '</div>' : '<span style="font-size:0.72rem; color:#94a3b8; font-weight:600;">Nur Stufe ' + (empLvl + 1) + '+</span>';
       return '<div class="item-row" style="flex-wrap:wrap; gap:6px;"><span style="display:flex; align-items:center; flex-wrap:wrap; gap:2px;"><span style="color:' + tObj.color + '; font-weight:700; margin-right:4px;">■</span> <b>' + fullName(e) + '</b> <small style="color:#64748b; margin-left:4px;">(' + tObj.name + ' · ' + e.role + ')</small>' + lvlBadge + pinBadge + '</span>' + actionBtns + '</div>';
+    }).join("");
+  }
+
+  // --- HIER WURDEN DIE LISTEN FÜR ROLLEN, LINIEN UND TEAMS ERGÄNZT ---
+  const roleListEl = document.getElementById("roleList");
+  if (roleListEl) {
+    roleListEl.innerHTML = roles.map(r => '<div class="item-row"><span><b>' + r + '</b></span>' + (plannerLevel > 2 ? '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem; color:#dc2626;" onclick="deleteRole(\'' + r + '\')">🗑️ Löschen</button>' : '') + '</div>').join("");
+  }
+
+  const lineListEl = document.getElementById("lineSettingsList");
+  if (lineListEl) {
+    lineListEl.innerHTML = lines.map(l => '<div class="item-row"><span><b>' + l.name + '</b> ' + (l.prio ? '<small style="color:#b91c1c;">(' + l.prio + ')</small>' : '') + '</span>' + (plannerLevel > 2 ? '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem; color:#dc2626;" onclick="deleteLine(\'' + l.id + '\')">🗑️ Löschen</button>' : '') + '</div>').join("");
+  }
+
+  const teamListEl = document.getElementById("teamSettingsList");
+  if (teamListEl) {
+    teamListEl.innerHTML = Object.keys(teamsConfig).sort().map(k => {
+      const t = teamsConfig[k];
+      return '<div class="item-row"><span style="display:flex; align-items:center; gap:6px;"><span style="width:14px; height:14px; background:' + t.color + '; border-radius:3px; display:inline-block;"></span><b>' + t.name + '</b> ' + (t.rotates ? '<small style="color:#0284c7;">(Rotiert)</small>' : '<small style="color:#64748b;">(Fest)</small>') + '</span>' + (plannerLevel > 2 ? '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem; color:#dc2626;" onclick="deleteTeam(\'' + k + '\')">🗑️ Löschen</button>' : '') + '</div>';
     }).join("");
   }
 }
