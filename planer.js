@@ -1,4 +1,4 @@
-/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.15 */
+/* PLANER-BOARD LOGIK (planer.js) - Version 4.9.17 */
 firebase.initializeApp({
   apiKey: "AIzaSyBPOYRYyUm5gA-j7YSAZl7EJoxedFhDTl4", authDomain: "schichtplan-bayer.firebaseapp.com",
   projectId: "schichtplan-bayer", storageBucket: "schichtplan-bayer.firebasestorage.app",
@@ -306,7 +306,7 @@ function updateShiftApprovalUI() {
 }
 
 window.toggleShiftApprovalState = function() {
-  if (!isPlanner || plannerLevel === 2) return; // Stufe 2 darf Schichten NICHT freigeben!
+  if (plannerLevel <= 2) return; // Stufe 1 & 2 dürfen niemals freigeben
   const currentKey = getCurrentShiftApprovalKey();
   approvedShiftKey = (approvedShiftKey === currentKey) ? "" : currentKey;
   logHistory("Freigabe", approvedShiftKey ? "Schicht bestätigt & freigegeben" : "Schichtfreigabe zurückgezogen");
@@ -484,7 +484,7 @@ function initBoard() {
   headerRow.innerHTML = '<th class="shift-header"><div>Schicht</div><div class="shift-controls"><button class="shift-rotate-btn" onclick="rotateAllShifts()"><span style="display:inline-flex; align-items:center; gap:5px; justify-content:center;">' + ROUND_SYNC_SVG + '<span>Rotieren</span></span></button><button class="shift-clear-btn" onclick="clearEntireBoard()">🧹 Alle leeren</button></div></th>';
   lines.forEach(line => {
     const th = document.createElement("th"); th.className = "line-header";
-    if (isPlanner && plannerLevel > 2) th.onclick = () => { openLineEditModal(line.id); }; // Stufe 2 darf Linien-Details nicht per Klick öffnen
+    if (isPlanner && plannerLevel > 2) th.onclick = () => { openLineEditModal(line.id); };
     let pCls = line.prio && (line.prio.indexOf("1") !== -1 || line.prio.indexOf("2") !== -1) ? "prio-high" : (line.prio ? "prio-mid" : "");
     th.innerHTML = '<div class="line-title">' + line.name + '</div><div class="badge-container">' + (line.prio ? '<span class="line-prio ' + pCls + '">' + line.prio + '</span>' : '') + (line.tag ? '<span class="line-status-tag">' + line.tag + '</span>' : '') + '</div>' + (line.note ? '<div class="line-notes">' + line.note + '</div>' : '');
     headerRow.appendChild(th);
@@ -500,9 +500,7 @@ function initBoard() {
     const sunBadge = isShiftSundayOff ? '<div style="font-size:0.64rem; color:#0284c7; background:#e0f2fe; padding:2px 4px; border-radius:4px; margin-top:3px;">So. Frei</div>' : '';
     const tr = document.createElement("tr"), thS = document.createElement("th");
     thS.className = "shift-header";
-    // Stufe 2 darf Team-Wechsel und Zeilen-Leeren im Header nicht ausführen
-    const disableStufe2Controls = plannerLevel === 2 ? 'disabled style="background:#f1f5f9; cursor:not-allowed;"' : '';
-    thS.innerHTML = '<div>' + shift.name + '</div>' + sunBadge + '<div class="shift-team-badge" style="border-left:4px solid ' + curObj.color + ';"><span style="color:' + curObj.color + ';">■</span> ' + curObj.name + '</div><div class="shift-controls"><div style="display:flex; gap:4px;"><select id="teamSelect_' + shift.id + '" class="shift-team-select" ' + disableStufe2Controls + ' style="flex:1; border-left:6px solid ' + curObj.color + '; color:' + curObj.color + ';" onchange="onShiftTeamDropdownChange(\'' + shift.id + '\', this)">' + opts + '</select><button class="shift-clear-btn" ' + disableStufe2Controls + ' style="width:26px; padding:0; color:var(--bayer-blue); border-color:var(--bayer-blue);" onclick="loadTeamToShift(\'' + shift.id + '\')" title="Team auf Linien laden">📥</button></div><button class="shift-clear-btn" ' + disableStufe2Controls + ' onclick="clearShiftRow(\'' + shift.id + '\')">🧹 Leeren</button></div>';
+    thS.innerHTML = '<div>' + shift.name + '</div>' + sunBadge + '<div class="shift-team-badge" style="border-left:4px solid ' + curObj.color + ';"><span style="color:' + curObj.color + ';">■</span> ' + curObj.name + '</div><div class="shift-controls"><div style="display:flex; gap:4px;"><select id="teamSelect_' + shift.id + '" class="shift-team-select" style="flex:1; border-left:6px solid ' + curObj.color + '; color:' + curObj.color + ';" onchange="onShiftTeamDropdownChange(\'' + shift.id + '\', this)">' + opts + '</select><button class="shift-clear-btn" style="width:26px; padding:0; color:var(--bayer-blue); border-color:var(--bayer-blue);" onclick="loadTeamToShift(\'' + shift.id + '\')" title="Team auf Linien laden">📥</button></div><button class="shift-clear-btn" onclick="clearShiftRow(\'' + shift.id + '\')">🧹 Leeren</button></div>';
     tr.appendChild(thS);
     lines.forEach(line => {
       const td = document.createElement("td"), zId = line.id + "_" + shift.id;
@@ -519,7 +517,6 @@ function initBoard() {
 }
 
 window.onShiftTeamDropdownChange = function(shiftId, selEl) {
-  if (plannerLevel === 2) return;
   styleShiftDropdown(selEl, selEl.value); shiftRotation[shiftId] = selEl.value; saveToFirebase();
 };
 
@@ -706,14 +703,6 @@ function applyPlannerLoginState(name, lvl, empId) {
   document.body.classList.toggle("planner-lvl-2", lvl === 2);
   document.body.classList.toggle("planner-lvl-3", lvl === 3);
   document.body.classList.toggle("planner-lvl-4", lvl >= 4);
-
-  const ind = document.getElementById("plannerApprovalIndicator");
-  if (ind && lvl === 2) {
-    ind.style.pointerEvents = "none";
-    ind.style.opacity = "0.6";
-    ind.title = "Schichtfreigabe erst ab Stufe 3 (Planer) möglich";
-  }
-
   const badge = document.getElementById("plannerStatusBadge"); if (badge) badge.textContent = "👤 " + name + " (Stufe " + lvl + ")";
   resetPlanerActivity(); checkBoardLockState();
 }
@@ -790,13 +779,9 @@ function performShiftRotationLogic(autoPlaceEmployees) {
   syncExtraZones(); saveToFirebase(); initBoard();
 }
 
-function rotateAllShifts() {
-  if (plannerLevel === 2) return; // Stufe 2 darf nicht rotieren
-  logHistory("Rotation", "Schichtrotation ausgelöst"); performShiftRotationLogic(true);
-}
+function rotateAllShifts() { logHistory("Rotation", "Schichtrotation ausgelöst"); performShiftRotationLogic(true); }
 
 window.saveShiftModelSettings = function() {
-  if (plannerLevel === 2) return;
   const chkAuto = document.getElementById("cfgAutoRotate");
   shiftModelConfig.model = "vollkonti_sonntag_frei";
   if (chkAuto) shiftModelConfig.autoRotate = chkAuto.checked;
@@ -810,7 +795,6 @@ window.openShiftModelSettingsQuick = function() {
 };
 
 window.loadTeamToShift = function(slotKey) {
-  if (plannerLevel === 2) return;
   const sel = document.getElementById("teamSelect_" + slotKey); if (!sel) return;
   const teamKey = sel.value, todayIso = getTodayIso(); shiftRotation[slotKey] = teamKey; syncAbsentZones();
   employees.forEach(emp => {
@@ -826,12 +810,12 @@ window.loadTeamToShift = function(slotKey) {
 };
 
 window.clearShiftRow = function(shiftId) {
-  if (!isPlanner || plannerLevel === 2) return;
+  if (!isPlanner) return;
   employees.forEach(emp => { if (extractShiftIdFromZone(emp.zone) === shiftId && (!emp.noRotation || !isEmpAnchorActiveToday(emp, getTodayIso()))) emp.zone = "pool"; });
   saveToFirebase(); renderEmployees();
 };
 window.clearEntireBoard = function() {
-  if (!isPlanner || plannerLevel === 2) return;
+  if (!isPlanner) return;
   employees.forEach(emp => { if (emp.zone && ["pool","absent","extra"].indexOf(emp.zone) === -1 && (!emp.noRotation || !isEmpAnchorActiveToday(emp, getTodayIso()))) emp.zone = "pool"; });
   saveToFirebase(); renderEmployees();
 };
@@ -1043,7 +1027,6 @@ function updateInboxBadge() {
 }
 
 window.openInboxModal = function(empId, openSickForm, openExtraForm) {
-  if (plannerLevel === 2) return; // Stufe 2 darf Postfach nicht öffnen
   document.getElementById("inboxModal").style.display = "flex";
   const sickContent = document.getElementById("manualEntryContent"), extraContent = document.getElementById("manualExtraContent");
   if (sickContent) sickContent.style.display = openSickForm ? "block" : "none";
@@ -1603,7 +1586,6 @@ function renderSettingsLists() {
       const tObj = teamsConfig[e.team] || { name: e.team, color: "#0091df" }, empLvl = Number(e.accessLevel || 1), manageable = canManageEmployee(e);
       const lvlBadge = '<span style="background:#e0f2fe; color:#0369a1; padding:1px 6px; border-radius:4px; font-size:0.7rem; font-weight:700; margin-left:4px;">Stufe ' + empLvl + '</span>';
       const pinBadge = manageable ? ((e.mustChangePw !== false) ? '<span style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; padding:1px 6px; border-radius:4px; font-size:0.72rem; font-weight:700; margin-left:6px;">🔑 Start-PIN: ' + (e.password || "1234") + '</span>' : '<span style="background:#dcfce7; color:#166534; padding:1px 6px; border-radius:4px; font-size:0.7rem; font-weight:600; margin-left:6px;">🔒 Eigene PIN</span>') : '<span style="background:#f1f5f9; color:#64748b; padding:1px 6px; border-radius:4px; font-size:0.7rem; font-weight:600; margin-left:6px;">🔒 Geschützt</span>';
-      // Stufe 2 darf nur den PIN-Reset-Button sehen, keine Editier- oder Lösch-Buttons für andere MA
       const actionBtns = manageable ? '<div style="display:flex; gap:5px;"><button class="btn btn-outline" style="padding:2px 8px; font-size:0.73rem; color:#b45309; border-color:#fcd34d;" onclick="resetEmployeePin(\'' + e.id + '\')">🔑 PIN-Reset</button>' + (plannerLevel > 2 ? '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem;" onclick="editEmployee(\'' + e.id + '\')">✏️</button><button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem; color:#dc2626;" onclick="deleteEmployee(\'' + e.id + '\')">🗑️</button>' : '') + '</div>' : '<span style="font-size:0.72rem; color:#94a3b8; font-weight:600;">Nur Stufe ' + (empLvl + 1) + '+</span>';
       return '<div class="item-row" style="flex-wrap:wrap; gap:6px;"><span style="display:flex; align-items:center; flex-wrap:wrap; gap:2px;"><span style="color:' + tObj.color + '; font-weight:700; margin-right:4px;">■</span> <b>' + fullName(e) + '</b> <small style="color:#64748b; margin-left:4px;">(' + tObj.name + ' · ' + e.role + ')</small>' + lvlBadge + pinBadge + '</span>' + actionBtns + '</div>';
     }).join("");
