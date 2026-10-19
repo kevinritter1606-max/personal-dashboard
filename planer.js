@@ -709,7 +709,7 @@ function initDragAndDrop() {
 }
 
 window.addEventListener("DOMContentLoaded", function() {
-  Object.keys(teamsConfig).sort().forEach(k => { activeTeamFilters[k] = true; });
+  Object.keys(teamsConfig).forEach(k => { activeTeamFilters[k] = true; });
   roles.forEach(r => { activeRoleFilters[r] = true; });
   updateHeaderDateKw(); updateShiftApprovalUI(); updateAutoRotationUI();
   const savedName = sessionStorage.getItem("planner_name"), savedLvl = Number(sessionStorage.getItem("planner_level") || 0);
