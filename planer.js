@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Version 4.9.36 (Komplett mit Einstellungs-Renderern)
+   PLANER-BOARD LOGIK (planer.js) - Teil 1/2
    ========================================================================== */
 
 try {
@@ -15,7 +15,7 @@ const shifts = [{ id: "frueh", name: "Früh" }, { id: "spaet", name: "Spät" }, 
 const shiftsLabel = { frueh: "Frühschicht", spaet: "Spätschicht", nacht: "Nachtschicht" };
 const shiftsShortLabel = { frueh: "Früh", spaet: "Spät", nacht: "Nacht" };
 const defaultLines = ["32","33","34","09","22","39","36","37","38","54"].map(n => ({ 
-  id: "L" + n, name: "Linie " + n, prio: "", tag: "", note: "",
+  id: "L" + n, name: "Linie " + n, prio: "", tag: "", note: "", ausgeplant: false,
   targetStaff: { frueh: 3, spaet: 3, nacht: 2 }
 }));
 
@@ -30,8 +30,7 @@ let teamsConfig = {
 };
 let securityConfig = { boardPwEnabled: false, boardPw: "0110", plannerTimeoutMin: 180 };
 let shiftModelConfig = {
-  model: "vollkonti_sonntag_frei",
-  autoRotate: true,
+  model: "vollkonti_sonntag_frei", autoRotate: true,
   resetEnabled: true, resetDay: 0, resetHour: 6,
   loadEnabled: true, loadDay: 0, loadHour: 12,
   lastRotationStepKey: "", lastResetRunKey: "", lastLoadRunKey: ""
@@ -65,10 +64,7 @@ function isIsoDateSunday(iso) {
   const p = (iso || "").split("-");
   return p.length === 3 && new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay() === 0;
 }
-function isSundayRestPeriod(baseDate) {
-  const now = baseDate || new Date();
-  return now.getDay() === 0;
-}
+function isSundayRestPeriod(baseDate) { return (baseDate || new Date()).getDay() === 0; }
 function isSundayDaytimeFree() { return isSundayRestPeriod(new Date()); }
 function getLogicalDateObj(baseDate) {
   const now = baseDate || new Date();
@@ -96,6 +92,32 @@ function getWorkdayBlockIndex(logicalIso) {
   const weeks = Math.floor(diffDays / 7), dayInWeek = ((diffDays % 7) + 7) % 7;
   return Math.floor((weeks * 6 + Math.min(dayInWeek, 5)) / 2);
 }
+function getDatesInRange(startIso, endIso) {
+  const res = [], pS = startIso.split("-"), pE = endIso.split("-");
+  let cur = new Date(Date.UTC(Number(pS[0]), Number(pS[1]) - 1, Number(pS[2])));
+  const end = new Date(Date.UTC(Number(pE[0]), Number(pE[1]) - 1, Number(pE[2])));
+  while (cur <= end && res.length < 60) {
+    res.push(cur.getUTCFullYear() + "-" + String(cur.getUTCMonth() + 1).padStart(2, "0") + "-" + String(cur.getUTCDate()).padStart(2, "0"));
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return res;
+}
+function getPrevDateIso(isoDate) {
+  const p = isoDate.split("-"), d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  d.setDate(d.getDate() - 1); return getTodayIso(d);
+}
+function getNextDateIso(isoDate) {
+  const p = isoDate.split("-"), d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  d.setDate(d.getDate() + 1); return getTodayIso(d);
+}
+
+function isEmpAnchorActiveToday(emp, dateIso) {
+  if (!emp || !emp.noRotation) return false;
+  const p = (dateIso || getTodayIso()).split("-");
+  const jsDay = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay();
+  const fixDays = Array.isArray(emp.fixDays) ? emp.fixDays : [1, 2, 3, 4, 5];
+  return fixDays.indexOf(jsDay) !== -1;
+}
 
 function getRotationForDate(targetIso) {
   const diff = getWorkdayBlockIndex(targetIso) - getWorkdayBlockIndex(getLogicalDateIso());
@@ -112,8 +134,61 @@ function getRotationForDate(targetIso) {
 window.getEmpRegularShiftOnDate = function(emp, dateIso) {
   if (!emp || !dateIso || isIsoDateSunday(dateIso)) return null;
   const rot = getRotationForDate(dateIso);
-  return ["frueh", "spaet", "nacht"].find(s => rot[s] === emp.team) || null;
+  let empShift = ["frueh", "spaet", "nacht"].find(s => rot[s] === emp.team) || null;
+  if (!empShift && isEmpAnchorActiveToday(emp, dateIso)) empShift = extractShiftIdFromZone(emp.zone) || emp.lastShiftId || null;
+  return empShift;
 };
+
+window.didEmpWorkNightBefore = function(emp, dateIso) {
+  if (!emp || !dateIso) return false;
+  const prevIso = getPrevDateIso(dateIso);
+  if (window.getEmpRegularShiftOnDate(emp, prevIso) === "nacht") return true;
+  return extraShifts.some(es => es.empId === emp.id && es.date === prevIso && es.shift === "nacht" && (es.status === "approved" || es.status === "pending"));
+};
+
+function getShiftTimeBounds(dateIso, shiftId) {
+  const p = dateIso.split("-"), y = Number(p[0]), m = Number(p[1]) - 1, d = Number(p[2]);
+  let startHour = 6, endHour = 14, endDayOffset = 0;
+  if (shiftId === "frueh") { startHour = 6; endHour = 14; }
+  else if (shiftId === "spaet") { startHour = 14; endHour = 22; }
+  else if (shiftId === "nacht") { startHour = 22; endHour = 6; endDayOffset = 1; }
+  const shiftStartMs = new Date(y, m, d, startHour, 0, 0, 0).getTime();
+  const shiftEndMs = new Date(y, m, d + endDayOffset, endHour, 0, 0, 0).getTime();
+  return { prepStartMs: shiftStartMs - 3600000, shiftStartMs: shiftStartMs, shiftEndMs: shiftEndMs };
+}
+
+function updateShiftApprovalUI() {
+  const approved = isCurrentShiftApproved();
+  const bar = document.getElementById("brandGradientBar");
+  if (bar) bar.className = approved ? "brand-gradient approved" : "brand-gradient pending";
+
+  const dot = document.getElementById("indicatorDot"), text = document.getElementById("indicatorText"), btn = document.getElementById("plannerApprovalIndicator");
+  if (dot && text && btn) {
+    dot.style.background = approved ? "#16a34a" : "#dc2626"; text.textContent = approved ? "Freigegeben" : "Freigeben";
+    btn.style.borderColor = approved ? "#86efac" : "#fecaca"; btn.style.background = approved ? "#f0fdf4" : "#fef2f2"; btn.style.color = approved ? "#166534" : "#b91c1c";
+  }
+}
+
+window.toggleShiftApprovalState = function() {
+  if (plannerLevel <= 2) return;
+  const currentKey = getCurrentShiftApprovalKey();
+  approvedShiftKey = (approvedShiftKey === currentKey) ? "" : currentKey;
+  updateShiftApprovalUI(); saveToFirebase();
+};
+
+function updateAutoRotationUI() {
+  const isAuto = shiftModelConfig.autoRotate !== false;
+  const badge = document.getElementById("autoRotationBadge"), badgeText = document.getElementById("autoRotationText");
+  if (badge && badgeText) {
+    badge.className = isAuto ? "auto-rotation-badge active" : "auto-rotation-badge";
+    badgeText.textContent = isAuto ? "Auto aktiv" : "Manuell";
+  }
+}
+
+function fullName(e) { return ((e.firstName || "") + " " + (e.lastName || "")).trim(); }
+function extractLineIdFromZone(z) { return (!z || ["pool","absent","extra"].indexOf(z) !== -1 || z.indexOf("_") === -1) ? null : z.split("_").slice(0, -1).join("_"); }
+function extractShiftIdFromZone(z) { return (!z || ["pool","absent","extra"].indexOf(z) !== -1 || z.indexOf("_") === -1) ? null : z.split("_").pop(); }
+function isTeamRotating(teamKey) { return teamsConfig[teamKey] ? (teamsConfig[teamKey].rotates !== false) : true; }
 
 function getActiveLeaveForEmpOnDate(empId, isoDate) {
   return sickLeaves.find(sl => {
@@ -147,34 +222,10 @@ function sanitizeTeamReferences() {
   Object.keys(activeTeamFilters).forEach(k => { if (!teamsConfig[k]) delete activeTeamFilters[k]; });
 }
 
-function fullName(e) { return ((e.firstName || "") + " " + (e.lastName || "")).trim(); }
-function isTeamRotating(teamKey) { return teamsConfig[teamKey] ? (teamsConfig[teamKey].rotates !== false) : true; }
-
 function updateHeaderDateKw() {
   const el = document.getElementById("headerDateKw"); if (!el) return;
   const now = new Date(), ld = getLogicalDateObj(now);
   el.textContent = now.toLocaleDateString("de-DE", { weekday: "short", year: "numeric", month: "2-digit", day: "2-digit" }) + " · KW " + getCalendarWeek(ld);
-}
-
-function updateShiftApprovalUI() {
-  const approved = isCurrentShiftApproved();
-  const bar = document.getElementById("brandGradientBar");
-  if (bar) bar.className = approved ? "brand-gradient approved" : "brand-gradient pending";
-
-  const dot = document.getElementById("indicatorDot"), text = document.getElementById("indicatorText"), btn = document.getElementById("plannerApprovalIndicator");
-  if (dot && text && btn) {
-    dot.style.background = approved ? "#16a34a" : "#dc2626"; text.textContent = approved ? "Freigegeben" : "Freigeben";
-    btn.style.borderColor = approved ? "#86efac" : "#fecaca"; btn.style.background = approved ? "#f0fdf4" : "#fef2f2"; btn.style.color = approved ? "#166534" : "#b91c1c";
-  }
-}
-
-function updateAutoRotationUI() {
-  const isAuto = shiftModelConfig.autoRotate !== false;
-  const badge = document.getElementById("autoRotationBadge"), badgeIcon = document.getElementById("autoRotationIcon"), badgeText = document.getElementById("autoRotationText");
-  if (badge && badgeIcon && badgeText) {
-    badge.className = isAuto ? "auto-rotation-badge active" : "auto-rotation-badge";
-    badgeText.textContent = isAuto ? "Auto aktiv" : "Manuell";
-  }
 }
 
 function showTimedBoxMsg(elId, text, isSuccess) {
@@ -218,10 +269,11 @@ window.initBoard = function() {
   
   lines.forEach(line => {
     if (!line.targetStaff) line.targetStaff = { frueh: 3, spaet: 3, nacht: 2 };
-    const th = document.createElement("th"); th.className = "line-header";
+    const th = document.createElement("th");
+    th.className = "line-header" + (line.ausgeplant ? " ausgeplant" : "");
     if (isPlanner && plannerLevel > 2) th.onclick = () => { openLineEditModal(line.id); };
     let pCls = line.prio && (line.prio.indexOf("1") !== -1 || line.prio.indexOf("2") !== -1) ? "prio-high" : (line.prio ? "prio-mid" : "");
-    th.innerHTML = '<div class="line-title">' + line.name + '</div><div class="badge-container">' + (line.prio ? '<span class="line-prio ' + pCls + '">' + line.prio + '</span>' : '') + (line.tag ? '<span class="line-status-tag">' + line.tag + '</span>' : '') + '</div>' + (line.note ? '<div class="line-notes">' + line.note + '</div>' : '');
+    th.innerHTML = '<div class="line-title">' + line.name + '</div><div class="badge-container">' + (line.ausgeplant ? '<span class="line-ausgeplant-tag">🚫 Ausgeplant</span>' : '') + (line.prio ? '<span class="line-prio ' + pCls + '">' + line.prio + '</span>' : '') + (line.tag ? '<span class="line-status-tag">' + line.tag + '</span>' : '') + '</div>' + (line.note ? '<div class="line-notes">' + line.note + '</div>' : '');
     headerRow.appendChild(th);
   });
 
@@ -240,7 +292,7 @@ window.initBoard = function() {
     
     lines.forEach(line => {
       const td = document.createElement("td"), zId = line.id + "_" + shift.id;
-      td.innerHTML = '<div id="' + zId + '" class="card-list drop-zone" data-zone="' + zId + '"' + (isShiftSundayOff ? ' style="background:#f1f5f9; opacity:0.8;"' : '') + '></div>';
+      td.innerHTML = '<div id="' + zId + '" class="card-list drop-zone" data-zone="' + zId + '"' + (isShiftSundayOff || line.ausgeplant ? ' style="background:#f1f5f9; opacity:0.7;"' : '') + '></div>';
       tr.appendChild(td);
     });
     matrixBody.appendChild(tr);
@@ -251,14 +303,35 @@ window.initBoard = function() {
   renderEmployees(); initDragAndDrop(); renderSettingsLists(); updateInboxBadge(); checkBoardLockState();
 };
 
-window.resetEmpForm = function() {
-  const idEl = document.getElementById("editEmpId"); if (idEl) idEl.value = "";
-  const fEl = document.getElementById("newEmpFirstName"); if (fEl) fEl.value = "";
-  const lEl = document.getElementById("newEmpLastName"); if (lEl) lEl.value = "";
+window.openLineEditModal = function(lineId) {
+  const line = lines.find(l => l.id === lineId); if (!line) return;
+  document.getElementById("editLineId").value = line.id;
+  document.getElementById("lineEditTitle").textContent = "Linie bearbeiten: " + line.name;
+  document.getElementById("editLineAusgeplant").checked = !!line.ausgeplant;
+  document.getElementById("editLinePrio").value = line.prio || "";
+  document.getElementById("editLineTag").value = line.tag || "";
+  document.getElementById("editLineNote").value = line.note || "";
+  if (!line.targetStaff) line.targetStaff = { frueh: 3, spaet: 3, nacht: 2 };
+  document.getElementById("editLineStaffFrueh").value = line.targetStaff.frueh ?? 3;
+  document.getElementById("editLineStaffSpaet").value = line.targetStaff.spaet ?? 3;
+  document.getElementById("editLineStaffNacht").value = line.targetStaff.nacht ?? 2;
+  document.getElementById("lineEditModal").style.display = "flex";
 };
 
-window.onShiftTeamDropdownChange = function(shiftId, selEl) {
-  shiftRotation[shiftId] = selEl.value; saveToFirebase();
+window.saveLineDetails = function(isAuto) {
+  const id = document.getElementById("editLineId").value;
+  const line = lines.find(l => l.id === id); if (!line) return;
+  line.ausgeplant = document.getElementById("editLineAusgeplant").checked;
+  line.prio = document.getElementById("editLinePrio").value;
+  line.tag = document.getElementById("editLineTag").value.trim();
+  line.note = document.getElementById("editLineNote").value.trim();
+  line.targetStaff = {
+    frueh: parseInt(document.getElementById("editLineStaffFrueh").value) || 0,
+    spaet: parseInt(document.getElementById("editLineStaffSpaet").value) || 0,
+    nacht: parseInt(document.getElementById("editLineStaffNacht").value) || 0
+  };
+  saveToFirebase(); initBoard();
+  if (!isAuto) { closeModal("lineEditModal"); showToast("Linie gespeichert!"); }
 };
 
 function renderEmployees() {
@@ -270,19 +343,20 @@ function renderEmployees() {
     const fName = fullName(emp);
     if (isPlanner && emp.zone === "pool") {
       if (activeTeamFilters[emp.team] === false || activeRoleFilters[emp.role] === false) return;
-      if (poolSearchQuery) {
-        if (fName.toLowerCase().indexOf(poolSearchQuery) === -1) return;
-      }
+      if (poolSearchQuery && fName.toLowerCase().indexOf(poolSearchQuery) === -1) return;
     }
 
     const teamObj = teamsConfig[emp.team] || { name: "Team", color: "#0091df" };
     const card = document.createElement("div"); card.className = "employee-card";
     card.setAttribute("data-id", emp.id); card.style.borderLeft = "5px solid " + (teamObj.color || "#0091df");
 
-    card.innerHTML =
-      '<div class="card-name">' + fName + '</div>' +
-      '<div style="display:flex; justify-content:space-between; align-items:center; gap:4px;">' +
-        '<div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;"><span class="card-role">' + emp.role + '</span></div>' +
+    let tagsHtml = '<span class="card-role">' + emp.role + '</span>';
+    if (emp.ersthelfer) tagsHtml += ' <span class="card-fix-tag" style="background:#dcfce7; color:#166534;">+ Ersthelfer</span>';
+    if (emp.noRotation) tagsHtml += ' <span class="card-fix-tag">⚓ Fix</span>';
+
+    card.innerHTML = '<div class="card-name">' + fName + '</div>' +
+      '<div style="display:flex; justify-content:space-between; align-items:center; gap:4px; margin-top:2px;">' +
+        '<div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">' + tagsHtml + '</div>' +
       '</div>';
 
     const targetZone = document.getElementById(emp.zone) || document.getElementById("pool");
@@ -353,7 +427,6 @@ window.switchTab = function(tabId, btnEl) {
   renderSettingsLists();
 };
 
-/* Rendering-Funktionen für die Einstellungs-Reiter (Mitarbeiter, Rollen, Linien, Teams) */
 function renderSettingsLists() {
   const empListEl = document.getElementById("employeeList");
   if (empListEl) {
@@ -373,7 +446,7 @@ function renderSettingsLists() {
 
   const lineListEl = document.getElementById("lineSettingsList");
   if (lineListEl) {
-    lineListEl.innerHTML = lines.map(l => '<div class="item-row"><span><b>' + l.name + '</b> ' + (l.prio ? '('+l.prio+')' : '') + '</span>' +
+    lineListEl.innerHTML = lines.map(l => '<div class="item-row"><span><b>' + l.name + '</b> ' + (l.ausgeplant ? '(Ausgeplant)' : (l.prio ? '('+l.prio+')' : '')) + '</span>' +
       '<div style="display:flex; gap:6px;"><button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem;" onclick="openLineEditModal(\'' + l.id + '\')">✏️ Bearbeiten</button>' +
       '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem; color:#dc2626; border-color:#fca5a5;" onclick="deleteLine(\'' + l.id + '\')">🗑️</button></div></div>').join("");
   }
@@ -411,6 +484,12 @@ window.deleteTeam = function(k) {
   showToast("Team gelöscht");
 };
 
+window.deleteEmployee = function(id) {
+  employees = employees.filter(e => e.id !== id);
+  saveToFirebase(); renderEmployees(); renderSettingsLists();
+  showToast("Mitarbeiter gelöscht");
+};
+
 window.editEmployee = function(id) {
   const emp = employees.find(e => e.id === id); if (!emp) return;
   document.getElementById("editEmpId").value = emp.id;
@@ -444,7 +523,7 @@ window.addRole = function() {
 
 window.addLine = function() {
   const inp = document.getElementById("newLineName"), val = inp ? inp.value.trim() : "";
-  if (val) { lines.push({ id: "L_" + Date.now(), name: val, prio: "", tag: "", note: "", targetStaff: { frueh: 3, spaet: 3, nacht: 2 } }); inp.value = ""; saveToFirebase(); initBoard(); renderSettingsLists(); showToast("Linie hinzugefügt"); }
+  if (val) { lines.push({ id: "L_" + Date.now(), name: val, prio: "", tag: "", note: "", ausgeplant: false, targetStaff: { frueh: 3, spaet: 3, nacht: 2 } }); inp.value = ""; saveToFirebase(); initBoard(); renderSettingsLists(); showToast("Linie hinzugefügt"); }
 };
 
 window.addTeam = function() {
@@ -462,7 +541,6 @@ window.createManualBackup = function() { showToast("Backup erstellt!"); };
 window.saveProfilePinChange = function() { showToast("PIN aktualisiert!"); };
 window.filterSettingsEmployees = function(q) { settingsEmpSearchQuery = (q || "").trim().toLowerCase(); renderSettingsLists(); };
 
-/* STRIKT: Namensvorschläge erst ab mindestens 3 Buchstaben */
 window.onPlannerLoginInput = function(val) {
   selectedLoginPlannerId = null;
   const box = document.getElementById("plannerLoginSuggestions"), q = (val || "").trim().toLowerCase();
