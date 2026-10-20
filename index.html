@@ -10,114 +10,106 @@
   <style>
     :root { --bayer-blue: #0091df; --bg-gray: #f4f6f9; }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
-    body { background-color: var(--bg-gray); min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; position: relative; cursor: default; }
+    body { background-color: var(--bg-gray); height: 100vh; display: flex; flex-direction: column; overflow: hidden; position: relative; cursor: default; }
     
-    .brand-gradient { height: 6px; width: 100%; flex-shrink: 0; transition: background 0.3s ease; }
+    .brand-gradient { height: 4px; width: 100%; flex-shrink: 0; transition: background 0.3s ease; }
     .brand-gradient.pending { background: linear-gradient(90deg, #0091df 0%, #ef4444 45%, #dc2626 100%); }
     .brand-gradient.approved { background: linear-gradient(90deg, #0091df 0%, #00bcff 50%, #89d329 100%); }
 
-    .version-footer-badge { position: fixed; bottom: 8px; right: 12px; font-size: 0.7rem; color: #94a3b8; font-weight: 600; pointer-events: none; z-index: 10; }
+    .version-footer-badge { position: fixed; bottom: 4px; right: 8px; font-size: 0.65rem; color: #94a3b8; font-weight: 600; pointer-events: none; z-index: 10; }
 
-    header { background: #fff; padding: 10px 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,0.06); position: sticky; top: 0; z-index: 50; gap: 12px; flex-wrap: wrap; }
-    .header-left { display: flex; align-items: center; gap: 16px; }
-    .bayer-logo-btn { width: 62px; height: 62px; cursor: pointer; transition: transform 0.2s; flex-shrink: 0; }
+    header { background: #fff; padding: 6px 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06); position: sticky; top: 0; z-index: 50; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .bayer-logo-btn { width: 44px; height: 44px; cursor: pointer; transition: transform 0.2s; flex-shrink: 0; }
     .bayer-logo-btn:hover { transform: scale(1.05); }
     .bayer-logo-btn img { width: 100%; height: 100%; object-fit: contain; }
-    .header-title h1 { font-size: 1.35rem; font-weight: 700; color: var(--bayer-blue); margin: 0; }
-    .header-meta { font-size: 0.78rem; color: #64748b; font-weight: 600; margin-top: 2px; }
-    .header-badges-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+    .header-title h1 { font-size: 1.15rem; font-weight: 700; color: var(--bayer-blue); margin: 0; }
+    .header-meta { font-size: 0.72rem; color: #64748b; font-weight: 600; margin-top: 1px; }
+    .header-badges-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
     
-    .status-badge { display: none; font-size: 0.73rem; padding: 3px 10px; border-radius: 999px; font-weight: 700; background: #dcfce7; color: #166534; }
+    .status-badge { display: none; font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; font-weight: 700; background: #dcfce7; color: #166534; }
     body.planner-active .status-badge { display: inline-block; }
 
     @keyframes slowSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    .auto-rotation-badge { display: none; align-items: center; gap: 5px; font-size: 0.73rem; padding: 3px 10px; border-radius: 999px; font-weight: 700; cursor: pointer; border: 1px solid #cbd5e1; background: #f1f5f9; color: #64748b; transition: 0.15s; }
-    .auto-rotation-badge:hover { background: #e2e8f0; }
+    .auto-rotation-badge { display: none; align-items: center; gap: 4px; font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; font-weight: 700; cursor: pointer; border: 1px solid #cbd5e1; background: #f1f5f9; color: #64748b; transition: 0.15s; }
     .auto-rotation-badge.active { border-color: #bae6fd; background: #f0f9ff; color: #0369a1; }
     .auto-rotation-badge.active .rot-icon { display: inline-block; animation: slowSpin 8s linear infinite; }
     body.planner-active .auto-rotation-badge { display: inline-flex; }
 
-    .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .btn { padding: 8px 14px; border-radius: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; position: relative; transition: 0.15s; }
+    .header-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .btn { padding: 6px 10px; border-radius: 6px; font-size: 0.82rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; position: relative; transition: 0.15s; }
     .btn-primary { background: var(--bayer-blue); color: #fff; }
     .btn-primary:hover { background: #0077b6; }
     .btn-outline { border-color: #cbd5e1; background: #fff; color: #475569; }
     .btn-outline:hover { background: #f8fafc; }
 
-    .planner-approval-indicator { display: none; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 700; padding: 6px 12px; border-radius: 6px; cursor: pointer; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; transition: 0.2s; }
+    .planner-approval-indicator { display: none; align-items: center; gap: 5px; font-size: 0.75rem; font-weight: 700; padding: 5px 10px; border-radius: 6px; cursor: pointer; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; }
     body.planner-active .planner-approval-indicator { display: inline-flex; }
 
-    .inbox-badge { position: absolute; top: -6px; right: -6px; background: #dc2626; color: #fff; font-size: 0.72rem; font-weight: 800; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; display: none; align-items: center; justify-content: center; }
-    main { padding: 16px; display: flex; gap: 16px; flex: 1; width: 100%; align-items: flex-start; }
-    .sidebar { width: 292px; flex-shrink: 0; display: none; flex-direction: column; gap: 10px; }
-    body.planner-active .sidebar { display: flex; }
-    .panel { background: #fff; border-radius: 10px; padding: 10px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; display: flex; flex-direction: column; max-height: 33vh; }
-    .panel h2 { font-size: 0.86rem; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; color: #1e293b; }
+    .inbox-badge { position: absolute; top: -5px; right: -5px; background: #dc2626; color: #fff; font-size: 0.65rem; font-weight: 800; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px; display: none; align-items: center; justify-content: center; }
     
-    .card-list { flex: 1; overflow-y: auto; scrollbar-gutter: stable; min-height: 68px; padding: 6px; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1; display: flex; flex-direction: column; gap: 6px; cursor: default; }
-    .team-filter-box { display: none; background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 0.78rem; }
+    /* Dashboard-Hauptbereich: Passt komplett ohne Scrollen auf den Bildschirm */
+    main { padding: 8px 12px; display: flex; gap: 12px; flex: 1; width: 100%; height: calc(100vh - 65px); align-items: stretch; overflow: hidden; }
+    .sidebar { width: 260px; flex-shrink: 0; display: none; flex-direction: column; gap: 8px; height: 100%; overflow: hidden; }
+    body.planner-active .sidebar { display: flex; }
+    .panel { background: #fff; border-radius: 8px; padding: 6px 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .panel h2 { font-size: 0.8rem; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; color: #1e293b; }
+    
+    .card-list { flex: 1; overflow-y: auto; min-height: 40px; padding: 4px; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1; display: flex; flex-direction: column; gap: 4px; }
+    .team-filter-box { display: none; background: #fff; padding: 6px 8px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.75rem; flex-shrink: 0; }
     body.planner-active .team-filter-box { display: block; }
-    .team-filter-options { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; }
+    .team-filter-options { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 2px; }
     .filter-quick-links span { cursor: pointer; color: var(--bayer-blue); font-weight: 600; }
-    .search-wrapper { position: relative; margin-bottom: 8px; }
-    .search-input { width: 100%; padding: 6px 26px 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.8rem; background: #f8fafc; }
-    .search-clear { display: none; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; font-weight: bold; font-size: 1rem; }
+    .search-wrapper { position: relative; margin-bottom: 4px; }
+    .search-input { width: 100%; padding: 4px 22px 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.76rem; background: #f8fafc; }
+    .search-clear { display: none; position: absolute; right: 6px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; font-weight: bold; font-size: 0.9rem; }
 
-    .employee-card { background: #fff; padding: 6px 8px; border-radius: 6px; border: 1px solid #e2e8f0; border-left: 5px solid #0091df; box-shadow: 0 1px 2px rgba(0,0,0,0.06); display: flex; flex-direction: column; user-select: none; gap: 3px; position: relative; backface-visibility: hidden; cursor: grab; }
+    /* Kompakte Mitarbeiterkarten: Name bleibt immer ungetrennt & einzeilig, kein Scrollen nötig */
+    .employee-card { background: #fff; padding: 4px 6px; border-radius: 5px; border: 1px solid #e2e8f0; border-left: 4px solid #0091df; box-shadow: 0 1px 1px rgba(0,0,0,0.04); display: flex; flex-direction: column; user-select: none; gap: 2px; position: relative; backface-visibility: hidden; cursor: grab; flex-shrink: 0; }
     body.planner-active .employee-card:active { cursor: grabbing; }
-    .card-name { font-size: 0.80rem; font-weight: 700; color: #1e293b; line-height: 1.15; word-break: break-word; padding-right: 22px; }
-    .card-role { font-size: 0.68rem; padding: 2px 5px; background: #f1f5f9; border-radius: 4px; color: #475569; font-weight: 600; display: inline-block; }
-    .card-fix-tag { display: none; font-size: 0.62rem; padding: 1px 5px; background: #fef08a; color: #854d0e; border-radius: 4px; font-weight: 700; }
+    .card-name { font-size: 0.76rem; font-weight: 700; color: #1e293b; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 18px; }
+    .card-role { font-size: 0.62rem; padding: 1px 4px; background: #f1f5f9; border-radius: 3px; color: #475569; font-weight: 600; display: inline-block; }
+    .card-fix-tag { display: none; font-size: 0.58rem; padding: 1px 3px; background: #fef08a; color: #854d0e; border-radius: 3px; font-weight: 700; }
     body.planner-active .card-fix-tag { display: inline-block; }
 
-    /* Ersthelfer rotes Plus weiter nach rechts gerückt in der Ecke */
-    .ersthelfer-plus { position: absolute; top: 4px; right: 5px; color: #dc2626; font-weight: 900; font-size: 0.88rem; line-height: 1; }
+    /* Ersthelfer rotes Kreuz exakt rechts in der Ecke */
+    .ersthelfer-plus { position: absolute; top: 3px; right: 5px; color: #dc2626; font-weight: 900; font-size: 0.82rem; line-height: 1; }
 
     /* Nadel in der Sidebar */
     .card-pin-info { display: none; }
-    body.planner-active .sidebar .employee-card.pinned .card-pin-info { display: inline-flex; font-size: 0.68rem; color: #0284c7; background: #f0f9ff; padding: 1px 5px; border-radius: 4px; font-weight: 700; margin-top: 2px; align-items: center; gap: 3px; width: fit-content; border: 1px solid #bae6fd; }
+    body.planner-active .sidebar .employee-card.pinned .card-pin-info { display: inline-flex; font-size: 0.62rem; color: #0284c7; background: #f0f9ff; padding: 0 4px; border-radius: 3px; font-weight: 700; margin-top: 1px; align-items: center; gap: 2px; width: fit-content; border: 1px solid #bae6fd; }
 
-    .board-container { flex: 1; background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .board-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 1120px; }
+    .board-container { flex: 1; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; flex-direction: column; overflow: hidden; height: 100%; }
+    .board-table { width: 100%; border-collapse: collapse; table-layout: fixed; height: 100%; }
     .board-table th.shift-header { position: sticky; left: 0; z-index: 15; box-shadow: 2px 0 4px rgba(0,0,0,0.04); }
 
-    @media (max-width: 768px) {
-      header { padding: 10px 12px; }
-      .bayer-logo-btn { width: 46px; height: 46px; }
-      .header-title h1 { font-size: 1.1rem; }
-      main { padding: 8px; flex-direction: column; gap: 10px; }
-      .sidebar, .board-container { width: 100%; }
-      .board-table { min-width: 1050px; }
-      .shift-header { width: 108px; padding: 10px 2px; font-size: 0.78rem; }
-    }
-    .board-table th, .board-table td { border: 1px solid #e2e8f0; vertical-align: top; }
-    .line-header { background: #f8fafc; padding: 10px 4px; text-align: center; position: relative; }
+    .board-table th, .board-table td { border: 1px solid #e2e8f0; vertical-align: top; height: calc(100% / 3); }
+    .line-header { background: #f8fafc; padding: 6px 2px; text-align: center; position: relative; height: 48px; }
     body.planner-active .line-header { cursor: pointer; }
     body.planner-active .line-header:hover { background: #f1f5f9; }
     .line-header.ausgeplant { background: #f1f5f9; opacity: 0.75; }
-    .line-title { font-size: 0.85rem; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .badge-container { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; margin-top: 2px; }
-    .line-prio { font-size: 0.6rem; padding: 1px 3px; border-radius: 3px; background: #e2e8f0; font-weight: 700; color: #334155; }
+    .line-title { font-size: 0.78rem; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .badge-container { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; margin-top: 1px; }
+    .line-prio { font-size: 0.58rem; padding: 1px 3px; border-radius: 3px; background: #e2e8f0; font-weight: 700; color: #334155; }
     .line-prio.prio-high { background: #fee2e2; color: #b91c1c; }
     .line-prio.prio-mid { background: #fef3c7; color: #b45309; }
-    .line-status-tag { font-size: 0.6rem; padding: 1px 3px; border-radius: 3px; background: #fecdd3; color: #9f1239; font-weight: 700; }
-    .line-ausgeplant-tag { font-size: 0.6rem; padding: 1px 4px; border-radius: 3px; background: #475569; color: #fff; font-weight: 700; }
-    .line-notes { font-size: 0.65rem; color: #475569; margin-top: 3px; background: #fff; padding: 3px; border-radius: 3px; border: 1px dashed #cbd5e1; white-space: pre-wrap; word-break: break-word; }
+    .line-status-tag { font-size: 0.58rem; padding: 1px 3px; border-radius: 3px; background: #fecdd3; color: #9f1239; font-weight: 700; }
+    .line-ausgeplant-tag { font-size: 0.58rem; padding: 1px 3px; border-radius: 3px; background: #475569; color: #fff; font-weight: 700; }
+    .line-notes { display: none; } /* Platzsparend ausgeblendet für One-Screen Dashboard */
     
-    .shift-header { background: #f1f5f9; font-weight: 700; font-size: 0.85rem; width: 110px; text-align: center; padding: 12px 2px; color: #334155; vertical-align: middle; }
-    body.planner-active .shift-header { width: 136px; padding: 10px 4px; }
+    .shift-header { background: #f1f5f9; font-weight: 700; font-size: 0.78rem; width: 100px; text-align: center; padding: 4px 2px; color: #334155; vertical-align: middle; }
+    body.planner-active .shift-header { width: 115px; padding: 4px; }
 
-    .shift-team-badge { display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin-top: 5px; padding: 3px 6px; border-radius: 4px; background: #fff; border: 1px solid #cbd5e1; font-size: 0.72rem; font-weight: 700; color: #1e293b; }
+    .shift-team-badge { display: inline-flex; align-items: center; justify-content: center; gap: 3px; margin-top: 3px; padding: 2px 4px; border-radius: 3px; background: #fff; border: 1px solid #cbd5e1; font-size: 0.68rem; font-weight: 700; color: #1e293b; }
     body.planner-active .shift-team-badge { display: none; }
-    .shift-controls { display: none; flex-direction: column; gap: 5px; margin-top: 6px; }
+    .shift-controls { display: none; flex-direction: column; gap: 3px; margin-top: 3px; }
     body.planner-active .shift-controls { display: flex; }
-    .shift-rotate-btn { width: 100%; font-size: 0.72rem; font-weight: 700; padding: 5px 4px; border-radius: 4px; border: none; background: var(--bayer-blue); color: #fff; cursor: pointer; }
-    .shift-load-row { display: flex; gap: 4px; align-items: center; }
-    .shift-team-select { width: 100%; font-size: 0.72rem; font-weight: 700; padding: 4px 2px; border-radius: 4px; border: 1px solid var(--bayer-blue); background: #fff; color: #0f172a; cursor: pointer; }
-    .shift-load-btn { padding: 4px 6px; font-size: 0.72rem; font-weight: 700; border-radius: 4px; border: 1px solid var(--bayer-blue); background: var(--bayer-blue); color: #fff; cursor: pointer; }
-    .shift-clear-btn { width: 100%; font-size: 0.68rem; font-weight: 600; padding: 4px; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff; color: #64748b; cursor: pointer; }
-    .shift-clear-btn:hover { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
-    .drop-zone { padding: 5px; min-height: 120px; display: flex; flex-direction: column; gap: 5px; background: #fafafa; }
+    .shift-rotate-btn { width: 100%; font-size: 0.66rem; font-weight: 700; padding: 3px 2px; border-radius: 3px; border: none; background: var(--bayer-blue); color: #fff; cursor: pointer; }
+    .shift-load-row { display: flex; gap: 3px; align-items: center; }
+    .shift-team-select { width: 100%; font-size: 0.66rem; font-weight: 700; padding: 2px 1px; border-radius: 3px; border: 1px solid var(--bayer-blue); background: #fff; color: #0f172a; cursor: pointer; }
+    .shift-load-btn { padding: 2px 4px; font-size: 0.66rem; font-weight: 700; border-radius: 3px; border: 1px solid var(--bayer-blue); background: var(--bayer-blue); color: #fff; cursor: pointer; }
+    .shift-clear-btn { width: 100%; font-size: 0.62rem; font-weight: 600; padding: 2px; border-radius: 3px; border: 1px solid #cbd5e1; background: #fff; color: #64748b; cursor: pointer; }
+    .drop-zone { padding: 4px; height: 100%; display: flex; flex-direction: column; gap: 4px; background: #fafafa; overflow-y: auto; }
 
     .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.45); display: none; align-items: center; justify-content: center; z-index: 100; padding: 12px; }
     .modal { background: #fff; padding: 24px; border-radius: 10px; width: 100%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.18); max-height: 90vh; overflow-y: auto; }
@@ -224,7 +216,7 @@
           <div class="filter-quick-links"><span onclick="toggleAllTeamFilters(true)">Alle</span> / <span onclick="toggleAllTeamFilters(false)">Keine</span></div>
         </div>
         <div id="teamFilterContainer" class="team-filter-options"></div>
-        <div style="border-top: 1px dashed #cbd5e1; margin: 7px 0 5px 0;"></div>
+        <div style="border-top: 1px dashed #cbd5e1; margin: 5px 0;"></div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <span style="font-weight:700; color:#1e293b;">Pool-Rollen</span>
           <div class="filter-quick-links"><span onclick="toggleAllRoleFilters(true)">Alle</span> / <span onclick="toggleAllRoleFilters(false)">Keine</span></div>
@@ -234,10 +226,10 @@
 
       <div class="panel">
         <h2>
-          <span>Pool <span id="poolCount" style="font-size:0.8rem; color:#64748b;">(0)</span></span>
+          <span>Pool <span id="poolCount" style="font-size:0.75rem; color:#64748b;">(0)</span></span>
           <div id="poolFreiControlWrap" style="display:flex; align-items:center; gap:4px;">
-            <select id="teamSelect_frei" style="font-size:0.72rem; padding:2px 4px; border-radius:4px; border:1px solid #cbd5e1; font-weight:700; color:#334155;"></select>
-            <button class="btn btn-outline" style="padding:1px 6px; font-size:0.7rem; color:var(--bayer-blue); border-color:var(--bayer-blue);" onclick="loadTeamToShift('frei')" title="Team als Schichtfrei in den Pool setzen">📥</button>
+            <select id="teamSelect_frei" style="font-size:0.7rem; padding:1px 3px; border-radius:3px; border:1px solid #cbd5e1; font-weight:700; color:#334155;"></select>
+            <button class="btn btn-outline" style="padding:1px 5px; font-size:0.68rem; color:var(--bayer-blue); border-color:var(--bayer-blue);" onclick="loadTeamToShift('frei')" title="Team als Schichtfrei in den Pool setzen">📥</button>
           </div>
         </h2>
         <div id="pool" class="card-list drop-zone" data-zone="pool"></div>
@@ -245,17 +237,16 @@
 
       <div class="panel">
         <h2>
-          <span title="Bringschichtler werden automatisch 1 Stunde vor Schichtbeginn hier bereitgestellt">➕ Bringschichten (1h Vorlauf) <span id="extraCount" style="font-size:0.8rem; color:#166534;">(0)</span></span>
-          <button class="btn btn-outline lvl-2-hide admin-element" style="padding:2px 7px; font-size:0.72rem;" onclick="openInboxModal(null, false, true)">+ Neu</button>
+          <span title="Bringschichtler werden automatisch 1 Stunde vor Schichtbeginn hier bereitgestellt">➕ Bringschichten <span id="extraCount" style="font-size:0.75rem; color:#166534;">(0)</span></span>
+          <button class="btn btn-outline lvl-2-hide admin-element" style="padding:1px 5px; font-size:0.68rem;" onclick="openInboxModal(null, false, true)">+ Neu</button>
         </h2>
         <div id="extra" class="card-list drop-zone" data-zone="extra" style="background:#f0fdf4; border-color:#86efac;"></div>
-        <div id="approvedExtraList" style="max-height:75px; overflow-y:auto; margin-top:4px; font-size:0.72rem;"></div>
       </div>
 
       <div class="panel">
         <h2>
-          <span>Abwesend <span id="absentCount" style="font-size:0.8rem; color:#b91c1c;">(0)</span></span>
-          <button class="btn btn-outline lvl-2-hide admin-element" style="padding:2px 7px; font-size:0.72rem;" onclick="openInboxModal(null, true, false)">+ Zeitraum</button>
+          <span>Abwesend <span id="absentCount" style="font-size:0.75rem; color:#b91c1c;">(0)</span></span>
+          <button class="btn btn-outline lvl-2-hide admin-element" style="padding:1px 5px; font-size:0.68rem;" onclick="openInboxModal(null, true, false)">+ Zeit</button>
         </h2>
         <div id="absent" class="card-list drop-zone" data-zone="absent" style="background: #fff1f2;"></div>
       </div>
@@ -617,7 +608,7 @@
         </div>
       </div>
     </div>
-  </main>
+  </div>
 
   <script src="planer.js?v=4.9.41"></script>
   <script>
