@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Komplettversion mit Postfach & Formularen
+   PLANER-BOARD LOGIK (planer.js) - Vollversion mit echter Rotation & PIN-Nadel
    ========================================================================== */
 
 try {
@@ -343,14 +343,18 @@ function renderEmployees() {
     }
 
     const teamObj = teamsConfig[emp.team] || { name: "Team", color: "#0091df" };
-    const card = document.createElement("div"); card.className = "employee-card";
-    card.setAttribute("data-id", emp.id); card.style.borderLeft = "5px solid " + (teamObj.color || "#0091df");
+    const card = document.createElement("div"); 
+    card.className = "employee-card" + (emp.pinnedZone ? " pinned" : "");
+    card.setAttribute("data-id", emp.id); 
+    card.style.borderLeft = "5px solid " + (teamObj.color || "#0091df");
 
     let tagsHtml = '<span class="card-role">' + emp.role + '</span>';
     if (emp.ersthelfer) tagsHtml += ' <span class="card-fix-tag" style="background:#dcfce7; color:#166534;">+ Ersthelfer</span>';
     if (emp.noRotation) tagsHtml += ' <span class="card-fix-tag">⚓ Fix</span>';
 
-    card.innerHTML = '<div class="card-name">' + fName + '</div>' +
+    const pinIcon = emp.pinnedZone ? '📌' : '📍';
+    card.innerHTML = '<button class="pin-btn" title="PIN-Nadel (Merkt sich die Linie)" onclick="togglePinEmployee(\'' + emp.id + '\', event)">' + pinIcon + '</button>' +
+      '<div class="card-name">' + fName + '</div>' +
       '<div style="display:flex; justify-content:space-between; align-items:center; gap:4px; margin-top:2px;">' +
         '<div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">' + tagsHtml + '</div>' +
       '</div>';
@@ -369,6 +373,20 @@ function renderEmployees() {
   if (document.getElementById("absentCount")) document.getElementById("absentCount").textContent = "(" + (aEl ? aEl.children.length : 0) + ")";
 }
 
+window.togglePinEmployee = function(empId, evt) {
+  if (evt) evt.stopPropagation();
+  const emp = employees.find(e => e.id === empId);
+  if (!emp) return;
+  if (emp.pinnedZone) {
+    emp.pinnedZone = null;
+    showToast("PIN-Nadel entfernt");
+  } else {
+    emp.pinnedZone = emp.zone;
+    showToast("PIN-Nadel gesetzt (Merkt sich: " + emp.zone + ")");
+  }
+  saveToFirebase(); renderEmployees();
+};
+
 function initDragAndDrop() {
   sortableInstances.forEach(s => s.destroy()); sortableInstances = [];
   document.querySelectorAll(".drop-zone").forEach(zone => {
@@ -379,7 +397,12 @@ function initDragAndDrop() {
         isDraggingCard = false;
         const empId = evt.item.getAttribute("data-id"), newZone = evt.to.getAttribute("data-zone");
         const emp = employees.find(e => e.id === empId);
-        if (emp) { emp.zone = newZone; saveToFirebase(); renderEmployees(); }
+        if (emp) { 
+          emp.zone = newZone; 
+          if (emp.pinnedZone) emp.pinnedZone = newZone; // Aktualisiere gepinnte Zone beim manuellen Verschieben
+          saveToFirebase(); 
+          renderEmployees(); 
+        }
       }
     }));
   });
@@ -607,7 +630,8 @@ window.saveEmployee = function() {
       secLines: secChecked,
       password: randomPin,
       mustChangePw: true,
-      zone: "pool"
+      zone: "pool",
+      pinnedZone: null
     });
   }
 
@@ -665,7 +689,6 @@ window.selectLoginPlannerEmp = function(id) {
   }
 };
 
-// Autocomplete für manuelle Abwesenheits- und Bringschicht-Formulare im Postfach
 window.onManualSickNameInput = function(val) {
   selectedManualSickEmpId = null;
   const box = document.getElementById("manualSickSuggestions"), q = (val || "").trim().toLowerCase();
@@ -767,7 +790,6 @@ window.renderInboxLists = function() {
   const q = (document.getElementById("inboxSearchInput") ? document.getElementById("inboxSearchInput").value : "").trim().toLowerCase();
   const searchActive = (document.getElementById("inboxActiveSearchInput") ? document.getElementById("inboxActiveSearchInput").value : "").trim().toLowerCase();
 
-  // 1. Offene Anträge & Krankmeldungen
   const unreadItems = sickLeaves.filter(sl => sl.status === "pending" || sl.plannerUnreadInfo);
   if (!unreadItems.length) {
     unreadEl.innerHTML = '<p style="font-size:0.8rem; color:#64748b;">Keine neuen Krankmeldungen oder offenen Anträge.</p>';
@@ -786,7 +808,6 @@ window.renderInboxLists = function() {
     }).join("");
   }
 
-  // 2. Bringschichten (Schnittstelle)
   if (extraListEl) {
     const approvedExtras = extraShifts.filter(es => es.status === "approved");
     if (!approvedExtras.length) {
@@ -803,7 +824,6 @@ window.renderInboxLists = function() {
     }
   }
 
-  // 3. Bearbeitete & aktive Abwesenheiten
   const filteredActive = sickLeaves.filter(sl => {
     if (sl.status === "pending" && !sl.plannerUnreadInfo) return false;
     if (activeHistoryCategory !== "ALL" && classifyInboxActiveItem(sl) !== activeHistoryCategory) return false;
@@ -969,37 +989,32 @@ window.verifyPin = function() {
   initBoard();
 };
 
-// Punkt 1: "Rotieren"-Button öffnet direkt den Schichtmodell- & Team-Tab
+// Echte Schichtrotation (Rotieren-Button in der Schichtspalte)
 window.rotateAllShifts = function() {
-  if (typeof window.openSettingsModal === "function") {
-    window.openSettingsModal();
-    if (typeof switchTab === "function") {
-      const teamsBtn = document.getElementById("tabBtnTeams");
-      switchTab("tabTeams", teamsBtn);
-    }
-  } else {
-    performShiftRotationLogic(true);
-  }
+  performShiftRotationLogic(true);
 };
 
-window.clearEntireBoard = function() { employees.forEach(e => { if (e.zone && ["pool","absent","extra"].indexOf(e.zone) === -1 && !e.noRotation) e.zone = "pool"; }); saveToFirebase(); renderEmployees(); };
-window.clearShiftRow = function(sId) { employees.forEach(e => { if (extractShiftIdFromZone(e.zone) === sId && !e.noRotation) e.zone = "pool"; }); saveToFirebase(); renderEmployees(); };
+window.clearEntireBoard = function() { employees.forEach(e => { if (e.zone && ["pool","absent","extra"].indexOf(e.zone) === -1 && !e.noRotation && !e.pinnedZone) e.zone = "pool"; }); saveToFirebase(); renderEmployees(); };
+window.clearShiftRow = function(sId) { employees.forEach(e => { if (extractShiftIdFromZone(e.zone) === sId && !e.noRotation && !e.pinnedZone) e.zone = "pool"; }); saveToFirebase(); renderEmployees(); };
 
-// Punkt 4: Team-Lade-Button Logik
+// Team in Schicht laden (unter Berücksichtigung der PIN-Nadel / gepinnten Positionen)
 window.loadTeamToShift = function(slotKey) {
   const sel = document.getElementById("teamSelect_" + slotKey); if (!sel) return;
   const teamKey = sel.value; shiftRotation[slotKey] = teamKey;
   employees.forEach(emp => {
     if (emp.team === teamKey && emp.zone !== "absent" && emp.zone !== "extra" && !emp.noRotation) {
-      if (slotKey === "frei") emp.zone = "pool";
-      else {
+      if (emp.pinnedZone) {
+        emp.zone = emp.pinnedZone; // Memory-Effekt: Nimmt die festgepinnte Linie
+      } else if (slotKey === "frei") {
+        emp.zone = "pool";
+      } else {
         const targetLine = emp.mainLines && emp.mainLines[0] ? emp.mainLines[0] : null;
         emp.zone = targetLine ? (targetLine + "_" + slotKey) : "pool";
       }
     }
   });
   saveToFirebase(); initBoard();
-  showToast("Team " + (teamsConfig[teamKey] ? teamsConfig[teamKey].name : teamKey) + " in Schicht eingeteilt!");
+  showToast("Team " + (teamsConfig[teamKey] ? teamsConfig[teamKey].name : teamKey) + " geladen!");
 };
 
 window.performShiftRotationLogic = function() {
@@ -1009,6 +1024,7 @@ window.performShiftRotationLogic = function() {
   const nextShiftRotation = Object.assign({}, shiftRotation);
   activeSlots.forEach((fromSlot, idx) => { nextShiftRotation[activeSlots[(idx + 1) % activeSlots.length]] = shiftRotation[fromSlot]; });
   shiftRotation = nextShiftRotation; saveToFirebase(); initBoard();
+  showToast("Schichten erfolgreich rotiert!");
 };
 
 window.updateInboxBadge = function() {
