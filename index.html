@@ -383,7 +383,12 @@
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:8px;">
           <h4 style="font-size:0.92rem; margin:0;">📋 Bearbeitete & aktive Abwesenheiten</h4>
         </div>
-        <div id="inboxHistoryFilterBar" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; align-items:center;"></div>
+        <div id="inboxHistoryFilterBar" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; align-items:center;">
+          <button class="btn btn-outline active" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('ALL')">Alle</button>
+          <button class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('URLAUB')">Urlaub</button>
+          <button class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('KRANK')">Krank</button>
+          <button class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('EXTRA')">Bringschicht</button>
+        </div>
         <div style="margin-bottom:10px;">
           <input type="text" id="inboxActiveSearchInput" class="form-control" placeholder="🔍 Einträge durchsuchen (Name, Grund, Notiz)..." oninput="renderInboxLists()" style="font-size:0.82rem; padding:8px 10px;">
         </div>
@@ -610,14 +615,42 @@
 
   <script src="planer.js?v=4.9.41"></script>
   <script>
+    // Hilfsfunktionen für die Postfach-Ansichten und manuellen Formular-Toggles in index.html
     let activeInboxHistoryCategory = "ALL";
-    function setInboxHistoryCategoryFilter(cat) { activeInboxHistoryCategory = cat || "ALL"; if (typeof renderInboxLists === "function") renderInboxLists(); }
+    function setInboxHistoryCategoryFilter(cat) { 
+      activeInboxHistoryCategory = cat || "ALL"; 
+      if (typeof renderInboxLists === "function") renderInboxLists(); 
+    }
     function classifyInboxActiveItem(sl) {
       if (!sl) return "EXTRA";
       const cat = (sl.category || "").toLowerCase();
       if (cat.indexOf("urlaub") !== -1 || cat.indexOf("freizeit") !== -1) return "URLAUB";
       if (cat.indexOf("krank") !== -1 || cat.indexOf("abwesen") !== -1 || cat.indexOf("arbeitsunfähig") !== -1) return "KRANK";
       return "EXTRA";
+    }
+    function toggleManualEntryBox() {
+      const content = document.getElementById("manualEntryContent");
+      const arrow = document.getElementById("manualEntryArrow");
+      if (!content) return;
+      if (content.style.display === "none" || !content.style.display) {
+        content.style.display = "block";
+        if (arrow) arrow.textContent = "▲ Formular schließen";
+      } else {
+        content.style.display = "none";
+        if (arrow) arrow.textContent = "▼ Formular öffnen";
+      }
+    }
+    function toggleManualExtraBox() {
+      const content = document.getElementById("manualExtraContent");
+      const arrow = document.getElementById("manualExtraArrow");
+      if (!content) return;
+      if (content.style.display === "none" || !content.style.display) {
+        content.style.display = "block";
+        if (arrow) arrow.textContent = "▲ Formular schließen";
+      } else {
+        content.style.display = "none";
+        if (arrow) arrow.textContent = "▼ Formular öffnen";
+      }
     }
   </script>
 </body>
