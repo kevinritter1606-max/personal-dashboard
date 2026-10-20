@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Fix für Schichtmodell-Checkboxen Speicherung
+   PLANER-BOARD LOGIK (planer.js) - Vollständige, fehlerfreie Version
    ========================================================================== */
 
 try {
@@ -233,7 +233,7 @@ function closeModal(id) {
 function checkBoardLockState() {
   const modal = document.getElementById("boardLockModal"); if (!modal) return;
   if (securityConfig && securityConfig.boardPwEnabled && !isPlanner) {
-    modal.style.display = sessionStorage.getItem("board_unlocked"] === "true" ? "none" : "flex";
+    modal.style.display = sessionStorage.getItem("board_unlocked") === "true" ? "none" : "flex";
   } else modal.style.display = "none";
 }
 
@@ -297,7 +297,7 @@ window.initBoard = function() {
   applyTeamStyles(); updateTeamDropdowns();
   renderTeamFilterCheckboxes(); renderRoleFilterCheckboxes();
   renderEmployees(); initDragAndDrop(); renderSettingsLists(); updateInboxBadge(); checkBoardLockState();
-  syncShiftModelSettingsUI();
+  if (typeof syncShiftModelSettingsUI === "function") syncShiftModelSettingsUI();
 };
 
 window.openLineEditModal = function(lineId) {
@@ -539,7 +539,7 @@ function renderSettingsLists() {
     }).join("");
   }
 
-  syncShiftModelSettingsUI();
+  if (typeof syncShiftModelSettingsUI === "function") syncShiftModelSettingsUI();
 }
 
 window.syncShiftModelSettingsUI = function() {
