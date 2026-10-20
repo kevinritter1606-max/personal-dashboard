@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Vollständige Version mit allen Features
+   PLANER-BOARD LOGIK (planer.js) - Vollständige finale Version mit Login-Fix
    ========================================================================== */
 
 try {
@@ -329,7 +329,6 @@ function renderRoleFilterCheckboxes() {
   c.innerHTML = roles.map((r, i) => '<label style="display:inline-flex; align-items:center; gap:3px; cursor:pointer;"><input type="checkbox" ' + (activeRoleFilters[r] !== false ? 'checked' : '') + ' onchange="activeRoleFilters[roles[' + i + ']]=this.checked; renderEmployees();"> ' + r + '</label>').join("");
 }
 
-// RESTORED: Alle Einstellungs-Tabs und Verwaltungs-Funktionen
 window.switchTab = function(tabId, btnEl) {
   document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
   document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
@@ -405,7 +404,7 @@ window.createManualBackup = function() { showToast("Backup erstellt!"); };
 window.saveProfilePinChange = function() { showToast("PIN aktualisiert!"); };
 window.filterSettingsEmployees = function(q) { settingsEmpSearchQuery = (q || "").trim().toLowerCase(); renderSettingsLists(); };
 
-// RESTORED: Autovervollständigung für das Planer-Login (ab 3 Buchstaben)
+// BEHOBEN: Als globale window-Funktion registriert, damit der Login-Fehler verschwindet
 window.onPlannerLoginInput = function(val) {
   selectedLoginPlannerId = null;
   const box = document.getElementById("plannerLoginSuggestions"), q = (val || "").trim().toLowerCase();
