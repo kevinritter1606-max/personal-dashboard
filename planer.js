@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Vollständige finale Version mit Login-Fix
+   PLANER-BOARD LOGIK (planer.js) - Vollständige Version mit striktem Namens-Check
    ========================================================================== */
 
 try {
@@ -404,11 +404,11 @@ window.createManualBackup = function() { showToast("Backup erstellt!"); };
 window.saveProfilePinChange = function() { showToast("PIN aktualisiert!"); };
 window.filterSettingsEmployees = function(q) { settingsEmpSearchQuery = (q || "").trim().toLowerCase(); renderSettingsLists(); };
 
-// BEHOBEN: Als globale window-Funktion registriert, damit der Login-Fehler verschwindet
+// STRIKTER NAMENS-CHECK: Vorschläge ab 2 Buchstaben, Login akzeptiert nur vollständig ausgewählte / eingegebene Namen
 window.onPlannerLoginInput = function(val) {
   selectedLoginPlannerId = null;
   const box = document.getElementById("plannerLoginSuggestions"), q = (val || "").trim().toLowerCase();
-  if (!employees || !employees.length || q.length < 3) { if (box) box.style.display = "none"; return; }
+  if (!employees || !employees.length || q.length < 2) { if (box) box.style.display = "none"; return; }
   const matches = employees.filter(e => fullName(e).toLowerCase().indexOf(q) !== -1);
   if (!matches.length) { if (box) box.style.display = "none"; return; }
   if (box) {
@@ -495,13 +495,24 @@ window.handleLogoClick = function() {
 window.verifyPin = function() {
   const nameVal = document.getElementById("loginPlannerName").value.trim().toLowerCase();
   const pinVal = document.getElementById("pinInput").value.trim();
+  
   if ((nameVal === "admin" || nameVal === "planer") && pinVal === "1234") {
     sessionStorage.setItem("board_unlocked", "true");
     applyPlannerLoginState("Admin", 4, null); closeModal("pinModal"); initBoard(); return;
   }
+  
+  // Strikter Check: Name muss exakt mit einem Mitarbeiter übereinstimmen
   let emp = selectedLoginPlannerId ? employees.find(e => e.id === selectedLoginPlannerId) : employees.find(e => fullName(e).toLowerCase() === nameVal);
-  if (!emp && nameVal) { const p = employees.filter(e => fullName(e).toLowerCase().indexOf(nameVal) !== -1); if (p.length === 1) emp = p[0]; }
-  if (!emp || (emp.password || "1234") !== pinVal) { showTimedBoxMsg("loginModalError", "❌ Name oder PIN nicht korrekt!", false); return; }
+  
+  if (!emp) {
+    showTimedBoxMsg("loginModalError", "❌ Bitte wähle einen vollständigen Namen aus der Liste aus!", false);
+    return;
+  }
+  
+  if ((emp.password || "1234") !== pinVal) {
+    showTimedBoxMsg("loginModalError", "❌ PIN nicht korrekt!", false);
+    return;
+  }
   
   applyPlannerLoginState(fullName(emp), Number(emp.accessLevel) || 2, emp.id);
   closeModal("pinModal"); initBoard();
