@@ -157,10 +157,10 @@
     body.planner-lvl-2 #tabBtnTeams, body.planner-lvl-2 #tabRoles, body.planner-lvl-2 #tabLines, body.planner-lvl-2 #tabSecurity, body.planner-lvl-2 #tabHistory, body.planner-lvl-2 #tabBackups { display: none !important; }
   </style>
 </head>
-<body class="portal-locked">
+<body>
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
-  <div class="version-footer-badge">Version 4.9.37 (Safeguard)</div>
+  <div class="version-footer-badge">Version 4.9.37 (Original Safeguard)</div>
 
   <div id="boardLockModal" class="modal-overlay" style="background: #f4f6f9; z-index: 180;">
     <div class="modal" style="max-width: 380px; text-align: center; padding: 0; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
@@ -604,9 +604,9 @@
         </div>
       </div>
     </div>
-  </div>
+  </main>
 
-  <script src="planer_2.js?v=4.9.37"></script>
+  <script src="planer.js?v=4.9.37"></script>
   <script>
     let activeInboxHistoryCategory = "ALL";
     function setInboxHistoryCategoryFilter(cat) { activeInboxHistoryCategory = cat || "ALL"; renderInboxLists(); }
@@ -617,9 +617,9 @@
       return "EXTRA";
     }
 
-    // Sicherheits-Timer: Falls Firebase oder planer_2.js hängen bleibt, entriegelt die Ansicht nach 1 Sekunde automatisch
+    // Sicherheits-Timer: Entriegelt die Ansicht nach 1 Sekunde automatisch, falls das Skript stockt
     setTimeout(() => {
-      if (document.body.classList.contains("portal-locked") && !document.getElementById("boardLockModal").style.display) {
+      if (document.body.classList.contains("portal-locked")) {
         document.body.classList.remove("portal-locked");
       }
     }, 1000);
