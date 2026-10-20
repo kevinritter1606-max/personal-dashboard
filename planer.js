@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer_2.js) - Vollständige Safeguard Version
+   PLANER-BOARD LOGIK (planer.js) - Vollständige & Korrigierte Version
    ========================================================================== */
 
 try {
@@ -359,7 +359,7 @@ window.toggleNewTeamForm = function() {
 };
 
 function updateShiftApprovalUI() {
-  const approved = isCurrentShiftApproved(), activeShift = getCurrentActiveShiftId();
+  const approved = isCurrentShiftApproved();
   const bar = document.getElementById("brandGradientBar");
   if (bar) bar.className = approved ? "brand-gradient approved" : "brand-gradient pending";
 
@@ -441,6 +441,14 @@ function sanitizeTeamReferences() {
   Object.keys(activeTeamFilters).forEach(k => { if (!teamsConfig[k]) delete activeTeamFilters[k]; });
 }
 
+function getActiveLeaveForEmpOnDate(empId, isoDate) {
+  return sickLeaves.find(sl => {
+    if (sl.empId !== empId || sl.status === "rejected" || sl.status === "pending") return false;
+    if (sl.blocks && sl.blocks.length) return sl.blocks.some(b => b.status === "approved" && b.start <= isoDate && b.end >= isoDate);
+    return sl.status === "approved" && sl.startDate <= isoDate && sl.endDate >= isoDate;
+  });
+}
+
 window.deletePin = function(id) {
   const emp = employees.find(e => e.id === id);
   if (emp) { delete emp.lastLineId; logHistory("Nadel", "Stammlinie für " + fullName(emp) + " gelöscht"); saveToFirebase(); renderEmployees(); }
@@ -487,6 +495,245 @@ window.unlockBoardView = function() {
   } else showTimedBoxMsg("boardLockError", "❌ Falsches Zugangs-Passwort!", false);
 };
 window.openPlannerLoginFromLock = function() { handleLogoClick(); };
+
+function logHistory(action, details) {
+  historyLogs.unshift({ id: "h_" + Date.now(), time: new Date().toLocaleString("de-DE"), user: currentPlannerName || "System", action: action, details: details || "" });
+  if (historyLogs.length > 150) historyLogs = historyLogs.slice(0, 150);
+}
+
+function initBoard() {
+  if (isDraggingCard) return;
+  sanitizeTeamReferences(); syncAbsentZones(); syncExtraZones();
+  updateHeaderDateKw(); updateShiftApprovalUI(); updateAutoRotationUI();
+
+  const headerRow = document.getElementById("headerRow"); if (!headerRow) return;
+  if (!Array.isArray(lines) || !lines.length) lines = defaultLines.slice();
+
+  headerRow.innerHTML = '<th class="shift-header"><div>Schicht</div><div class="shift-controls"><button class="shift-rotate-btn" onclick="rotateAllShifts()"><span style="display:inline-flex; align-items:center; gap:5px; justify-content:center;">' + ROUND_SYNC_SVG + '<span>Rotieren</span></span></button><button class="shift-clear-btn" onclick="clearEntireBoard()">🧹 Alle leeren</button></div></th>';
+  
+  lines.forEach(line => {
+    if (!line.targetStaff) line.targetStaff = { frueh: 3, spaet: 3, nacht: 2 };
+    const th = document.createElement("th"); th.className = "line-header";
+    if (isPlanner && plannerLevel > 2) th.onclick = () => { openLineEditModal(line.id); };
+    let pCls = line.prio && (line.prio.indexOf("1") !== -1 || line.prio.indexOf("2") !== -1) ? "prio-high" : (line.prio ? "prio-mid" : "");
+    th.innerHTML = '<div class="line-title">' + line.name + '</div><div class="badge-container">' + (line.prio ? '<span class="line-prio ' + pCls + '">' + line.prio + '</span>' : '') + (line.tag ? '<span class="line-status-tag">' + line.tag + '</span>' : '') + '</div>' + (line.note ? '<div class="line-notes">' + line.note + '</div>' : '');
+    headerRow.appendChild(th);
+  });
+
+  const matrixBody = document.getElementById("matrixBody"); matrixBody.innerHTML = "";
+  const keys = Object.keys(teamsConfig).sort(), sundayFree = isSundayDaytimeFree();
+
+  shifts.forEach(shift => {
+    const curKey = shiftRotation[shift.id] || keys[0], curObj = teamsConfig[curKey] || { name: "Team", color: "#0091df" };
+    const opts = keys.map(k => '<option value="' + k + '" style="color:' + teamsConfig[k].color + '; font-weight:700;" ' + (k === curKey ? 'selected' : '') + '>■ ' + teamsConfig[k].name + (isTeamRotating(k) ? ' 🔄' : '') + '</option>').join("");
+    const isShiftSundayOff = sundayFree;
+    const sunBadge = isShiftSundayOff ? '<div style="font-size:0.64rem; color:#0284c7; background:#e0f2fe; padding:2px 4px; border-radius:4px; margin-top:3px;">So. Frei</div>' : '';
+    const tr = document.createElement("tr"), thS = document.createElement("th");
+    thS.className = "shift-header";
+    thS.innerHTML = '<div>' + shift.name + '</div>' + sunBadge + '<div class="shift-team-badge" style="border-left:4px solid ' + curObj.color + ';"><span style="color:' + curObj.color + ';">■</span> ' + curObj.name + '</div><div class="shift-controls"><div style="display:flex; gap:4px;"><select id="teamSelect_' + shift.id + '" class="shift-team-select" style="flex:1; border-left:6px solid ' + curObj.color + '; color:' + curObj.color + ';" onchange="onShiftTeamDropdownChange(\'' + shift.id + '\', this)">' + opts + '</select><button class="shift-clear-btn" style="width:26px; padding:0; color:var(--bayer-blue); border-color:var(--bayer-blue);" onclick="loadTeamToShift(\'' + shift.id + '\')" title="Team auf Linien laden">📥</button></div><button class="shift-clear-btn" onclick="clearShiftRow(\'' + shift.id + '\')">🧹 Leeren</button></div>';
+    tr.appendChild(thS);
+    
+    lines.forEach(line => {
+      const td = document.createElement("td"), zId = line.id + "_" + shift.id;
+      td.innerHTML = '<div id="' + zId + '" class="card-list drop-zone" data-zone="' + zId + '"' + (isShiftSundayOff ? ' style="background:#f1f5f9; opacity:0.8;"' : '') + '></div>';
+      tr.appendChild(td);
+    });
+    matrixBody.appendChild(tr);
+  });
+
+  applyTeamStyles(); updateRoleDropdown(); updateTeamDropdowns(); updateAccessLevelDropdownOptions(1);
+  renderTeamFilterCheckboxes(); renderRoleFilterCheckboxes(); renderLineCheckboxes();
+  renderEmployees(); initDragAndDrop(); renderSettingsLists(); updateInboxBadge(); checkBoardLockState();
+  if (typeof renderProfileTab === "function") renderProfileTab();
+}
+
+window.onShiftTeamDropdownChange = function(shiftId, selEl) {
+  styleShiftDropdown(selEl, selEl.value); shiftRotation[shiftId] = selEl.value; saveToFirebase();
+};
+
+function renderEmployees() {
+  if (isDraggingCard) return;
+  const dropZones = document.querySelectorAll(".drop-zone"); if (!dropZones.length) return;
+  dropZones.forEach(el => { el.innerHTML = ""; });
+  const today = getTodayIso(), nowMs = Date.now();
+
+  employees.forEach(emp => {
+    const fName = fullName(emp);
+    if (isPlanner && emp.zone === "pool") {
+      if (activeTeamFilters[emp.team] === false || activeRoleFilters[emp.role] === false) return;
+      if (poolSearchQuery) {
+        const nMatch = fName.toLowerCase().indexOf(poolSearchQuery) !== -1;
+        const pMatch = emp.mainLines && emp.mainLines.some(id => { const l = lines.find(x => x.id === id); return l && l.name.toLowerCase().indexOf(poolSearchQuery) !== -1; });
+        const sMatch = emp.secLines && emp.secLines.some(id => { const l = lines.find(x => x.id === id); return l && l.name.toLowerCase().indexOf(poolSearchQuery) !== -1; });
+        if (!nMatch && !pMatch && !sMatch) return;
+      }
+    }
+
+    const teamObj = teamsConfig[emp.team] || { name: "Team", color: "#0091df" };
+    const card = document.createElement("div"); card.className = "employee-card";
+    card.setAttribute("data-id", emp.id); card.style.borderLeft = "5px solid " + (teamObj.color || "#0091df");
+
+    let parts = [];
+    if (emp.lastLineId) {
+      const lastL = lines.find(x => x.id === emp.lastLineId);
+      if (lastL) {
+        const delBtn = isPlanner && plannerLevel > 2 ? '<span onclick="event.stopPropagation(); deletePin(\'' + emp.id + '\')" style="cursor:pointer; color:#ef4444; font-size:0.75rem; padding:0 3px;" title="Nadel entfernen">✖</span>' : '';
+        parts.push('<span style="color:#0284c7; font-weight:700;" title="Gemerkte Stammlinie">📌 ' + lastL.name.replace(/Linie\s*/i, '') + ' ' + delBtn + '</span>');
+      }
+    }
+    if (emp.mainLines && emp.mainLines.length) parts.push("<b>Prio:</b> " + emp.mainLines.map(id => { const l = lines.find(x => x.id === id); return l ? l.name.replace(/Linie\s*/i, '') : null; }).filter(Boolean).join(", "));
+    if (emp.secLines && emp.secLines.length) parts.push("<b>Sek:</b> " + emp.secLines.map(id => { const l = lines.find(x => x.id === id); return l ? l.name.replace(/Linie\s*/i, '') : null; }).filter(Boolean).join(", "));
+
+    const fixHtml = emp.noRotation ? '<span class="card-fix-tag" title="Fixiert">⚓ Fix</span>' : '';
+    const activeSl = getActiveLeaveForEmpOnDate(emp.id, today);
+    const sickHtml = activeSl ? '<span class="card-sick-tag">' + (activeSl.category || 'Abwesend') + '</span>' : '';
+
+    const empExtras = extraShifts.filter(es => es.empId === emp.id && es.status === "approved" && getShiftTimeBounds(es.date, es.shift).shiftEndMs > nowMs)
+      .sort((a, b) => (a.date + a.shift).localeCompare(b.date + b.shift));
+    const extraHtml = empExtras.map(es => {
+      const b = getShiftTimeBounds(es.date, es.shift);
+      const isNowReady = nowMs >= b.prepStartMs && nowMs < b.shiftEndMs;
+      const lineHint = es.probableLines ? ' · ' + es.probableLines.replace("Voraussichtlich ", "Vorauss. ") : '';
+      return '<span class="card-extra-tag" style="' + (isNowReady ? 'background:#16a34a; color:#fff;' : '') + '">' +
+        (isNowReady ? '🟢 JETZT: ' : '➕ ') + formatDateDe(es.date) + ' (' + (shiftsShortLabel[es.shift] || es.shift) + ')' + lineHint + '</span>';
+    }).join("");
+
+    card.innerHTML =
+      '<div class="card-name">' + fName + '</div>' +
+      '<div style="display:flex; justify-content:space-between; align-items:center; gap:4px;">' +
+        '<div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;"><span class="card-role">' + emp.role + '</span>' + fixHtml + '</div>' +
+        '<div>' + (emp.ersthelfer ? '<span style="color:#dc2626; font-size:1.15rem; font-weight:900; line-height:0.5;" title="Ersthelfer">+</span>' : '') + '</div>' +
+      '</div>' + (parts.length ? '<div class="card-lines-info">' + parts.join(" | ") + '</div>' : '') + extraHtml + sickHtml;
+
+    const targetZone = document.getElementById(emp.zone) || document.getElementById("pool");
+    if (targetZone) targetZone.appendChild(card);
+  });
+
+  const pEl = document.getElementById("pool"), eEl = document.getElementById("extra"), aEl = document.getElementById("absent");
+  if (document.getElementById("poolCount")) document.getElementById("poolCount").textContent = "(" + (pEl ? pEl.children.length : 0) + ")";
+  if (document.getElementById("extraCount")) document.getElementById("extraCount").textContent = "(" + (eEl ? eEl.children.length : 0) + ")";
+  if (document.getElementById("absentCount")) document.getElementById("absentCount").textContent = "(" + (aEl ? aEl.children.length : 0) + ")";
+  renderApprovedExtraSidebar();
+}
+
+function renderApprovedExtraSidebar() {
+  const box = document.getElementById("approvedExtraList"); if (!box) return;
+  const today = getTodayIso();
+  const upcoming = extraShifts.filter(es => es.date >= today && es.status === "approved").sort((a, b) => a.date.localeCompare(b.date));
+  box.innerHTML = upcoming.map(es => {
+    const emp = employees.find(e => e.id === es.empId);
+    return '<div style="display:flex; justify-content:space-between; align-items:center; padding:3px 6px; background:#dcfce7; color:#166534; border-radius:4px; margin-bottom:3px;">' +
+      '<span><b>' + (emp ? fullName(emp) : "Unbekannt") + '</b> · ' + formatDateDe(es.date) + ' (' + (shiftsShortLabel[es.shift] || es.shift) + ')</span>' +
+      (isPlanner && plannerLevel > 2 ? '<span style="cursor:pointer; color:#dc2626; font-weight:bold; padding-left:6px;" onclick="deleteExtraShift(\'' + es.id + '\')" title="Löschen">✖</span>' : '') +
+    '</div>';
+  }).join("");
+}
+
+function initDragAndDrop() {
+  sortableInstances.forEach(s => s.destroy()); sortableInstances = [];
+  document.querySelectorAll(".drop-zone").forEach(zone => {
+    sortableInstances.push(new Sortable(zone, {
+      group: "shared-shifts", animation: 150, disabled: !isPlanner,
+      onStart: () => { isDraggingCard = true; },
+      onEnd: evt => {
+        isDraggingCard = false;
+        const empId = evt.item.getAttribute("data-id"), newZone = evt.to.getAttribute("data-zone");
+        const emp = employees.find(e => e.id === empId);
+        if (emp) {
+          emp.zone = newZone;
+          const nL = extractLineIdFromZone(newZone), nS = extractShiftIdFromZone(newZone);
+          if (nL && nS) emp.lastShiftId = nS;
+          if (nL) emp.lastLineId = nL;
+          saveToFirebase(); renderEmployees();
+        }
+      }
+    }));
+  });
+}
+
+function applyTeamStyles() {
+  let st = document.getElementById("dynamicTeamStyles");
+  if (!st) { st = document.createElement("style"); st.id = "dynamicTeamStyles"; document.head.appendChild(st); }
+  st.textContent = Object.keys(teamsConfig).sort().map(k => '.employee-card[data-team="' + k + '"] { border-left-color: ' + teamsConfig[k].color + ' !important; }').join("\n");
+}
+
+function updateTeamDropdowns() {
+  const keys = Object.keys(teamsConfig).sort();
+  const freiSel = document.getElementById("teamSelect_frei");
+  if (freiSel) {
+    const curFreiKey = (shiftRotation.frei && teamsConfig[shiftRotation.frei]) ? shiftRotation.frei : keys[0];
+    shiftRotation.frei = curFreiKey;
+    freiSel.innerHTML = keys.map(k => '<option value="' + k + '" ' + (curFreiKey === k ? 'selected' : '') + '>Frei: ' + teamsConfig[k].name + '</option>').join("");
+    freiSel.onchange = function() { shiftRotation.frei = this.value; saveToFirebase(); };
+  }
+  const empTeamSel = document.getElementById("newEmpTeam");
+  if (empTeamSel) empTeamSel.innerHTML = keys.map(k => '<option value="' + k + '">' + teamsConfig[k].name + '</option>').join("");
+}
+
+function updatePoolSearch(val) {
+  poolSearchQuery = (val || "").trim().toLowerCase();
+  const clearBtn = document.getElementById("clearSearchBtn");
+  if (clearBtn) clearBtn.style.display = poolSearchQuery ? "block" : "none";
+  renderEmployees();
+}
+
+function renderTeamFilterCheckboxes() {
+  const c = document.getElementById("teamFilterContainer"); if (!c) return;
+  c.innerHTML = Object.keys(teamsConfig).sort().map(k => {
+    const t = teamsConfig[k];
+    return '<label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" ' + (activeTeamFilters[k] !== false ? 'checked' : '') + ' onchange="activeTeamFilters[\'' + k + '\']=this.checked; renderEmployees();"> <span style="color:' + t.color + '; font-weight:700;">■</span> ' + t.name + '</label>';
+  }).join("");
+}
+function toggleAllTeamFilters(s) { Object.keys(teamsConfig).forEach(k => { activeTeamFilters[k] = s; }); renderTeamFilterCheckboxes(); renderEmployees(); }
+
+function renderRoleFilterCheckboxes() {
+  const c = document.getElementById("roleFilterContainer"); if (!c) return;
+  c.innerHTML = roles.map((r, i) => '<label style="display:inline-flex; align-items:center; gap:3px; cursor:pointer;"><input type="checkbox" ' + (activeRoleFilters[r] !== false ? 'checked' : '') + ' onchange="activeRoleFilters[roles[' + i + ']]=this.checked; renderEmployees();"> ' + r + '</label>').join("");
+}
+function toggleAllRoleFilters(s) { roles.forEach(r => { activeRoleFilters[r] = s; }); renderRoleFilterCheckboxes(); renderEmployees(); }
+
+function renderLineCheckboxes(selMain, selSec) {
+  selMain = selMain || []; selSec = selSec || [];
+  const mC = document.getElementById("mainLinesCheckboxes"), sC = document.getElementById("secLinesCheckboxes"); if (!mC || !sC) return;
+  const build = (cls, sel) => lines.map(l => '<label style="font-size:0.78rem; display:inline-flex; align-items:center; gap:3px; cursor:pointer;"><input type="checkbox" value="' + l.id + '" class="' + cls + '" ' + (sel.indexOf(l.id) !== -1 ? 'checked' : '') + '> ' + l.name + '</label>').join("");
+  mC.innerHTML = build("main-line-chk", selMain); sC.innerHTML = build("sec-line-chk", selSec);
+}
+
+function updateRoleDropdown() {
+  const sel = document.getElementById("newEmpRole"); if (!sel) return;
+  sel.innerHTML = roles.map(r => '<option value="' + r + '">' + r + '</option>').join("");
+}
+
+function renderSettingsLists() {
+  const empListEl = document.getElementById("employeeList");
+  if (empListEl) {
+    let filterBar = document.getElementById("settingsEmpFilterBar");
+    if (!filterBar && empListEl.parentNode) {
+      filterBar = document.createElement("div"); filterBar.id = "settingsEmpFilterBar";
+      filterBar.style.cssText = "display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 10px 0; align-items:center;";
+      empListEl.parentNode.insertBefore(filterBar, empListEl);
+    }
+    const teamKeys = Object.keys(teamsConfig).sort();
+    const filtered = employees.filter(e => (!settingsEmpSearchQuery || fullName(e).toLowerCase().indexOf(settingsEmpSearchQuery) !== -1) && (settingsEmpTeamFilter === "ALL" || e.team === settingsEmpTeamFilter) && (settingsEmpRoleFilter === "ALL" || e.role === settingsEmpRoleFilter));
+    if (filterBar) {
+      filterBar.innerHTML =
+        '<select class="form-control" style="flex:1; min-width:130px; padding:6px 8px; font-size:0.8rem;" onchange="setSettingsEmpTeamFilter(this.value)"><option value="ALL">👥 Alle Teams</option>' +
+        teamKeys.map(k => '<option value="' + k + '"' + (settingsEmpTeamFilter === k ? ' selected' : '') + '>' + teamsConfig[k].name + '</option>').join("") + '</select>' +
+        '<select class="form-control" style="flex:1; min-width:130px; padding:6px 8px; font-size:0.8rem;" onchange="setSettingsEmpRoleFilter(this.value)"><option value="ALL">🏷️ Alle Rollen</option>' +
+        roles.map(r => '<option value="' + r + '"' + (settingsEmpRoleFilter === r ? ' selected' : '') + '>' + r + '</option>').join("") + '</select>' +
+        '<span style="font-size:0.75rem; color:#64748b; font-weight:700; padding:0 4px;">' + filtered.length + ' / ' + employees.length + '</span>';
+    }
+    empListEl.innerHTML = filtered.map(e => {
+      const tObj = teamsConfig[e.team] || { name: e.team, color: "#0091df" };
+      return '<div class="item-row" style="flex-wrap:wrap; gap:6px;">' +
+        '<span style="display:flex; align-items:center; flex-wrap:wrap; gap:2px;"><span style="color:' + tObj.color + '; font-weight:700; margin-right:4px;">■</span> <b>' + fullName(e) + '</b> <small style="color:#64748b; margin-left:4px;">(' + tObj.name + ' · ' + e.role + ')</small></span>' +
+        '<div style="display:flex; gap:5px;">' +
+          '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem;" onclick="editEmployee(\'' + e.id + '\')">✏️</button>' +
+          '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem; color:#dc2626;" onclick="deleteEmployee(\'' + e.id + '\')">🗑️</button>' +
+        '</div></div>';
+    }).join("");
+  }
+}
 
 function applyIncomingDocData(d) {
   if (!d) return;
@@ -563,17 +810,6 @@ function logoutPlanner() {
   initBoard();
 }
 
-function handleLogoClick() {
-  if (!isPlanner) {
-    document.getElementById("pinModal").style.display = "flex";
-    document.getElementById("loginModalError").style.display = "none";
-    document.getElementById("loginPlannerName").value = "";
-    document.getElementById("pinInput").value = "";
-    selectedLoginPlannerId = null;
-    document.getElementById("loginPlannerName").focus();
-  }
-}
-
 function verifyPin() {
   const nameVal = document.getElementById("loginPlannerName").value.trim().toLowerCase();
   const pinVal = document.getElementById("pinInput").value.trim();
@@ -590,21 +826,32 @@ function verifyPin() {
   closeModal("pinModal"); initBoard();
 }
 
-// Minimaler Safe-Fallback, falls Funktionen fehlen
-if (typeof placeTeamsOnDefaultLines !== 'function') { window.placeTeamsOnDefaultLines = function() {}; }
-if (typeof performShiftRotationLogic !== 'function') { window.performShiftRotationLogic = function() {}; }
-if (typeof rotateAllShifts !== 'function') { window.rotateAllShifts = function() {}; }
-if (typeof clearEntireBoard !== 'function') { window.clearEntireBoard = function() {}; }
-if (typeof clearShiftRow !== 'function') { window.clearShiftRow = function() {}; }
-if (typeof loadTeamToShift !== 'function') { window.loadTeamToShift = function() {}; }
-if (typeof updateInboxBadge !== 'function') { window.updateInboxBadge = function() {}; }
-if (typeof renderSettingsLists !== 'function') { window.renderSettingsLists = function() {}; }
-if (typeof filterHistoryUnified !== 'function') { window.filterHistoryUnified = function() {}; }
-if (typeof saveEmployee !== 'function') { window.saveEmployee = function() {}; }
-if (typeof addRole !== 'function') { window.addRole = function() {}; }
-if (typeof addLine !== 'function') { window.addLine = function() {}; }
-if (typeof addTeam !== 'function') { window.addTeam = function() {}; }
-if (typeof createManualBackup !== 'function') { window.createManualBackup = function() {}; }
-if (typeof saveProfilePinChange !== 'function') { window.saveProfilePinChange = function() {}; }
-if (typeof filterSettingsEmployees !== 'function') { window.filterSettingsEmployees = function() {}; }
-if (typeof onPlannerLoginInput !== 'function') { window.onPlannerLoginInput = function() {}; }
+window.rotateAllShifts = function() { logHistory("Rotation", "Schichtrotation ausgelöst"); performShiftRotationLogic(true); };
+window.clearEntireBoard = function() { employees.forEach(e => { if (e.zone && ["pool","absent","extra"].indexOf(e.zone) === -1 && !e.noRotation) e.zone = "pool"; }); saveToFirebase(); renderEmployees(); };
+window.clearShiftRow = function(sId) { employees.forEach(e => { if (extractShiftIdFromZone(e.zone) === sId && !e.noRotation) e.zone = "pool"; }); saveToFirebase(); renderEmployees(); };
+window.loadTeamToShift = function(slotKey) {
+  const sel = document.getElementById("teamSelect_" + slotKey); if (!sel) return;
+  const teamKey = sel.value; shiftRotation[slotKey] = teamKey; syncAbsentZones();
+  employees.forEach(emp => {
+    if (emp.team === teamKey && emp.zone !== "absent" && emp.zone !== "extra" && !emp.noRotation) {
+      if (slotKey === "frei") emp.zone = "pool";
+      else {
+        const targetLine = (emp.lastLineId && lines.some(l => l.id === emp.lastLineId)) ? emp.lastLineId : (emp.mainLines && emp.mainLines[0] ? emp.mainLines[0] : null);
+        emp.zone = targetLine ? (targetLine + "_" + slotKey) : "pool";
+      }
+    }
+  });
+  saveToFirebase(); initBoard();
+};
+window.performShiftRotationLogic = function(autoPlace) {
+  const slotOrder = ["frueh", "spaet", "nacht", "frei"];
+  const activeSlots = slotOrder.filter(s => shiftRotation[s] && isTeamRotating(shiftRotation[s]));
+  if (activeSlots.length < 2) return;
+  const nextShiftRotation = Object.assign({}, shiftRotation);
+  activeSlots.forEach((fromSlot, idx) => { nextShiftRotation[activeSlots[(idx + 1) % activeSlots.length]] = shiftRotation[fromSlot]; });
+  shiftRotation = nextShiftRotation; syncAbsentZones(); saveToFirebase(); initBoard();
+};
+window.placeTeamsOnDefaultLines = function() {};
+window.updateInboxBadge = function() {};
+window.openSettingsModal = function() { document.getElementById("settingsModal").style.display = "flex"; renderSettingsLists(); };
+window.openInboxModal = function() { document.getElementById("inboxModal").style.display = "flex"; };
