@@ -20,9 +20,11 @@
 
     header { background: #fff; padding: 10px 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,0.06); position: sticky; top: 0; z-index: 50; gap: 12px; flex-wrap: wrap; }
     .header-left { display: flex; align-items: center; gap: 16px; }
-    .bayer-logo-btn { width: 62px; height: 62px; cursor: pointer; transition: transform 0.2s; flex-shrink: 0; }
-    .bayer-logo-btn:hover { transform: scale(1.05); }
-    .bayer-logo-btn img { width: 100%; height: 100%; object-fit: contain; }
+    
+    .bayer-logo-btn { width: 62px; height: 62px; cursor: pointer; transition: transform 0.2s; flex-shrink: 0; z-index: 60; position: relative; display: flex; align-items: center; justify-content: center; background: none; border: none; padding: 0; }
+    .bayer-logo-btn:hover { transform: scale(1.08); }
+    .bayer-logo-btn img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+
     .header-title h1 { font-size: 1.35rem; font-weight: 700; color: var(--bayer-blue); margin: 0; }
     .header-meta { font-size: 0.78rem; color: #64748b; font-weight: 600; margin-top: 2px; }
     .header-badges-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
@@ -160,7 +162,7 @@
 <body>
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
-  <div class="version-footer-badge">Version 4.9.38 (Logo Fix)</div>
+  <div class="version-footer-badge">Version 4.9.39 (Logo Click Fix)</div>
 
   <div id="boardLockModal" class="modal-overlay" style="background: #f4f6f9; z-index: 180;">
     <div class="modal" style="max-width: 380px; text-align: center; padding: 0; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
@@ -186,7 +188,7 @@
   
   <header>
     <div class="header-left">
-      <div class="bayer-logo-btn" onclick="handleLogoClick()"><img src="logo.png" alt="Bayer Logo" onerror="this.style.display='none'"></div>
+      <button class="bayer-logo-btn" onclick="handleLogoClick()"><img src="logo.png" alt="Bayer Logo" onerror="this.style.display='none'"></button>
       <div class="header-title">
         <h1>Schicht und Linienübersicht</h1>
         <div id="headerDateKw" class="header-meta">Lade Datum...</div>
@@ -606,7 +608,7 @@
     </div>
   </main>
 
-  <script src="planer.js?v=4.9.38"></script>
+  <script src="planer.js?v=4.9.39"></script>
   <script>
     let activeInboxHistoryCategory = "ALL";
     function setInboxHistoryCategoryFilter(cat) { activeInboxHistoryCategory = cat || "ALL"; renderInboxLists(); }
@@ -616,14 +618,6 @@
       if (cat.indexOf("krank") !== -1 || cat.indexOf("abwesen") !== -1 || cat.indexOf("arbeitsunfähig") !== -1) return "KRANK";
       return "EXTRA";
     }
-
-    // Logo-Klick-Sicherheits-Binding, falls das Logo-Event in planers.js greifen muss
-    document.addEventListener("DOMContentLoaded", function() {
-      const logoBtn = document.querySelector(".bayer-logo-btn");
-      if (logoBtn && typeof handleLogoClick === "function") {
-        logoBtn.onclick = handleLogoClick;
-      }
-    });
 
     // Sicherheits-Timer: Entriegelt die Ansicht nach 1 Sekunde automatisch, falls das Skript stockt
     setTimeout(() => {
