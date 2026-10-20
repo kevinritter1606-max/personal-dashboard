@@ -8,130 +8,160 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <style>
-    :root { --bayer-blue: #0091df; --bg-gray: #f4f6f9; }
+    :root { --bayer-blue: #0091df; --bg-gray: #f1f5f9; }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
-    body { background-color: var(--bg-gray); height: 100vh; display: flex; flex-direction: column; overflow: hidden; position: relative; cursor: default; }
+    body { background-color: var(--bg-gray); height: 100vh; display: flex; flex-direction: column; overflow: hidden; position: relative; cursor: default; color: #0f172a; }
     
     .brand-gradient { height: 4px; width: 100%; flex-shrink: 0; transition: background 0.3s ease; }
     .brand-gradient.pending { background: linear-gradient(90deg, #0091df 0%, #ef4444 45%, #dc2626 100%); }
     .brand-gradient.approved { background: linear-gradient(90deg, #0091df 0%, #00bcff 50%, #89d329 100%); }
 
-    .version-footer-badge { position: fixed; bottom: 4px; right: 8px; font-size: 0.65rem; color: #94a3b8; font-weight: 600; pointer-events: none; z-index: 10; }
+    .version-footer-badge { position: fixed; bottom: 3px; right: 8px; font-size: 0.64rem; color: #94a3b8; font-weight: 600; pointer-events: none; z-index: 10; }
 
-    header { background: #fff; padding: 6px 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06); position: sticky; top: 0; z-index: 50; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
+    header { background: #fff; padding: 6px 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06); z-index: 50; gap: 10px; flex-wrap: wrap; flex-shrink: 0; border-bottom: 1px solid #e2e8f0; }
     .header-left { display: flex; align-items: center; gap: 12px; }
-    .bayer-logo-btn { width: 44px; height: 44px; cursor: pointer; transition: transform 0.2s; flex-shrink: 0; }
+    .bayer-logo-btn { width: 42px; height: 42px; cursor: pointer; transition: transform 0.2s; flex-shrink: 0; }
     .bayer-logo-btn:hover { transform: scale(1.05); }
     .bayer-logo-btn img { width: 100%; height: 100%; object-fit: contain; }
-    .header-title h1 { font-size: 1.15rem; font-weight: 700; color: var(--bayer-blue); margin: 0; }
-    .header-meta { font-size: 0.72rem; color: #64748b; font-weight: 600; margin-top: 1px; }
-    .header-badges-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+    .header-title { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .header-title-text h1 { font-size: 1.12rem; font-weight: 700; color: var(--bayer-blue); margin: 0; line-height: 1.15; }
+    .header-meta { font-size: 0.72rem; color: #64748b; font-weight: 600; }
+    .header-badges-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     
-    .status-badge { display: none; font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; font-weight: 700; background: #dcfce7; color: #166534; }
+    .status-badge { display: none; font-size: 0.7rem; padding: 3px 9px; border-radius: 999px; font-weight: 700; background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
     body.planner-active .status-badge { display: inline-block; }
 
     @keyframes slowSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    .auto-rotation-badge { display: none; align-items: center; gap: 4px; font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; font-weight: 700; cursor: pointer; border: 1px solid #cbd5e1; background: #f1f5f9; color: #64748b; transition: 0.15s; }
+    .auto-rotation-badge { display: none; align-items: center; gap: 4px; font-size: 0.7rem; padding: 3px 9px; border-radius: 999px; font-weight: 700; cursor: pointer; border: 1px solid #cbd5e1; background: #f8fafc; color: #64748b; transition: 0.15s; }
+    .auto-rotation-badge:hover { background: #e2e8f0; }
     .auto-rotation-badge.active { border-color: #bae6fd; background: #f0f9ff; color: #0369a1; }
     .auto-rotation-badge.active .rot-icon { display: inline-block; animation: slowSpin 8s linear infinite; }
     body.planner-active .auto-rotation-badge { display: inline-flex; }
 
     .header-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-    .btn { padding: 6px 10px; border-radius: 6px; font-size: 0.82rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; position: relative; transition: 0.15s; }
+    .btn { padding: 5px 11px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; position: relative; transition: 0.15s; color: #1e293b; }
     .btn-primary { background: var(--bayer-blue); color: #fff; }
     .btn-primary:hover { background: #0077b6; }
     .btn-outline { border-color: #cbd5e1; background: #fff; color: #475569; }
-    .btn-outline:hover { background: #f8fafc; }
+    .btn-outline:hover { background: #f8fafc; border-color: #94a3b8; }
 
-    .planner-approval-indicator { display: none; align-items: center; gap: 5px; font-size: 0.75rem; font-weight: 700; padding: 5px 10px; border-radius: 6px; cursor: pointer; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; }
+    .planner-approval-indicator { display: none; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 700; padding: 5px 11px; border-radius: 6px; cursor: pointer; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; transition: 0.2s; }
     body.planner-active .planner-approval-indicator { display: inline-flex; }
 
     .inbox-badge { position: absolute; top: -5px; right: -5px; background: #dc2626; color: #fff; font-size: 0.65rem; font-weight: 800; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px; display: none; align-items: center; justify-content: center; }
-    
-    /* Dashboard-Hauptbereich: Passt komplett ohne Scrollen auf den Bildschirm */
-    main { padding: 8px 12px; display: flex; gap: 12px; flex: 1; width: 100%; height: calc(100vh - 65px); align-items: stretch; overflow: hidden; }
-    .sidebar { width: 260px; flex-shrink: 0; display: none; flex-direction: column; gap: 8px; height: 100%; overflow: hidden; }
+
+    /* Hauptlayout: Komplett auf einem Bildschirm ohne Seiten-Scrollbalken */
+    main { padding: 8px 10px; display: flex; gap: 10px; flex: 1; min-height: 0; width: 100%; align-items: stretch; overflow: hidden; }
+    .sidebar { width: 256px; flex-shrink: 0; display: none; flex-direction: column; gap: 6px; height: 100%; min-height: 0; overflow: hidden; }
     body.planner-active .sidebar { display: flex; }
-    .panel { background: #fff; border-radius: 8px; padding: 6px 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; display: flex; flex-direction: column; flex: 1; min-height: 0; }
-    .panel h2 { font-size: 0.8rem; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; color: #1e293b; }
     
-    .card-list { flex: 1; overflow-y: auto; min-height: 40px; padding: 4px; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1; display: flex; flex-direction: column; gap: 4px; }
-    .team-filter-box { display: none; background: #fff; padding: 6px 8px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.75rem; flex-shrink: 0; }
+    .panel { background: #fff; border-radius: 8px; padding: 6px 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .panel-pool { flex: 1.65; }
+    .panel h2 { font-size: 0.78rem; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; color: #1e293b; flex-shrink: 0; }
+    
+    .card-list { flex: 1; overflow-y: auto; min-height: 36px; padding: 4px; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1; display: flex; flex-direction: column; gap: 4px; cursor: default; }
+    .team-filter-box { display: none; background: #fff; padding: 6px 8px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 0.72rem; flex-shrink: 0; }
     body.planner-active .team-filter-box { display: block; }
     .team-filter-options { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 2px; }
     .filter-quick-links span { cursor: pointer; color: var(--bayer-blue); font-weight: 600; }
-    .search-wrapper { position: relative; margin-bottom: 4px; }
-    .search-input { width: 100%; padding: 4px 22px 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.76rem; background: #f8fafc; }
-    .search-clear { display: none; position: absolute; right: 6px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; font-weight: bold; font-size: 0.9rem; }
+    .filter-quick-links span:hover { text-decoration: underline; }
+    .search-wrapper { position: relative; margin-bottom: 5px; }
+    .search-input { width: 100%; padding: 4px 22px 4px 8px; border: 1px solid #cbd5e1; border-radius: 5px; font-size: 0.75rem; background: #f8fafc; color: #0f172a; }
+    .search-clear { display: none; position: absolute; right: 6px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; font-weight: bold; font-size: 0.95rem; }
 
-    /* Kompakte Mitarbeiterkarten: Name bleibt immer ungetrennt & einzeilig, kein Scrollen nötig */
-    .employee-card { background: #fff; padding: 4px 6px; border-radius: 5px; border: 1px solid #e2e8f0; border-left: 4px solid #0091df; box-shadow: 0 1px 1px rgba(0,0,0,0.04); display: flex; flex-direction: column; user-select: none; gap: 2px; position: relative; backface-visibility: hidden; cursor: grab; flex-shrink: 0; }
+    /* Mitarbeiterkarten: Clean, kompakt, Namen niemals zerrissen */
+    .employee-card { background: #fff; padding: 4px 6px; border-radius: 5px; border: 1px solid #e2e8f0; border-left: 4px solid #0091df; box-shadow: 0 1px 2px rgba(15,23,42,0.04); display: flex; flex-direction: column; user-select: none; gap: 2px; position: relative; backface-visibility: hidden; cursor: default; flex-shrink: 0; transition: box-shadow 0.12s, border-color 0.12s; }
+    body.planner-active .employee-card { cursor: grab; }
+    body.planner-active .employee-card:hover { border-color: #cbd5e1; box-shadow: 0 2px 4px rgba(15,23,42,0.08); }
     body.planner-active .employee-card:active { cursor: grabbing; }
-    .card-name { font-size: 0.76rem; font-weight: 700; color: #1e293b; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 18px; }
-    .card-role { font-size: 0.62rem; padding: 1px 4px; background: #f1f5f9; border-radius: 3px; color: #475569; font-weight: 600; display: inline-block; }
-    .card-fix-tag { display: none; font-size: 0.58rem; padding: 1px 3px; background: #fef08a; color: #854d0e; border-radius: 3px; font-weight: 700; }
+    
+    .card-name { font-size: 0.74rem; font-weight: 700; color: #0f172a; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 13px; }
+    .card-bottom-row { display: flex; justify-content: space-between; align-items: center; gap: 3px; flex-wrap: nowrap; min-height: 16px; }
+    .card-badges-left { display: flex; gap: 3px; align-items: center; flex-wrap: nowrap; min-width: 0; }
+    .card-role { font-size: 0.61rem; padding: 1px 4px; background: #f1f5f9; border-radius: 3px; color: #475569; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-fix-tag { display: none; font-size: 0.58rem; padding: 1px 4px; background: #fef08a; color: #854d0e; border-radius: 3px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
     body.planner-active .card-fix-tag { display: inline-block; }
 
-    /* Ersthelfer rotes Kreuz exakt rechts in der Ecke */
-    .ersthelfer-plus { position: absolute; top: 3px; right: 5px; color: #dc2626; font-weight: 900; font-size: 0.82rem; line-height: 1; }
+    /* Rotes Ersthelfer-Kreuz (+) rechts oben auf allen Karten */
+    .ersthelfer-plus { position: absolute; top: 3px; right: 5px; color: #dc2626; font-weight: 900; font-size: 0.84rem; line-height: 1; pointer-events: none; }
 
-    /* Nadel in der Sidebar */
+    /* Dezente PIN-Nadel & Prio-Anzeige: Nur im Planer-Modus sichtbar, auf der Übersicht ausgeblendet */
     .card-pin-info { display: none; }
-    body.planner-active .sidebar .employee-card.pinned .card-pin-info { display: inline-flex; font-size: 0.62rem; color: #0284c7; background: #f0f9ff; padding: 0 4px; border-radius: 3px; font-weight: 700; margin-top: 1px; align-items: center; gap: 2px; width: fit-content; border: 1px solid #bae6fd; }
+    body.planner-active .card-pin-info { display: inline-flex; align-items: center; gap: 2px; font-size: 0.61rem; font-weight: 700; color: #0369a1; background: #f0f9ff; border: 1px solid #bae6fd; padding: 0 4px; border-radius: 3px; white-space: nowrap; flex-shrink: 0; }
+    .pin-remove-x { color: #dc2626; cursor: pointer; font-weight: 900; margin-left: 2px; padding: 0 1px; font-size: 0.64rem; line-height: 1; }
+    .pin-remove-x:hover { color: #991b1b; transform: scale(1.15); }
+    
+    .card-prio-hint { display: none; }
+    body.planner-active .sidebar .card-prio-hint { display: inline-block; font-size: 0.6rem; color: #64748b; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
 
-    .board-container { flex: 1; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; flex-direction: column; overflow: hidden; height: 100%; }
-    .board-table { width: 100%; border-collapse: collapse; table-layout: fixed; height: 100%; }
-    .board-table th.shift-header { position: sticky; left: 0; z-index: 15; box-shadow: 2px 0 4px rgba(0,0,0,0.04); }
+    /* Schicht-Matrix (Board) */
+    .board-container { flex: 1; min-width: 0; height: 100%; min-height: 0; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow-x: auto; overflow-y: hidden; }
+    .board-table { width: 100%; height: 100%; border-collapse: collapse; table-layout: fixed; min-width: 920px; }
+    .board-table th.shift-header { position: sticky; left: 0; z-index: 15; box-shadow: 2px 0 4px rgba(0,0,0,0.03); }
 
-    .board-table th, .board-table td { border: 1px solid #e2e8f0; vertical-align: top; height: calc(100% / 3); }
-    .line-header { background: #f8fafc; padding: 6px 2px; text-align: center; position: relative; height: 48px; }
+    .board-table th, .board-table td { border: 1px solid #e2e8f0; vertical-align: top; }
+    .board-table tbody tr { height: 33.33%; }
+    .board-table tbody td { height: 33.33%; padding: 0; }
+    
+    .line-header { background: #f8fafc; padding: 5px 3px; text-align: center; position: relative; }
     body.planner-active .line-header { cursor: pointer; }
     body.planner-active .line-header:hover { background: #f1f5f9; }
     .line-header.ausgeplant { background: #f1f5f9; opacity: 0.75; }
     .line-title { font-size: 0.78rem; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .badge-container { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; margin-top: 1px; }
-    .line-prio { font-size: 0.58rem; padding: 1px 3px; border-radius: 3px; background: #e2e8f0; font-weight: 700; color: #334155; }
+    .badge-container { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; margin-top: 2px; }
+    .line-prio { font-size: 0.56rem; padding: 1px 3px; border-radius: 3px; background: #e2e8f0; font-weight: 700; color: #334155; }
     .line-prio.prio-high { background: #fee2e2; color: #b91c1c; }
     .line-prio.prio-mid { background: #fef3c7; color: #b45309; }
-    .line-status-tag { font-size: 0.58rem; padding: 1px 3px; border-radius: 3px; background: #fecdd3; color: #9f1239; font-weight: 700; }
-    .line-ausgeplant-tag { font-size: 0.58rem; padding: 1px 3px; border-radius: 3px; background: #475569; color: #fff; font-weight: 700; }
-    .line-notes { display: none; } /* Platzsparend ausgeblendet für One-Screen Dashboard */
+    .line-status-tag { font-size: 0.56rem; padding: 1px 3px; border-radius: 3px; background: #fecdd3; color: #9f1239; font-weight: 700; }
+    .line-ausgeplant-tag { font-size: 0.56rem; padding: 1px 3px; border-radius: 3px; background: #475569; color: #fff; font-weight: 700; }
+    .line-notes { font-size: 0.6rem; color: #475569; margin-top: 2px; background: #fff; padding: 1px 3px; border-radius: 3px; border: 1px dashed #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     
-    .shift-header { background: #f1f5f9; font-weight: 700; font-size: 0.78rem; width: 100px; text-align: center; padding: 4px 2px; color: #334155; vertical-align: middle; }
-    body.planner-active .shift-header { width: 115px; padding: 4px; }
+    .shift-header { background: #f1f5f9; font-weight: 700; font-size: 0.78rem; width: 92px; text-align: center; padding: 6px 3px; color: #334155; vertical-align: middle; }
+    body.planner-active .shift-header { width: 112px; padding: 5px 4px; }
 
-    .shift-team-badge { display: inline-flex; align-items: center; justify-content: center; gap: 3px; margin-top: 3px; padding: 2px 4px; border-radius: 3px; background: #fff; border: 1px solid #cbd5e1; font-size: 0.68rem; font-weight: 700; color: #1e293b; }
+    .shift-team-badge { display: inline-flex; align-items: center; justify-content: center; gap: 3px; margin-top: 4px; padding: 2px 5px; border-radius: 4px; background: #fff; border: 1px solid #cbd5e1; font-size: 0.68rem; font-weight: 700; color: #1e293b; }
     body.planner-active .shift-team-badge { display: none; }
-    .shift-controls { display: none; flex-direction: column; gap: 3px; margin-top: 3px; }
+    .shift-controls { display: none; flex-direction: column; gap: 3px; margin-top: 4px; }
     body.planner-active .shift-controls { display: flex; }
-    .shift-rotate-btn { width: 100%; font-size: 0.66rem; font-weight: 700; padding: 3px 2px; border-radius: 3px; border: none; background: var(--bayer-blue); color: #fff; cursor: pointer; }
+    .shift-rotate-btn { width: 100%; font-size: 0.66rem; font-weight: 700; padding: 3px 2px; border-radius: 4px; border: none; background: var(--bayer-blue); color: #fff; cursor: pointer; }
+    .shift-rotate-btn:hover { background: #0077b6; }
     .shift-load-row { display: flex; gap: 3px; align-items: center; }
-    .shift-team-select { width: 100%; font-size: 0.66rem; font-weight: 700; padding: 2px 1px; border-radius: 3px; border: 1px solid var(--bayer-blue); background: #fff; color: #0f172a; cursor: pointer; }
-    .shift-load-btn { padding: 2px 4px; font-size: 0.66rem; font-weight: 700; border-radius: 3px; border: 1px solid var(--bayer-blue); background: var(--bayer-blue); color: #fff; cursor: pointer; }
-    .shift-clear-btn { width: 100%; font-size: 0.62rem; font-weight: 600; padding: 2px; border-radius: 3px; border: 1px solid #cbd5e1; background: #fff; color: #64748b; cursor: pointer; }
-    .drop-zone { padding: 4px; height: 100%; display: flex; flex-direction: column; gap: 4px; background: #fafafa; overflow-y: auto; }
+    .shift-team-select { width: 100%; font-size: 0.66rem; font-weight: 700; padding: 2px 1px; border-radius: 4px; border: 1px solid var(--bayer-blue); background: #fff; color: #0f172a; cursor: pointer; }
+    .shift-load-btn { padding: 2px 5px; font-size: 0.66rem; font-weight: 700; border-radius: 4px; border: 1px solid var(--bayer-blue); background: var(--bayer-blue); color: #fff; cursor: pointer; }
+    .shift-clear-btn { width: 100%; font-size: 0.62rem; font-weight: 600; padding: 2px; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff; color: #64748b; cursor: pointer; }
+    .shift-clear-btn:hover { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+    .drop-zone { padding: 4px; height: 100%; width: 100%; display: flex; flex-direction: column; gap: 3px; background: #fafafa; overflow-y: auto; border: none; border-radius: 0; }
+
+    @media (max-width: 768px) {
+      body { height: auto; min-height: 100vh; overflow-y: auto; }
+      header { padding: 8px 10px; }
+      main { padding: 6px; flex-direction: column; height: auto; overflow: visible; }
+      .sidebar, .board-container { width: 100%; height: auto; }
+      .panel { max-height: 240px; }
+      .board-table { min-width: 900px; height: auto; }
+    }
 
     .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.45); display: none; align-items: center; justify-content: center; z-index: 100; padding: 12px; }
-    .modal { background: #fff; padding: 24px; border-radius: 10px; width: 100%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.18); max-height: 90vh; overflow-y: auto; }
+    .modal { background: #fff; padding: 22px; border-radius: 10px; width: 100%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.18); max-height: 90vh; overflow-y: auto; color: #0f172a; }
     .form-group { margin-bottom: 12px; position: relative; }
-    .form-group label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 4px; color: #475569; }
-    .form-control { width: 100%; padding: 9px 11px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem; background: #fff; }
-    textarea.form-control { resize: vertical; min-height: 65px; }
-    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+    .form-group label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; color: #475569; }
+    .form-control { width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; background: #fff; color: #0f172a; }
+    textarea.form-control { resize: vertical; min-height: 60px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
     .suggestions-box { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 8px 20px rgba(0,0,0,0.12); max-height: 180px; overflow-y: auto; z-index: 60; margin-top: 2px; text-align: left; }
-    .suggestion-item { padding: 8px 10px; font-size: 0.86rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
+    .suggestion-item { padding: 8px 10px; font-size: 0.84rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; color: #0f172a; }
     .suggestion-item:hover { background: #f0f9ff; color: var(--bayer-blue); }
-    .tabs { display: flex; gap: 4px; border-bottom: 2px solid #e2e8f0; margin-bottom: 16px; overflow-x: auto; }
-    .tab-btn { padding: 8px 11px; background: none; border: none; border-bottom: 2px solid transparent; font-weight: 600; cursor: pointer; color: #64748b; margin-bottom: -2px; font-size: 0.84rem; white-space: nowrap; }
+    .tabs { display: flex; gap: 4px; border-bottom: 2px solid #e2e8f0; margin-bottom: 14px; overflow-x: auto; }
+    .tab-btn { padding: 7px 10px; background: none; border: none; border-bottom: 2px solid transparent; font-weight: 600; cursor: pointer; color: #64748b; margin-bottom: -2px; font-size: 0.82rem; white-space: nowrap; }
     .tab-btn.active { color: var(--bayer-blue); border-bottom-color: var(--bayer-blue); }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-    .item-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.88rem; gap: 8px; }
-    .manual-entry-toggle { width: 100%; text-align: left; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; font-size: 0.86rem; font-weight: 700; color: #0f172a; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .item-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.84rem; gap: 8px; }
+    .manual-entry-toggle { width: 100%; text-align: left; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 9px 12px; font-size: 0.84rem; font-weight: 700; color: #0f172a; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
     .manual-entry-toggle:hover { background: #f1f5f9; }
-    .settings-card { background: #f8fafc; padding: 14px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #e2e8f0; }
-    .settings-card-title { font-size: 0.85rem; font-weight: 700; color: #1e293b; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
-    .toast-banner { display: none; position: fixed; top: 20px; right: 20px; background: #16a34a; color: #fff; padding: 10px 16px; border-radius: 8px; font-weight: 700; font-size: 0.86rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 250; }
+    .settings-card { background: #f8fafc; padding: 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #e2e8f0; }
+    .settings-card-title { font-size: 0.84rem; font-weight: 700; color: #1e293b; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
+    .toast-banner { display: none; position: fixed; top: 16px; right: 16px; background: #16a34a; color: #fff; padding: 9px 15px; border-radius: 8px; font-weight: 700; font-size: 0.84rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 250; }
     
     .lvl-4-only, .lvl-3-only, .admin-element, .lvl-2-hide { display: none !important; }
     body.planner-active .admin-element { display: inline-flex !important; }
@@ -154,7 +184,7 @@
 <body>
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
-  <div class="version-footer-badge">Version 4.9.41</div>
+  <div class="version-footer-badge">Version 4.9.42</div>
 
   <div id="boardLockModal" class="modal-overlay" style="background: #f4f6f9; z-index: 180;">
     <div class="modal" style="max-width: 380px; text-align: center; padding: 0; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
@@ -182,8 +212,10 @@
     <div class="header-left">
       <div class="bayer-logo-btn" onclick="handleLogoClick()"><img src="logo.png" alt="Bayer Logo" onerror="this.style.display='none'"></div>
       <div class="header-title">
-        <h1>Schicht und Linienübersicht</h1>
-        <div id="headerDateKw" class="header-meta">Lade Datum...</div>
+        <div class="header-title-text">
+          <h1>Schicht und Linienübersicht</h1>
+          <div id="headerDateKw" class="header-meta">Lade Datum...</div>
+        </div>
         <div class="header-badges-row">
           <span id="plannerStatusBadge" class="status-badge">Planer-Modus aktiv</span>
           <span id="autoRotationBadge" class="auto-rotation-badge active" onclick="openShiftModelSettingsQuick()" title="Klicken für Schichtmodell & Rotations-Einstellungen">
@@ -216,7 +248,7 @@
           <div class="filter-quick-links"><span onclick="toggleAllTeamFilters(true)">Alle</span> / <span onclick="toggleAllTeamFilters(false)">Keine</span></div>
         </div>
         <div id="teamFilterContainer" class="team-filter-options"></div>
-        <div style="border-top: 1px dashed #cbd5e1; margin: 5px 0;"></div>
+        <div style="border-top: 1px dashed #cbd5e1; margin: 4px 0;"></div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <span style="font-weight:700; color:#1e293b;">Pool-Rollen</span>
           <div class="filter-quick-links"><span onclick="toggleAllRoleFilters(true)">Alle</span> / <span onclick="toggleAllRoleFilters(false)">Keine</span></div>
@@ -224,11 +256,11 @@
         <div id="roleFilterContainer" class="team-filter-options"></div>
       </div>
 
-      <div class="panel">
+      <div class="panel panel-pool">
         <h2>
-          <span>Pool <span id="poolCount" style="font-size:0.75rem; color:#64748b;">(0)</span></span>
-          <div id="poolFreiControlWrap" style="display:flex; align-items:center; gap:4px;">
-            <select id="teamSelect_frei" style="font-size:0.7rem; padding:1px 3px; border-radius:3px; border:1px solid #cbd5e1; font-weight:700; color:#334155;"></select>
+          <span>Pool <span id="poolCount" style="font-size:0.74rem; color:#64748b;">(0)</span></span>
+          <div id="poolFreiControlWrap" style="display:flex; align-items:center; gap:3px;">
+            <select id="teamSelect_frei" style="font-size:0.68rem; padding:1px 3px; border-radius:4px; border:1px solid #cbd5e1; font-weight:700; color:#334155; cursor:pointer;"></select>
             <button class="btn btn-outline" style="padding:1px 5px; font-size:0.68rem; color:var(--bayer-blue); border-color:var(--bayer-blue);" onclick="loadTeamToShift('frei')" title="Team als Schichtfrei in den Pool setzen">📥</button>
           </div>
         </h2>
@@ -237,16 +269,17 @@
 
       <div class="panel">
         <h2>
-          <span title="Bringschichtler werden automatisch 1 Stunde vor Schichtbeginn hier bereitgestellt">➕ Bringschichten <span id="extraCount" style="font-size:0.75rem; color:#166534;">(0)</span></span>
-          <button class="btn btn-outline lvl-2-hide admin-element" style="padding:1px 5px; font-size:0.68rem;" onclick="openInboxModal(null, false, true)">+ Neu</button>
+          <span title="Bringschichtler werden automatisch 1 Stunde vor Schichtbeginn hier bereitgestellt">➕ Bringschichten (1h Vorlauf) <span id="extraCount" style="font-size:0.74rem; color:#166534;">(0)</span></span>
+          <button class="btn btn-outline lvl-2-hide admin-element" style="padding:1px 6px; font-size:0.68rem;" onclick="openInboxModal(null, false, true)">+ Neu</button>
         </h2>
         <div id="extra" class="card-list drop-zone" data-zone="extra" style="background:#f0fdf4; border-color:#86efac;"></div>
+        <div id="approvedExtraList" style="max-height:52px; overflow-y:auto; margin-top:2px; font-size:0.68rem;"></div>
       </div>
 
       <div class="panel">
         <h2>
-          <span>Abwesend <span id="absentCount" style="font-size:0.75rem; color:#b91c1c;">(0)</span></span>
-          <button class="btn btn-outline lvl-2-hide admin-element" style="padding:1px 5px; font-size:0.68rem;" onclick="openInboxModal(null, true, false)">+ Zeit</button>
+          <span>Abwesend <span id="absentCount" style="font-size:0.74rem; color:#b91c1c;">(0)</span></span>
+          <button class="btn btn-outline lvl-2-hide admin-element" style="padding:1px 6px; font-size:0.68rem;" onclick="openInboxModal(null, true, false)">+ Zeitraum</button>
         </h2>
         <div id="absent" class="card-list drop-zone" data-zone="absent" style="background: #fff1f2;"></div>
       </div>
@@ -473,7 +506,7 @@
           </div>
           <div id="newEmpAnchorDaysWrap" style="margin-bottom:12px; background:#f1f5f9; padding:10px; border-radius:6px; display:none;">
             <label style="display:block; font-size:0.78rem; font-weight:700; margin-bottom:6px;">Anker-Modus (Wochentage aktiv):</label>
-            <div id="anchorDaysContainer"></div>
+            <div id="anchorDaysContainer" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
           </div>
           <div class="form-group"><label>Prio-Linien (Stammlinien):</label><div id="mainLinesCheckboxes" style="display:flex; flex-wrap:wrap; gap:6px;"></div></div>
           <div class="form-group"><label>Sek-Linien:</label><div id="secLinesCheckboxes" style="display:flex; flex-wrap:wrap; gap:6px;"></div></div>
@@ -519,7 +552,7 @@
             <div style="background:#f8fafc; padding:8px 10px; border-radius:6px; border:1px solid #e2e8f0;">
               <div style="display:flex; align-items:center; gap:8px; margin-bottom: 6px;">
                 <input type="checkbox" id="cfgResetEnabled" onchange="saveShiftModelSettings()">
-                <label style="font-size:0.81rem; font-weight:700; color:#1e293b; margin:0; cursor:pointer;">Mitarbeiter automatisch in den Pool schicken</label>
+                <label for="cfgResetEnabled" style="font-size:0.81rem; font-weight:700; color:#1e293b; margin:0; cursor:pointer;">Mitarbeiter automatisch in den Pool schicken</label>
               </div>
               <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                 <select id="cfgResetDay" class="form-control" style="flex:1; font-size:0.78rem; padding:5px;" onchange="saveShiftModelSettings()">
@@ -535,7 +568,7 @@
             <div style="background:#f8fafc; padding:8px 10px; border-radius:6px; border:1px solid #e2e8f0;">
               <div style="display:flex; align-items:center; gap:8px; margin-bottom: 6px;">
                 <input type="checkbox" id="cfgLoadEnabled" onchange="saveShiftModelSettings()">
-                <label style="font-size:0.81rem; font-weight:700; color:#1e293b; margin:0; cursor:pointer;">Teams automatisch auf ihre Positionen verteilen</label>
+                <label for="cfgLoadEnabled" style="font-size:0.81rem; font-weight:700; color:#1e293b; margin:0; cursor:pointer;">Teams automatisch auf ihre Positionen verteilen</label>
               </div>
               <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                 <select id="cfgLoadDay" class="form-control" style="flex:1; font-size:0.78rem; padding:5px;" onchange="saveShiftModelSettings()">
@@ -610,7 +643,7 @@
     </div>
   </div>
 
-  <script src="planer.js?v=4.9.41"></script>
+  <script src="planer.js?v=4.9.42"></script>
   <script>
     let activeInboxHistoryCategory = "ALL";
     function setInboxHistoryCategoryFilter(cat) { 
@@ -624,29 +657,21 @@
       if (cat.indexOf("krank") !== -1 || cat.indexOf("abwesen") !== -1 || cat.indexOf("arbeitsunfähig") !== -1) return "KRANK";
       return "EXTRA";
     }
-    function toggleManualEntryBox() {
+    function toggleManualEntryBox(forceOpen) {
       const content = document.getElementById("manualEntryContent");
       const arrow = document.getElementById("manualEntryArrow");
       if (!content) return;
-      if (content.style.display === "none" || !content.style.display) {
-        content.style.display = "block";
-        if (arrow) arrow.textContent = "▲ Formular schließen";
-      } else {
-        content.style.display = "none";
-        if (arrow) arrow.textContent = "▼ Formular öffnen";
-      }
+      const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : (content.style.display === "none" || !content.style.display);
+      content.style.display = shouldOpen ? "block" : "none";
+      if (arrow) arrow.textContent = shouldOpen ? "▲ Formular schließen" : "▼ Formular öffnen";
     }
-    function toggleManualExtraBox() {
+    function toggleManualExtraBox(forceOpen) {
       const content = document.getElementById("manualExtraContent");
       const arrow = document.getElementById("manualExtraArrow");
       if (!content) return;
-      if (content.style.display === "none" || !content.style.display) {
-        content.style.display = "block";
-        if (arrow) arrow.textContent = "▲ Formular schließen";
-      } else {
-        content.style.display = "none";
-        if (arrow) arrow.textContent = "▼ Formular öffnen";
-      }
+      const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : (content.style.display === "none" || !content.style.display);
+      content.style.display = shouldOpen ? "block" : "none";
+      if (arrow) arrow.textContent = shouldOpen ? "▲ Formular schließen" : "▼ Formular öffnen";
     }
     function openShiftModelSettingsQuick() {
       if (typeof openSettingsModal === "function") {
