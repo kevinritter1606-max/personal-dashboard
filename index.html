@@ -65,16 +65,16 @@
 
     .employee-card { background: #fff; padding: 6px 8px; border-radius: 6px; border: 1px solid #e2e8f0; border-left: 5px solid #0091df; box-shadow: 0 1px 2px rgba(0,0,0,0.06); display: flex; flex-direction: column; user-select: none; gap: 3px; position: relative; backface-visibility: hidden; cursor: grab; }
     body.planner-active .employee-card:active { cursor: grabbing; }
-    .card-name { font-size: 0.8rem; font-weight: 700; color: #1e293b; line-height: 1.15; word-break: break-word; }
+    .card-name { font-size: 0.8rem; font-weight: 700; color: #1e293b; line-height: 1.15; word-break: break-word; padding-right: 28px; }
     .card-role { font-size: 0.68rem; padding: 2px 5px; background: #f1f5f9; border-radius: 4px; color: #475569; font-weight: 600; display: inline-block; }
     .card-fix-tag { display: none; font-size: 0.62rem; padding: 1px 5px; background: #fef08a; color: #854d0e; border-radius: 4px; font-weight: 700; }
     body.planner-active .card-fix-tag { display: inline-block; }
 
-    /* Ersthelfer rotes Plus in der rechten oberen Ecke */
-    .ersthelfer-plus { position: absolute; top: 6px; right: 8px; color: #dc2626; font-weight: 900; font-size: 0.95rem; line-height: 1; }
+    /* Ersthelfer rotes Plus oben rechts */
+    .ersthelfer-plus { position: absolute; top: 5px; right: 8px; color: #dc2626; font-weight: 900; font-size: 0.9rem; line-height: 1; }
 
-    /* Nadel & Linienanzeige auf der Karte */
-    .card-pin-info { display: none; font-size: 0.72rem; color: #475569; font-weight: 700; margin-top: 2px; align-items: center; gap: 3px; }
+    /* Dezente Nadel / Pin in der Ecke mit Linieninfo */
+    .card-pin-info { display: none; font-size: 0.68rem; color: #0284c7; background: #f0f9ff; padding: 1px 5px; border-radius: 4px; font-weight: 700; margin-top: 2px; align-items: center; gap: 3px; width: fit-content; border: 1px solid #bae6fd; }
     body.planner-active .sidebar .employee-card.pinned .card-pin-info { display: inline-flex; }
 
     .board-container { flex: 1; background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -660,7 +660,7 @@
     function openShiftModelSettingsQuick() {
       if (typeof openSettingsModal === "function") {
         openSettingsModal();
-        if (typeof switchTab ===="function") {
+        if (typeof switchTab === "function") {
           const teamsBtn = document.getElementById("tabBtnTeams");
           switchTab("tabTeams", teamsBtn);
         }
