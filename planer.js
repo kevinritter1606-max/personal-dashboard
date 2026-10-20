@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Wiederhergestellte Version 4.9.36 (Vollständig)
+   PLANER-BOARD LOGIK (planer.js) - Vollständige Original-Version (Wiederhergestellt)
    ========================================================================== */
 
 try {
@@ -379,7 +379,7 @@ function updateShiftApprovalUI() {
   const dot = document.getElementById("indicatorDot"), text = document.getElementById("indicatorText"), btn = document.getElementById("plannerApprovalIndicator");
   if (dot && text && btn) {
     dot.style.background = approved ? "#16a34a" : "#dc2626"; text.textContent = approved ? "Freigegeben" : "Freigeben";
-    btn.style.borderColor = approved ? "#86efac" : "#fecaca"; btn.style.background = approved ? "#f0fdf4" : "#fef2f2"; btn.style.color = approved ? "#166534" : "#b91c1c";
+    btn.style.borderColor = approved ? "#86efac" : "#fecaca"; btn.style.background = approved ? "$f0fdf4" : "$fef2f2"; btn.style.color = approved ? "#166534" : "#b91c1c";
   }
 }
 
@@ -456,6 +456,37 @@ function updateAccessLevelDropdownOptions(selectedLvl) {
     html += '<option value="' + curL + '" selected disabled>' + (labels[curL] || ("Stufe " + curL)) + '</option>';
   }
   sel.innerHTML = html;
+}
+
+function getActiveLeaveForEmpOnDate(empId, isoDate) {
+  return sickLeaves.find(sl => {
+    if (sl.empId !== empId || sl.status === "rejected" || sl.status === "pending") return false;
+    if (sl.blocks && sl.blocks.length) return sl.blocks.some(b => b.status === "approved" && b.start <= isoDate && b.end >= isoDate);
+    return sl.status === "approved" && sl.startDate <= isoDate && sl.endDate >= isoDate;
+  });
+}
+
+function hasLeaveOverlap(empId, startIso, endIso, ignoreSlId) {
+  return sickLeaves.some(sl => {
+    if (sl.empId !== empId || sl.id === ignoreSlId || sl.status === "rejected") return false;
+    if (sl.blocks && sl.blocks.length) return sl.blocks.some(b => b.status !== "rejected" && !(b.end < startIso || b.start > endIso));
+    return !(sl.endDate < startIso || sl.startDate > endIso);
+  });
+}
+
+function syncAbsentZones() {
+  if (!hasLoadedFromCloud) return false;
+  const now = new Date(), calToday = getTodayIso(now), logToday = getLogicalDateIso(now);
+  let changed = false;
+  employees.forEach(emp => {
+    let activeLeave = getActiveLeaveForEmpOnDate(emp.id, calToday);
+    if (!activeLeave && logToday !== calToday && !isSundayRestPeriod(now)) {
+      if (shiftRotation.nacht === emp.team) activeLeave = getActiveLeaveForEmpOnDate(emp.id, logToday);
+    }
+    if (activeLeave && emp.zone !== "absent") { emp.zone = "absent"; changed = true; }
+    else if (!activeLeave && emp.zone === "absent") { emp.zone = "pool"; changed = true; }
+  });
+  return changed;
 }
 
 function sanitizeTeamReferences() {
@@ -582,13 +613,13 @@ function applyPlannerLoginState(name, lvl, empId) {
   resetPlanerActivity(); checkBoardLockState();
 }
 
-function logoutPlanner() {
+window.logoutPlanner = function() {
   isPlanner = false; plannerLevel = 0; currentPlannerName = ""; currentPlannerEmpId = null;
   ["planner_name","planner_level","planner_emp_id","planner_last_active"].forEach(k => sessionStorage.removeItem(k));
   document.body.classList.remove("planner-active", "planner-lvl-2", "planner-lvl-3", "planner-lvl-4");
   ["pinModal","inboxModal","settingsModal","lineEditModal"].forEach(closeModal);
   initBoard();
-}
+};
 
 window.handleLogoClick = function() {
   if (!isPlanner) {
