@@ -233,7 +233,7 @@ function closeModal(id) {
 function checkBoardLockState() {
   const modal = document.getElementById("boardLockModal"); if (!modal) return;
   if (securityConfig && securityConfig.boardPwEnabled && !isPlanner) {
-    modal.style.display = sessionStorage.getItem("board_unlocked") === "true" ? "none" : "flex";
+    modal.style.display = (sessionStorage.getItem("board_unlocked") === "true") ? "none" : "flex";
   } else modal.style.display = "none";
 }
 
@@ -1102,7 +1102,7 @@ window.performShiftRotationLogic = function() {
   const activeSlots = slotOrder.filter(s => shiftRotation[s]);
   if (activeSlots.length < 2) return;
   const nextShiftRotation = Object.assign({}, shiftRotation);
-  activeSlots.forEach((fromSlot, idx) => { nextShiftRotation[activeSlots[(idx + 1) % activeSlots.length]] = shiftRotation[fromSlot]; });
+  activeSlots.forEach((fromSlot, idx) => { nextShiftRotation[activeSlots[(idx + 1) % activeSlots.length]] = shiftRotation[fromScript[fromSlot]]; });
   shiftRotation = nextShiftRotation; saveToFirebase(); initBoard();
   showToast("Schichten erfolgreich rotiert!");
 };
