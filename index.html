@@ -65,18 +65,21 @@
 
     .employee-card { background: #fff; padding: 6px 8px; border-radius: 6px; border: 1px solid #e2e8f0; border-left: 5px solid #0091df; box-shadow: 0 1px 2px rgba(0,0,0,0.06); display: flex; flex-direction: column; user-select: none; gap: 3px; position: relative; backface-visibility: hidden; cursor: grab; }
     body.planner-active .employee-card:active { cursor: grabbing; }
-    .card-name { font-size: 0.8rem; font-weight: 700; color: #1e293b; line-height: 1.15; word-break: break-word; padding-right: 28px; }
+    .card-name { font-size: 0.80rem; font-weight: 700; color: #1e293b; line-height: 1.15; word-break: break-word; padding-right: 36px; }
     .card-role { font-size: 0.68rem; padding: 2px 5px; background: #f1f5f9; border-radius: 4px; color: #475569; font-weight: 600; display: inline-block; }
     .card-fix-tag { display: none; font-size: 0.62rem; padding: 1px 5px; background: #fef08a; color: #854d0e; border-radius: 4px; font-weight: 700; }
     body.planner-active .card-fix-tag { display: inline-block; }
 
-    /* Ersthelfer rotes Kreuz oben rechts */
+    /* Ersthelfer rotes Plus oben rechts */
     .ersthelfer-plus { position: absolute; top: 5px; right: 8px; color: #dc2626; font-weight: 900; font-size: 0.9rem; line-height: 1; }
 
-    /* PIN-Nadel / Linieninfo: WICHTIG -> Nur in der Sidebar (im Pool), im Board-Bereich (.board-container) komplett ausgeblendet! */
-    .board-container .card-pin-info { display: none !important; }
-    .card-pin-info { display: none; font-size: 0.68rem; color: #0284c7; background: #f0f9ff; padding: 1px 5px; border-radius: 4px; font-weight: 700; margin-top: 2px; align-items: center; gap: 3px; width: fit-content; border: 1px solid #bae6fd; }
-    body.planner-active .sidebar .employee-card.pinned .card-pin-info { display: inline-flex; }
+    /* Extrem dezentes Nadel-Icon oben rechts im Board (Mini-Badge mit Liniennummer) */
+    .board-pin-badge { display: none; }
+    body.planner-active .board-container .employee-card.pinned .board-pin-badge { display: inline-flex; position: absolute; top: 4px; right: 20px; font-size: 0.62rem; color: #0284c7; background: #f0f9ff; padding: 0 4px; border-radius: 3px; font-weight: 700; border: 1px solid #bae6fd; align-items: center; gap: 2px; }
+
+    /* Nadel in der Sidebar */
+    .card-pin-info { display: none; }
+    body.planner-active .sidebar .employee-card.pinned .card-pin-info { display: inline-flex; font-size: 0.68rem; color: #0284c7; background: #f0f9ff; padding: 1px 5px; border-radius: 4px; font-weight: 700; margin-top: 2px; align-items: center; gap: 3px; width: fit-content; border: 1px solid #bae6fd; }
 
     .board-container { flex: 1; background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .board-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 1120px; }
@@ -95,7 +98,7 @@
     .line-header { background: #f8fafc; padding: 10px 4px; text-align: center; position: relative; }
     body.planner-active .line-header { cursor: pointer; }
     body.planner-active .line-header:hover { background: #f1f5f9; }
-    .line-header.ausgeplant { background: #f8fafc; opacity: 0.75; }
+    .line-header.ausgeplant { background: #f1f5f9; opacity: 0.75; }
     .line-title { font-size: 0.85rem; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .badge-container { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; margin-top: 2px; }
     .line-prio { font-size: 0.6rem; padding: 1px 3px; border-radius: 3px; background: #e2e8f0; font-weight: 700; color: #334155; }
@@ -618,7 +621,7 @@
         </div>
       </div>
     </div>
-  </main>
+  </div>
 
   <script src="planer.js?v=4.9.41"></script>
   <script>
