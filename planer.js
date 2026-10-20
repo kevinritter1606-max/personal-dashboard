@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Vollständige, fehlerfreie Version
+   PLANER-BOARD LOGIK (planer.js) - Vollständige Version (Sidebar-Nadel & One-Screen)
    ========================================================================== */
 
 try {
@@ -262,7 +262,7 @@ window.initBoard = function() {
     th.className = "line-header" + (line.ausgeplant ? " ausgeplant" : "");
     if (isPlanner && plannerLevel > 2) th.onclick = () => { openLineEditModal(line.id); };
     let pCls = line.prio && (line.prio.indexOf("1") !== -1 || line.prio.indexOf("2") !== -1) ? "prio-high" : (line.prio ? "prio-mid" : "");
-    th.innerHTML = '<div class="line-title">' + line.name + '</div><div class="badge-container">' + (line.ausgeplant ? '<span class="line-ausgeplant-tag">🚫 Ausgeplant</span>' : '') + (line.prio ? '<span class="line-prio ' + pCls + '">' + line.prio + '</span>' : '') + (line.tag ? '<span class="line-status-tag">' + line.tag + '</span>' : '') + '</div>' + (line.note ? '<div class="line-notes">' + line.note + '</div>' : '');
+    th.innerHTML = '<div class="line-title">' + line.name + '</div><div class="badge-container">' + (line.ausgeplant ? '<span class="line-ausgeplant-tag">🚫 Ausgeplant</span>' : '') + (line.prio ? '<span class="line-prio ' + pCls + '">' + line.prio + '</span>' : '') + (line.tag ? '<span class="line-status-tag">' + line.tag + '</span>' : '') + '</div>';
     headerRow.appendChild(th);
   });
 
@@ -273,14 +273,14 @@ window.initBoard = function() {
     const curKey = shiftRotation[shift.id] || keys[0], curObj = teamsConfig[curKey] || { name: "Team", color: "#0091df" };
     const opts = keys.map(k => '<option value="' + k + '" style="color:' + teamsConfig[k].color + '; font-weight:700;" ' + (k === curKey ? 'selected' : '') + '>■ ' + teamsConfig[k].name + '</option>').join("");
     const isShiftSundayOff = sundayFree;
-    const sunBadge = isShiftSundayOff ? '<div style="font-size:0.64rem; color:#0284c7; background:#e0f2fe; padding:2px 4px; border-radius:4px; margin-top:3px;">So. Frei</div>' : '';
+    const sunBadge = isShiftSundayOff ? '<div style="font-size:0.6rem; color:#0284c7; background:#e0f2fe; padding:1px 3px; border-radius:3px; margin-top:2px;">So. Frei</div>' : '';
     const tr = document.createElement("tr"), thS = document.createElement("th");
     thS.className = "shift-header";
-    thS.innerHTML = '<div>' + shift.name + '</div>' + sunBadge + '<div class="shift-team-badge" style="border-left:4px solid ' + curObj.color + ';"><span style="color:' + curObj.color + ';">■</span> ' + curObj.name + '</div>' +
+    thS.innerHTML = '<div>' + shift.name + '</div>' + sunBadge + '<div class="shift-team-badge" style="border-left:3px solid ' + curObj.color + ';"><span style="color:' + curObj.color + ';">■</span> ' + curObj.name + '</div>' +
       '<div class="shift-controls">' +
         '<div class="shift-load-row">' +
-          '<select id="teamSelect_' + shift.id + '" class="shift-team-select" style="border-left:6px solid ' + curObj.color + '; color:' + curObj.color + ';" onchange="onShiftTeamDropdownChange(\'' + shift.id + '\', this)">' + opts + '</select>' +
-          '<button class="shift-load-btn" onclick="loadTeamToShift(\'' + shift.id + '\')" title="Team in Linien laden">📥</button>' +
+          '<select id="teamSelect_' + shift.id + '" class="shift-team-select" style="border-left:5px solid ' + curObj.color + '; color:' + curObj.color + ';" onchange="onShiftTeamDropdownChange(\'' + shift.id + '\', this)">' + opts + '</select>' +
+          '<button class="shift-load-btn" onclick="loadTeamToShift(\'' + shift.id + '\')" title="Team laden">📥</button>' +
         '</div>' +
         '<button class="shift-clear-btn" onclick="clearShiftRow(\'' + shift.id + '\')">🧹 Leeren</button>' +
       '</div>';
@@ -347,22 +347,23 @@ function renderEmployees() {
     const card = document.createElement("div"); 
     card.className = "employee-card" + (emp.pinnedZone ? " pinned" : "");
     card.setAttribute("data-id", emp.id); 
-    card.style.borderLeft = "5px solid " + (teamObj.color || "#0091df");
+    card.style.borderLeft = "4px solid " + (teamObj.color || "#0091df");
 
     const ersthelferHtml = emp.ersthelfer ? '<span class="ersthelfer-plus" title="Ersthelfer">+</span>' : '';
     let fixTagHtml = emp.noRotation ? ' <span class="card-fix-tag">⚓ Fix</span>' : '';
 
+    // PIN-Nadel Info in der Sidebar (mit Liniennummer)
     let pinInfoHtml = '';
     if (emp.pinnedZone) {
       const lineIdPure = extractLineIdFromZone(emp.pinnedZone);
       const foundLine = lines.find(l => l.id === lineIdPure);
       const lineNameShort = foundLine ? foundLine.name : emp.pinnedZone;
-      pinInfoHtml = '<div class="card-pin-info"><span style="color:#dc2626; cursor:pointer;" title="PIN-Nadel (Nur im Pool entfernbar)" onclick="clickPinButton(\'' + emp.id + '\', event)">📌</span> <span>Prio: ' + lineNameShort.replace("Linie ", "") + '</span></div>';
+      pinInfoHtml = '<div class="card-pin-info"><span style="color:#0284c7; cursor:pointer;" title="PIN-Nadel (Nur im Pool entfernbar)" onclick="clickPinButton(\'' + emp.id + '\', event)">📌</span> <span>' + lineNameShort + '</span></div>';
     }
 
     card.innerHTML = ersthelferHtml +
       '<div class="card-name">' + fName + '</div>' +
-      '<div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap; margin-top:2px;">' +
+      '<div style="display:flex; gap:3px; align-items:center; flex-wrap:wrap; margin-top:1px;">' +
         '<span class="card-role">' + emp.role + '</span>' + fixTagHtml +
       '</div>' + pinInfoHtml;
 
@@ -449,7 +450,7 @@ function renderTeamFilterCheckboxes() {
   const c = document.getElementById("teamFilterContainer"); if (!c) return;
   c.innerHTML = Object.keys(teamsConfig).sort().map(k => {
     const t = teamsConfig[k];
-    return '<label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" ' + (activeTeamFilters[k] !== false ? 'checked' : '') + ' onchange="activeTeamFilters[\'' + k + '\']=this.checked; renderEmployees();"> <span style="color:' + t.color + '; font-weight:700;">■</span> ' + t.name + '</label>';
+    return '<label style="display:inline-flex; align-items:center; gap:3px; cursor:pointer;"><input type="checkbox" ' + (activeTeamFilters[k] !== false ? 'checked' : '') + ' onchange="activeTeamFilters[\'' + k + '\']=this.checked; renderEmployees();"> <span style="color:' + t.color + '; font-weight:700;">■</span> ' + t.name + '</label>';
   }).join("");
 }
 
@@ -1102,7 +1103,7 @@ window.performShiftRotationLogic = function() {
   const activeSlots = slotOrder.filter(s => shiftRotation[s]);
   if (activeSlots.length < 2) return;
   const nextShiftRotation = Object.assign({}, shiftRotation);
-  activeSlots.forEach((fromSlot, idx) => { nextShiftRotation[activeSlots[(idx + 1) % activeSlots.length]] = shiftRotation[fromScript[fromSlot]]; });
+  activeSlots.forEach((fromSlot, idx) => { nextShiftRotation[activeSlots[(idx + 1) % activeSlots.length]] = shiftRotation[fromSlot]; });
   shiftRotation = nextShiftRotation; saveToFirebase(); initBoard();
   showToast("Schichten erfolgreich rotiert!");
 };
