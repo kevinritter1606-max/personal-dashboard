@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Version 4.9.36 (Mit direktem Modal-Fix)
+   PLANER-BOARD LOGIK (planer.js) - Version 4.9.36 (Mit Login ab 3 Buchstaben)
    ========================================================================== */
 
 try {
@@ -408,10 +408,11 @@ window.createManualBackup = function() { showToast("Backup erstellt!"); };
 window.saveProfilePinChange = function() { showToast("PIN aktualisiert!"); };
 window.filterSettingsEmployees = function(q) { settingsEmpSearchQuery = (q || "").trim().toLowerCase(); renderSettingsLists(); };
 
+/* HIER ANGEPASST: Namensvorschläge erst ab mindestens 3 Buchstaben (q.length < 3) */
 window.onPlannerLoginInput = function(val) {
   selectedLoginPlannerId = null;
   const box = document.getElementById("plannerLoginSuggestions"), q = (val || "").trim().toLowerCase();
-  if (!employees || !employees.length || q.length < 2) { if (box) box.style.display = "none"; return; }
+  if (!employees || !employees.length || q.length < 3) { if (box) box.style.display = "none"; return; }
   const matches = employees.filter(e => fullName(e).toLowerCase().indexOf(q) !== -1);
   if (!matches.length) { if (box) box.style.display = "none"; return; }
   if (box) {
@@ -522,7 +523,6 @@ window.verifyPin = function() {
   const nameVal = document.getElementById("loginPlannerName").value.trim().toLowerCase();
   const pinVal = document.getElementById("pinInput").value.trim();
   
-  // Direktes Schließen des Modals erzwingen, damit es nicht hängen bleibt
   const pinModal = document.getElementById("pinModal");
   if (pinModal) pinModal.style.display = "none";
 
@@ -533,7 +533,7 @@ window.verifyPin = function() {
   let emp = selectedLoginPlannerId ? employees.find(e => e.id === selectedLoginPlannerId) : employees.find(e => fullName(e).toLowerCase() === nameVal);
   if (!emp && nameVal) { const p = employees.filter(e => fullName(e).toLowerCase().indexOf(nameVal) !== -1); if (p.length === 1) emp = p[0]; }
   if (!emp || (emp.password || "1234") !== pinVal) { 
-    if (pinModal) pinModal.style.display = "flex"; // Wieder öffnen bei Fehler
+    if (pinModal) pinModal.style.display = "flex"; 
     showTimedBoxMsg("loginModalError", "❌ Name oder PIN nicht korrekt!", false); 
     return; 
   }
