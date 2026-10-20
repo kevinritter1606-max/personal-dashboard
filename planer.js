@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Angepasster Login (ohne Admin-Fallback)
+   PLANER-BOARD LOGIK (planer.js) - Automatische PIN-Nadel & Pool-Entfernung
    ========================================================================== */
 
 try {
@@ -352,8 +352,8 @@ function renderEmployees() {
     if (emp.ersthelfer) tagsHtml += ' <span class="card-fix-tag" style="background:#dcfce7; color:#166534;">+ Ersthelfer</span>';
     if (emp.noRotation) tagsHtml += ' <span class="card-fix-tag">⚓ Fix</span>';
 
-    const pinIcon = emp.pinnedZone ? '📌' : '📍';
-    card.innerHTML = '<button class="pin-btn" title="PIN-Nadel (Merkt sich die Linie)" onclick="togglePinEmployee(\'' + emp.id + '\', event)">' + pinIcon + '</button>' +
+    // PIN-Nadel-Button (nur im Pool klickbar zum Entfernen, ansonsten rein als Anzeige)
+    card.innerHTML = '<button class="pin-btn" title="PIN-Nadel (Nur im Pool entfernbar)" onclick="clickPinButton(\'' + emp.id + '\', event)">📌</button>' +
       '<div class="card-name">' + fName + '</div>' +
       '<div style="display:flex; justify-content:space-between; align-items:center; gap:4px; margin-top:2px;">' +
         '<div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">' + tagsHtml + '</div>' +
@@ -373,18 +373,18 @@ function renderEmployees() {
   if (document.getElementById("absentCount")) document.getElementById("absentCount").textContent = "(" + (aEl ? aEl.children.length : 0) + ")";
 }
 
-window.togglePinEmployee = function(empId, evt) {
+// Nadel kann nur im Pool entfernt werden
+window.clickPinButton = function(empId, evt) {
   if (evt) evt.stopPropagation();
   const emp = employees.find(e => e.id === empId);
   if (!emp) return;
-  if (emp.pinnedZone) {
+  if (emp.zone === "pool" || emp.zone === "absent" || emp.zone === "extra") {
     emp.pinnedZone = null;
     showToast("PIN-Nadel entfernt");
+    saveToFirebase(); renderEmployees();
   } else {
-    emp.pinnedZone = emp.zone;
-    showToast("PIN-Nadel gesetzt (Merkt sich: " + emp.zone + ")");
+    showToast("PIN-Nadel kann nur im Pool entfernt werden!", true);
   }
-  saveToFirebase(); renderEmployees();
 };
 
 function initDragAndDrop() {
@@ -399,7 +399,13 @@ function initDragAndDrop() {
         const emp = employees.find(e => e.id === empId);
         if (emp) { 
           emp.zone = newZone; 
-          if (emp.pinnedZone) emp.pinnedZone = newZone; 
+          // Wenn auf eine Linie gezogen -> Automatisch PIN-Nadel (Memory) auf diese Linie setzen
+          if (newZone !== "pool" && newZone !== "absent" && newZone !== "extra") {
+            emp.pinnedZone = newZone;
+          } else {
+            // Im Pool wird die Nadel automatisch gelöst
+            emp.pinnedZone = null;
+          }
           saveToFirebase(); 
           renderEmployees(); 
         }
@@ -664,7 +670,6 @@ window.createManualBackup = function() { showToast("Backup erstellt!"); };
 window.saveProfilePinChange = function() { showToast("PIN aktualisiert!"); };
 window.filterSettingsEmployees = function(q) { settingsEmpSearchQuery = (q || "").trim().toLowerCase(); renderSettingsLists(); };
 
-// Planer-Login: Strikte Namensauswahl ab mindestens 2 Zeichen (ohne Admin-Text-Fallback)
 window.onPlannerLoginInput = function(val) {
   selectedLoginPlannerId = null;
   const box = document.getElementById("plannerLoginSuggestions"), q = (val || "").trim().toLowerCase();
@@ -963,7 +968,7 @@ window.verifyPin = function() {
   let emp = selectedLoginPlannerId ? employees.find(e => e.id === selectedLoginPlannerId) : null;
   
   if (!emp) {
-    showTimedBoxMsg("loginModalError", "❌ Bitte wähle deinen vollständigen Namen aus der Vorschlagsliste aus!", false);
+    showTimedBoxMsg("loginModalError", "❌ Bitte wähle einen vollständigen Namen aus der Vorschlagsliste aus!", false);
     return;
   }
   
@@ -976,10 +981,9 @@ window.verifyPin = function() {
   if (pinModal) pinModal.style.display = "none";
   
   applyPlannerLoginState(fullName(emp), Number(emp.accessLevel) || 2, emp.id);
-    initBoard();
+  initBoard();
 };
 
-// Echte Schichtrotation (Rotieren-Button in der Schichtspalte)
 window.rotateAllShifts = function() {
   performShiftRotationLogic(true);
 };
@@ -987,7 +991,6 @@ window.rotateAllShifts = function() {
 window.clearEntireBoard = function() { employees.forEach(e => { if (e.zone && ["pool","absent","extra"].indexOf(e.zone) === -1 && !e.noRotation && !e.pinnedZone) e.zone = "pool"; }); saveToFirebase(); renderEmployees(); };
 window.clearShiftRow = function(sId) { employees.forEach(e => { if (extractShiftIdFromZone(e.zone) === sId && !e.noRotation && !e.pinnedZone) e.zone = "pool"; }); saveToFirebase(); renderEmployees(); };
 
-// Team in Schicht laden (unter Berücksichtigung der PIN-Nadel / gepinnten Positionen)
 window.loadTeamToShift = function(slotKey) {
   const sel = document.getElementById("teamSelect_" + slotKey); if (!sel) return;
   const teamKey = sel.value; shiftRotation[slotKey] = teamKey;
