@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - PIN-Datenschutz & Reset-Funktion
+   PLANER-BOARD LOGIK (planer.js) - Ersthelfer rotes Kreuz & dezente Nadel
    ========================================================================== */
 
 try {
@@ -348,15 +348,26 @@ function renderEmployees() {
     card.setAttribute("data-id", emp.id); 
     card.style.borderLeft = "5px solid " + (teamObj.color || "#0091df");
 
-    let tagsHtml = '<span class="card-role">' + emp.role + '</span>';
-    if (emp.ersthelfer) tagsHtml += ' <span class="card-fix-tag" style="background:#dcfce7; color:#166534;">+ Ersthelfer</span>';
-    if (emp.noRotation) tagsHtml += ' <span class="card-fix-tag">⚓ Fix</span>';
+    // Ersthelfer rotes Plus oben rechts
+    const ersthelferHtml = emp.ersthelfer ? '<span class="ersthelfer-plus" title="Ersthelfer">+</span>' : '';
+    
+    // Anker Fix-Tag
+    let fixTagHtml = emp.noRotation ? ' <span class="card-fix-tag">⚓ Fix</span>' : '';
 
-    card.innerHTML = '<button class="pin-btn" title="PIN-Nadel (Nur im Pool entfernbar)" onclick="clickPinButton(\'' + emp.id + '\', event)">📌</button>' +
+    // Dezentes Nadel-Badge mit Liniennummer im Pool
+    let pinInfoHtml = '';
+    if (emp.pinnedZone) {
+      const lineIdPure = extractLineIdFromZone(emp.pinnedZone);
+      const foundLine = lines.find(l => l.id === lineIdPure);
+      const lineNameShort = foundLine ? foundLine.name : emp.pinnedZone;
+      pinInfoHtml = '<div class="card-pin-info"><span style="color:#dc2626; cursor:pointer;" title="PIN-Nadel (Nur im Pool entfernbar)" onclick="clickPinButton(\'' + emp.id + '\', event)">📌</span> <span>Prio: ' + lineNameShort.replace("Linie ", "") + '</span></div>';
+    }
+
+    card.innerHTML = ersthelferHtml +
       '<div class="card-name">' + fName + '</div>' +
-      '<div style="display:flex; justify-content:space-between; align-items:center; gap:4px; margin-top:2px;">' +
-        '<div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">' + tagsHtml + '</div>' +
-      '</div>';
+      '<div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap; margin-top:2px;">' +
+        '<span class="card-role">' + emp.role + '</span>' + fixTagHtml +
+      '</div>' + pinInfoHtml;
 
     let targetZone = document.getElementById(emp.zone);
     if (!targetZone) {
@@ -468,7 +479,6 @@ function renderSettingsLists() {
 
     empListEl.innerHTML = filteredEmps.map(e => {
       const tObj = teamsConfig[e.team] || { name: e.team, color: "#0091df" };
-      // Datenschutz: PIN wird in der Liste nicht mehr im Klartext angezeigt, stattdessen Reset-Button
       const pinAction = (plannerLevel >= 3) ? '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.72rem; color:#0284c7; border-color:#bae6fd;" onclick="resetEmployeePin(\'' + e.id + '\')">🔄 PIN zurücksetzen</button>' : '';
       return '<div class="item-row"><span><span style="color:' + tObj.color + '; font-weight:700;">■</span> <b>' + fullName(e) + '</b> (' + e.role + ')</span>' +
         '<div style="display:flex; gap:6px; align-items:center;">' + pinAction + 
@@ -533,7 +543,6 @@ function renderSettingsLists() {
   }
 }
 
-// PIN zurücksetzen / generieren für Mitarbeiter
 window.resetEmployeePin = function(id) {
   const emp = employees.find(e => e.id === id);
   if (!emp) return;
