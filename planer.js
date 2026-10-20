@@ -711,3 +711,10 @@ window.performShiftRotationLogic = function() {
 window.updateInboxBadge = function() {};
 window.openSettingsModal = function() { document.getElementById("settingsModal").style.display = "flex"; renderSettingsLists(); };
 window.openInboxModal = function() { document.getElementById("inboxModal").style.display = "flex"; };
+
+function formatDateDe(isoDate) {
+  if (!isoDate) return "";
+  const p = isoDate.split("-");
+  if (p.length !== 3) return isoDate;
+  return p[2] + "." + p[1] + "." + p[0];
+}
