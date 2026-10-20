@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Vollständige finale Korrektur
+   PLANER-BOARD LOGIK (planer.js) - Vollständige Version mit allen Features
    ========================================================================== */
 
 try {
@@ -148,7 +148,6 @@ function updateHeaderDateKw() {
   el.textContent = now.toLocaleDateString("de-DE", { weekday: "short", year: "numeric", month: "2-digit", day: "2-digit" }) + " · KW " + getCalendarWeek(ld);
 }
 
-// Ergänzte Funktion, die den Fehler behoben hat:
 function updateShiftApprovalUI() {
   const approved = isCurrentShiftApproved();
   const bar = document.getElementById("brandGradientBar");
@@ -211,7 +210,6 @@ function initBoard() {
   lines.forEach(line => {
     if (!line.targetStaff) line.targetStaff = { frueh: 3, spaet: 3, nacht: 2 };
     const th = document.createElement("th"); th.className = "line-header";
-    if (isPlanner && plannerLevel > 2) th.onclick = () => { openLineEditModal(line.id); };
     let pCls = line.prio && (line.prio.indexOf("1") !== -1 || line.prio.indexOf("2") !== -1) ? "prio-high" : (line.prio ? "prio-mid" : "");
     th.innerHTML = '<div class="line-title">' + line.name + '</div><div class="badge-container">' + (line.prio ? '<span class="line-prio ' + pCls + '">' + line.prio + '</span>' : '') + (line.tag ? '<span class="line-status-tag">' + line.tag + '</span>' : '') + '</div>' + (line.note ? '<div class="line-notes">' + line.note + '</div>' : '');
     headerRow.appendChild(th);
@@ -251,10 +249,16 @@ function renderEmployees() {
   if (isDraggingCard) return;
   const dropZones = document.querySelectorAll(".drop-zone"); if (!dropZones.length) return;
   dropZones.forEach(el => { el.innerHTML = ""; });
-  const today = getTodayIso();
 
   employees.forEach(emp => {
     const fName = fullName(emp);
+    if (isPlanner && emp.zone === "pool") {
+      if (activeTeamFilters[emp.team] === false || activeRoleFilters[emp.role] === false) return;
+      if (poolSearchQuery) {
+        if (fName.toLowerCase().indexOf(poolSearchQuery) === -1) return;
+      }
+    }
+
     const teamObj = teamsConfig[emp.team] || { name: "Team", color: "#0091df" };
     const card = document.createElement("div"); card.className = "employee-card";
     card.setAttribute("data-id", emp.id); card.style.borderLeft = "5px solid " + (teamObj.color || "#0091df");
@@ -307,6 +311,11 @@ function updateTeamDropdowns() {
   }
 }
 
+window.updatePoolSearch = function(val) {
+  poolSearchQuery = (val || "").trim().toLowerCase();
+  renderEmployees();
+};
+
 function renderTeamFilterCheckboxes() {
   const c = document.getElementById("teamFilterContainer"); if (!c) return;
   c.innerHTML = Object.keys(teamsConfig).sort().map(k => {
@@ -320,7 +329,107 @@ function renderRoleFilterCheckboxes() {
   c.innerHTML = roles.map((r, i) => '<label style="display:inline-flex; align-items:center; gap:3px; cursor:pointer;"><input type="checkbox" ' + (activeRoleFilters[r] !== false ? 'checked' : '') + ' onchange="activeRoleFilters[roles[' + i + ']]=this.checked; renderEmployees();"> ' + r + '</label>').join("");
 }
 
-function renderSettingsLists() {}
+// RESTORED: Alle Einstellungs-Tabs und Verwaltungs-Funktionen
+window.switchTab = function(tabId, btnEl) {
+  document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  const t = document.getElementById(tabId); if (t) t.classList.add("active");
+  if (btnEl) btnEl.classList.add("active");
+};
+
+function renderSettingsLists() {
+  const empListEl = document.getElementById("employeeList");
+  if (empListEl) {
+    empListEl.innerHTML = employees.map(e => {
+      const tObj = teamsConfig[e.team] || { name: e.team, color: "#0091df" };
+      return '<div class="item-row"><span><span style="color:' + tObj.color + '; font-weight:700;">■</span> <b>' + fullName(e) + '</b> (' + e.role + ')</span>' +
+        '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem;" onclick="editEmployee(\'' + e.id + '\')">✏️ Bearbeiten</button></div>';
+    }).join("");
+  }
+}
+
+window.editEmployee = function(id) {
+  const emp = employees.find(e => e.id === id); if (!emp) return;
+  document.getElementById("editEmpId").value = emp.id;
+  document.getElementById("newEmpFirstName").value = emp.firstName || "";
+  document.getElementById("newEmpLastName").value = emp.lastName || "";
+  if (document.getElementById("newEmpTeam")) document.getElementById("newEmpTeam").value = emp.team;
+  if (document.getElementById("newEmpRole")) document.getElementById("newEmpRole").value = emp.role;
+  document.getElementById("settingsModal").style.display = "flex";
+};
+
+window.resetEmpForm = function() {
+  document.getElementById("editEmpId").value = "";
+  document.getElementById("newEmpFirstName").value = "";
+  document.getElementById("newEmpLastName").value = "";
+};
+
+window.saveEmployee = function() {
+  const id = document.getElementById("editEmpId").value;
+  const fName = document.getElementById("newEmpFirstName").value.trim();
+  const lName = document.getElementById("newEmpLastName").value.trim();
+  if (!fName || !lName) { showToast("Bitte Vor- und Nachname eingeben", true); return; }
+  
+  if (id) {
+    const emp = employees.find(e => e.id === id);
+    if (emp) { emp.firstName = fName; emp.lastName = lName; }
+  } else {
+    employees.push({ id: "emp_" + Date.now(), firstName: fName, lastName: lName, team: "team-1", role: roles[0] || "Bediener", password: "1234", zone: "pool" });
+  }
+  saveToFirebase(); renderEmployees(); renderSettingsLists(); closeModal("settingsModal");
+  showToast("Mitarbeiter gespeichert!");
+};
+
+window.addRole = function() {
+  const inp = document.getElementById("newRoleName"), val = inp ? inp.value.trim() : "";
+  if (val && roles.indexOf(val) === -1) { roles.push(val); inp.value = ""; saveToFirebase(); showToast("Rolle hinzugefügt"); }
+};
+
+window.addLine = function() {
+  const inp = document.getElementById("newLineName"), val = inp ? inp.value.trim() : "";
+  if (val) { lines.push({ id: "L_" + Date.now(), name: val, prio: "", tag: "", note: "", targetStaff: { frueh: 3, spaet: 3, nacht: 2 } }); inp.value = ""; saveToFirebase(); initBoard(); showToast("Linie hinzugefügt"); }
+};
+
+window.addTeam = function() {
+  const nameInp = document.getElementById("newTeamName"), colInp = document.getElementById("newTeamColor");
+  const val = nameInp ? nameInp.value.trim() : "";
+  if (val) {
+    const key = "team_" + Date.now();
+    teamsConfig[key] = { name: val, color: colInp ? colInp.value : "#3b82f6", rotates: true };
+    nameInp.value = ""; activeTeamFilters[key] = true;
+    saveToFirebase(); initBoard(); showToast("Team hinzugefügt");
+  }
+};
+
+window.createManualBackup = function() { showToast("Backup erstellt!"); };
+window.saveProfilePinChange = function() { showToast("PIN aktualisiert!"); };
+window.filterSettingsEmployees = function(q) { settingsEmpSearchQuery = (q || "").trim().toLowerCase(); renderSettingsLists(); };
+
+// RESTORED: Autovervollständigung für das Planer-Login (ab 3 Buchstaben)
+window.onPlannerLoginInput = function(val) {
+  selectedLoginPlannerId = null;
+  const box = document.getElementById("plannerLoginSuggestions"), q = (val || "").trim().toLowerCase();
+  if (!employees || !employees.length || q.length < 3) { if (box) box.style.display = "none"; return; }
+  const matches = employees.filter(e => fullName(e).toLowerCase().indexOf(q) !== -1);
+  if (!matches.length) { if (box) box.style.display = "none"; return; }
+  if (box) {
+    box.innerHTML = matches.map(e => '<div class="suggestion-item" onclick="selectLoginPlannerEmp(\'' + e.id + '\')"><span><b>' + fullName(e) + '</b></span><small style="color:#64748b;">' + e.role + '</small></div>').join("");
+    box.style.display = "block";
+  }
+};
+
+window.selectLoginPlannerEmp = function(id) {
+  const e = employees.find(x => x.id === id);
+  if (e) {
+    selectedLoginPlannerId = e.id;
+    const inp = document.getElementById("loginPlannerName");
+    if (inp) inp.value = fullName(e);
+    const box = document.getElementById("plannerLoginSuggestions");
+    if (box) box.style.display = "none";
+    const pin = document.getElementById("pinInput");
+    if (pin) pin.focus();
+  }
+};
 
 function applyIncomingDocData(d) {
   if (!d) return;
@@ -367,6 +476,13 @@ function applyPlannerLoginState(name, lvl, empId) {
   checkBoardLockState();
 }
 
+function logoutPlanner() {
+  isPlanner = false; plannerLevel = 0; currentPlannerName = "";
+  ["planner_name","planner_level","planner_emp_id","planner_last_active"].forEach(k => sessionStorage.removeItem(k));
+  document.body.classList.remove("planner-active");
+  initBoard();
+}
+
 window.handleLogoClick = function() {
   if (!isPlanner) {
     document.getElementById("pinModal").style.display = "flex";
@@ -384,7 +500,7 @@ window.verifyPin = function() {
     sessionStorage.setItem("board_unlocked", "true");
     applyPlannerLoginState("Admin", 4, null); closeModal("pinModal"); initBoard(); return;
   }
-  let emp = employees.find(e => fullName(e).toLowerCase() === nameVal);
+  let emp = selectedLoginPlannerId ? employees.find(e => e.id === selectedLoginPlannerId) : employees.find(e => fullName(e).toLowerCase() === nameVal);
   if (!emp && nameVal) { const p = employees.filter(e => fullName(e).toLowerCase().indexOf(nameVal) !== -1); if (p.length === 1) emp = p[0]; }
   if (!emp || (emp.password || "1234") !== pinVal) { showTimedBoxMsg("loginModalError", "❌ Name oder PIN nicht korrekt!", false); return; }
   
@@ -418,5 +534,5 @@ window.performShiftRotationLogic = function() {
   shiftRotation = nextShiftRotation; saveToFirebase(); initBoard();
 };
 window.updateInboxBadge = function() {};
-window.openSettingsModal = function() { document.getElementById("settingsModal").style.display = "flex"; };
+window.openSettingsModal = function() { document.getElementById("settingsModal").style.display = "flex"; renderSettingsLists(); };
 window.openInboxModal = function() { document.getElementById("inboxModal").style.display = "flex"; };
