@@ -70,10 +70,11 @@
     .card-fix-tag { display: none; font-size: 0.62rem; padding: 1px 5px; background: #fef08a; color: #854d0e; border-radius: 4px; font-weight: 700; }
     body.planner-active .card-fix-tag { display: inline-block; }
 
-    /* Ersthelfer rotes Plus oben rechts */
+    /* Ersthelfer rotes Kreuz oben rechts */
     .ersthelfer-plus { position: absolute; top: 5px; right: 8px; color: #dc2626; font-weight: 900; font-size: 0.9rem; line-height: 1; }
 
-    /* Dezente Nadel / Pin in der Ecke mit Linieninfo */
+    /* PIN-Nadel / Linieninfo: WICHTIG -> Nur in der Sidebar (im Pool), im Board-Bereich (.board-container) komplett ausgeblendet! */
+    .board-container .card-pin-info { display: none !important; }
     .card-pin-info { display: none; font-size: 0.68rem; color: #0284c7; background: #f0f9ff; padding: 1px 5px; border-radius: 4px; font-weight: 700; margin-top: 2px; align-items: center; gap: 3px; width: fit-content; border: 1px solid #bae6fd; }
     body.planner-active .sidebar .employee-card.pinned .card-pin-info { display: inline-flex; }
 
@@ -94,7 +95,7 @@
     .line-header { background: #f8fafc; padding: 10px 4px; text-align: center; position: relative; }
     body.planner-active .line-header { cursor: pointer; }
     body.planner-active .line-header:hover { background: #f1f5f9; }
-    .line-header.ausgeplant { background: #f1f5f9; opacity: 0.75; }
+    .line-header.ausgeplant { background: #f8fafc; opacity: 0.75; }
     .line-title { font-size: 0.85rem; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .badge-container { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; margin-top: 2px; }
     .line-prio { font-size: 0.6rem; padding: 1px 3px; border-radius: 3px; background: #e2e8f0; font-weight: 700; color: #334155; }
@@ -617,7 +618,7 @@
         </div>
       </div>
     </div>
-  </div>
+  </main>
 
   <script src="planer.js?v=4.9.41"></script>
   <script>
