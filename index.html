@@ -157,10 +157,10 @@
     body.planner-lvl-2 #tabBtnTeams, body.planner-lvl-2 #tabRoles, body.planner-lvl-2 #tabLines, body.planner-lvl-2 #tabSecurity, body.planner-lvl-2 #tabHistory, body.planner-lvl-2 #tabBackups { display: none !important; }
   </style>
 </head>
-<body>
+<body class="portal-locked">
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
-  <div class="version-footer-badge">Version 4.9.36</div>
+  <div class="version-footer-badge">Version 4.9.37 (Safeguard)</div>
 
   <div id="boardLockModal" class="modal-overlay" style="background: #f4f6f9; z-index: 180;">
     <div class="modal" style="max-width: 380px; text-align: center; padding: 0; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
@@ -409,7 +409,6 @@
       <div class="form-group"><label>Status / Tag (z.B. Wartung)</label><input type="text" id="editLineTag" class="form-control" onchange="saveLineDetails(true)"></div>
       <div class="form-group"><label>Notiz</label><textarea id="editLineNote" class="form-control" onchange="saveLineDetails(true)"></textarea></div>
       
-      <!-- Eingabefelder für Personalbedarf -->
       <div style="border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 10px;">
         <label style="font-size:0.82rem; font-weight:700; color:#1e293b; margin-bottom:6px; display:block;">Personalbedarf (Soll-Mitarbeiter):</label>
         <div style="display:flex; gap:8px;">
@@ -539,7 +538,7 @@
                   <option value="3">Mittwoch</option><option value="4">Donnerstag</option><option value="5">Freitag</option><option value="6">Samstag</option>
                 </select>
                 <select id="cfgLoadHour" class="form-control" style="flex:1; font-size:0.78rem; padding:5px;" onchange="saveShiftModelSettings()">
-                  <option value="0">00:00 Uhr</option><option value="1">01:00 Uhr</option><option value="2">02:00 Uhr</option><option value="3">03:00 Uhr</option><option value="4">04:00 Uhr</option><option value="5" selected>05:00 Uhr</option><option value="6">06:00 Uhr</option><option value="7">07:00 Uhr</option><option value="8">08:00 Uhr</option><option value="9">09:00 Uhr</option><option value="10">10:00 Uhr</option><option value="11">11:00 Uhr</option><option value="12">12:00 Uhr</option><option value="13">13:00 Uhr</option><option value="14">14:00 Uhr</option><option value="15">15:00 Uhr</option><option value="16">16:00 Uhr</option><option value="17">17:00 Uhr</option><option value="18">18:00 Uhr</option><option value="19">19:00 Uhr</option><button ...>
+                  <option value="0">00:00 Uhr</option><option value="1">01:00 Uhr</option><option value="2">02:00 Uhr</option><option value="3">03:00 Uhr</option><option value="4">04:00 Uhr</option><option value="5" selected>05:00 Uhr</option><option value="6">06:00 Uhr</option><option value="7">07:00 Uhr</option><option value="8">08:00 Uhr</option><option value="9">09:00 Uhr</option><option value="10">10:00 Uhr</option><option value="11">11:00 Uhr</option><option value="12">12:00 Uhr</option><option value="13">13:00 Uhr</option><option value="14">14:00 Uhr</option><option value="15">15:00 Uhr</option><option value="16">16:00 Uhr</option><option value="17">17:00 Uhr</option><option value="18">18:00 Uhr</option><option value="19">19:00 Uhr</option><option value="20">20:00 Uhr</option><option value="21">21:00 Uhr</option><option value="22">22:00 Uhr</option><option value="23">23:00 Uhr</option>
                 </select>
               </div>
             </div>
@@ -605,9 +604,9 @@
         </div>
       </div>
     </div>
-  </main>
+  </div>
 
-  <script src="planer.js?v=4.9.36"></script>
+  <script src="planer_2.js?v=4.9.37"></script>
   <script>
     let activeInboxHistoryCategory = "ALL";
     function setInboxHistoryCategoryFilter(cat) { activeInboxHistoryCategory = cat || "ALL"; renderInboxLists(); }
@@ -617,6 +616,13 @@
       if (cat.indexOf("krank") !== -1 || cat.indexOf("abwesen") !== -1 || cat.indexOf("arbeitsunfähig") !== -1) return "KRANK";
       return "EXTRA";
     }
+
+    // Sicherheits-Timer: Falls Firebase oder planer_2.js hängen bleibt, entriegelt die Ansicht nach 1 Sekunde automatisch
+    setTimeout(() => {
+      if (document.body.classList.contains("portal-locked") && !document.getElementById("boardLockModal").style.display) {
+        document.body.classList.remove("portal-locked");
+      }
+    }, 1000);
   </script>
 </body>
 </html>
