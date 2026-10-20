@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Version 4.9.36 (Strikter Namens-Login)
+   PLANER-BOARD LOGIK (planer.js) - Version 4.9.36 (Komplett mit Einstellungs-Renderern)
    ========================================================================== */
 
 try {
@@ -350,18 +350,66 @@ window.switchTab = function(tabId, btnEl) {
   document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
   const t = document.getElementById(tabId); if (t) t.classList.add("active");
   if (btnEl) btnEl.classList.add("active");
+  renderSettingsLists();
 };
 
+/* Rendering-Funktionen für die Einstellungs-Reiter (Mitarbeiter, Rollen, Linien, Teams) */
 function renderSettingsLists() {
   const empListEl = document.getElementById("employeeList");
   if (empListEl) {
     empListEl.innerHTML = employees.map(e => {
       const tObj = teamsConfig[e.team] || { name: e.team, color: "#0091df" };
       return '<div class="item-row"><span><span style="color:' + tObj.color + '; font-weight:700;">■</span> <b>' + fullName(e) + '</b> (' + e.role + ')</span>' +
-        '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem;" onclick="editEmployee(\'' + e.id + '\')">✏️ Bearbeiten</button></div>';
+        '<div style="display:flex; gap:6px;"><button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem;" onclick="editEmployee(\'' + e.id + '\')">✏️ Bearbeiten</button>' +
+        '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem; color:#dc2626; border-color:#fca5a5;" onclick="deleteEmployee(\'' + e.id + '\')">🗑️</button></div></div>';
+    }).join("");
+  }
+
+  const roleListEl = document.getElementById("roleList");
+  if (roleListEl) {
+    roleListEl.innerHTML = roles.map((r, idx) => '<div class="item-row"><span><b>' + r + '</b></span>' +
+      '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem; color:#dc2626; border-color:#fca5a5;" onclick="deleteRole(' + idx + ')">🗑️ Löschen</button></div>').join("");
+  }
+
+  const lineListEl = document.getElementById("lineSettingsList");
+  if (lineListEl) {
+    lineListEl.innerHTML = lines.map(l => '<div class="item-row"><span><b>' + l.name + '</b> ' + (l.prio ? '('+l.prio+')' : '') + '</span>' +
+      '<div style="display:flex; gap:6px;"><button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem;" onclick="openLineEditModal(\'' + l.id + '\')">✏️ Bearbeiten</button>' +
+      '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem; color:#dc2626; border-color:#fca5a5;" onclick="deleteLine(\'' + l.id + '\')">🗑️</button></div></div>').join("");
+  }
+
+  const teamListEl = document.getElementById("teamSettingsList");
+  if (teamListEl) {
+    teamListEl.innerHTML = Object.keys(teamsConfig).sort().map(k => {
+      const t = teamsConfig[k];
+      return '<div class="item-row"><span><span style="color:' + t.color + '; font-weight:700;">■</span> <b>' + t.name + '</b></span>' +
+        '<div style="display:flex; gap:6px; align-items:center;">' +
+        '<label style="font-size:0.75rem; display:flex; align-items:center; gap:3px;"><input type="checkbox" ' + (t.rotates !== false ? 'checked' : '') + ' onchange="toggleTeamRotationSetting(\'' + k + '\', this.checked)"> Rotiert</label>' +
+        (Object.keys(teamsConfig).length > 1 ? '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem; color:#dc2626; border-color:#fca5a5;" onclick="deleteTeam(\'' + k + '\')">🗑️</button>' : '') +
+        '</div></div>';
     }).join("");
   }
 }
+
+window.deleteRole = function(idx) {
+  roles.splice(idx, 1);
+  saveToFirebase(); renderSettingsLists(); renderRoleFilterCheckboxes();
+  showToast("Rolle gelöscht");
+};
+
+window.deleteLine = function(id) {
+  if (lines.length <= 1) { showToast("Mindestens eine Linie muss erhalten bleiben!", true); return; }
+  lines = lines.filter(l => l.id !== id);
+  saveToFirebase(); initBoard(); renderSettingsLists();
+  showToast("Linie gelöscht");
+};
+
+window.deleteTeam = function(k) {
+  if (Object.keys(teamsConfig).length <= 1) { showToast("Mindestens ein Team muss erhalten bleiben!", true); return; }
+  delete teamsConfig[k]; delete activeTeamFilters[k];
+  sanitizeTeamReferences(); saveToFirebase(); initBoard(); renderSettingsLists();
+  showToast("Team gelöscht");
+};
 
 window.editEmployee = function(id) {
   const emp = employees.find(e => e.id === id); if (!emp) return;
@@ -391,12 +439,12 @@ window.saveEmployee = function() {
 
 window.addRole = function() {
   const inp = document.getElementById("newRoleName"), val = inp ? inp.value.trim() : "";
-  if (val && roles.indexOf(val) === -1) { roles.push(val); inp.value = ""; saveToFirebase(); showToast("Rolle hinzugefügt"); }
+  if (val && roles.indexOf(val) === -1) { roles.push(val); inp.value = ""; saveToFirebase(); renderSettingsLists(); renderRoleFilterCheckboxes(); showToast("Rolle hinzugefügt"); }
 };
 
 window.addLine = function() {
   const inp = document.getElementById("newLineName"), val = inp ? inp.value.trim() : "";
-  if (val) { lines.push({ id: "L_" + Date.now(), name: val, prio: "", tag: "", note: "", targetStaff: { frueh: 3, spaet: 3, nacht: 2 } }); inp.value = ""; saveToFirebase(); initBoard(); showToast("Linie hinzugefügt"); }
+  if (val) { lines.push({ id: "L_" + Date.now(), name: val, prio: "", tag: "", note: "", targetStaff: { frueh: 3, spaet: 3, nacht: 2 } }); inp.value = ""; saveToFirebase(); initBoard(); renderSettingsLists(); showToast("Linie hinzugefügt"); }
 };
 
 window.addTeam = function() {
@@ -406,7 +454,7 @@ window.addTeam = function() {
     const key = "team_" + Date.now();
     teamsConfig[key] = { name: val, color: colInp ? colInp.value : "#3b82f6", rotates: true };
     nameInp.value = ""; activeTeamFilters[key] = true;
-    saveToFirebase(); initBoard(); showToast("Team hinzugefügt");
+    saveToFirebase(); initBoard(); renderSettingsLists(); renderTeamFilterCheckboxes(); showToast("Team hinzugefügt");
   }
 };
 
@@ -414,7 +462,7 @@ window.createManualBackup = function() { showToast("Backup erstellt!"); };
 window.saveProfilePinChange = function() { showToast("PIN aktualisiert!"); };
 window.filterSettingsEmployees = function(q) { settingsEmpSearchQuery = (q || "").trim().toLowerCase(); renderSettingsLists(); };
 
-/* Suche erst ab 3 Buchstaben */
+/* STRIKT: Namensvorschläge erst ab mindestens 3 Buchstaben */
 window.onPlannerLoginInput = function(val) {
   selectedLoginPlannerId = null;
   const box = document.getElementById("plannerLoginSuggestions"), q = (val || "").trim().toLowerCase();
@@ -525,7 +573,6 @@ window.handleLogoClick = function() {
   }
 };
 
-/* STRIKTER LOGIN-CHECK: Erfordert zwingend die vollständige Auswahl oder exakte Übereinstimmung */
 window.verifyPin = function() {
   const nameVal = document.getElementById("loginPlannerName").value.trim().toLowerCase();
   const pinVal = document.getElementById("pinInput").value.trim();
