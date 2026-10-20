@@ -20,11 +20,9 @@
 
     header { background: #fff; padding: 10px 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,0.06); position: sticky; top: 0; z-index: 50; gap: 12px; flex-wrap: wrap; }
     .header-left { display: flex; align-items: center; gap: 16px; }
-    
-    .bayer-logo-btn { width: 62px; height: 62px; cursor: pointer; transition: transform 0.2s; flex-shrink: 0; z-index: 60; position: relative; display: flex; align-items: center; justify-content: center; background: none; border: none; padding: 0; }
-    .bayer-logo-btn:hover { transform: scale(1.08); }
-    .bayer-logo-btn img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
-
+    .bayer-logo-btn { width: 62px; height: 62px; cursor: pointer; transition: transform 0.2s; flex-shrink: 0; }
+    .bayer-logo-btn:hover { transform: scale(1.05); }
+    .bayer-logo-btn img { width: 100%; height: 100%; object-fit: contain; }
     .header-title h1 { font-size: 1.35rem; font-weight: 700; color: var(--bayer-blue); margin: 0; }
     .header-meta { font-size: 0.78rem; color: #64748b; font-weight: 600; margin-top: 2px; }
     .header-badges-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
@@ -147,10 +145,10 @@
     
     body.planner-lvl-2 button[onclick="openInboxModal()"] { display: none !important; }
 
-    /* KORREKTUR: Sichtbarkeit für Stufe 3 und Stufe 4 (Admin) im Einstellungs-Menü freigeschaltet */
-    body.planner-lvl-3 .lvl-3-only, body.planner-lvl-4 .lvl-3-only, body.planner-lvl-4 .lvl-4-only { display: inline-block !important; }
-    body.planner-lvl-3 button.lvl-3-only, body.planner-lvl-4 button.lvl-3-only, body.planner-lvl-4 button.lvl-4-only,
-    body.planner-lvl-3 button.tab-btn.lvl-3-only, body.planner-lvl-4 button.tab-btn.lvl-3-only { display: inline-block !important; }
+    body.planner-lvl-3 .lvl-3-only { display: inline-flex !important; }
+    body.planner-lvl-3 div.lvl-3-only { display: block !important; }
+    body.planner-lvl-4 .lvl-4-only, body.planner-lvl-4 .lvl-3-only { display: inline-flex !important; }
+    body.planner-lvl-4 div.lvl-4-only, body.planner-lvl-4 div.lvl-3-only { display: block !important; }
     
     body.planner-lvl-2 #tabBtnEmployees { display: none !important; }
     body.planner-lvl-2 #tabBtnProfile { display: inline-block !important; }
@@ -162,7 +160,7 @@
 <body>
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
-  <div class="version-footer-badge">Version 4.9.40 (Tabs Fix)</div>
+  <div class="version-footer-badge">Version 4.9.36</div>
 
   <div id="boardLockModal" class="modal-overlay" style="background: #f4f6f9; z-index: 180;">
     <div class="modal" style="max-width: 380px; text-align: center; padding: 0; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
@@ -188,7 +186,7 @@
   
   <header>
     <div class="header-left">
-      <button class="bayer-logo-btn" onclick="handleLogoClick()"><img src="logo.png" alt="Bayer Logo" onerror="this.style.display='none'"></button>
+      <div class="bayer-logo-btn" onclick="handleLogoClick()"><img src="logo.png" alt="Bayer Logo" onerror="this.style.display='none'"></div>
       <div class="header-title">
         <h1>Schicht und Linienübersicht</h1>
         <div id="headerDateKw" class="header-meta">Lade Datum...</div>
@@ -606,25 +604,19 @@
         </div>
       </div>
     </div>
-  </main>
+  </div>
 
   <script src="planer.js?v=4.9.36"></script>
   <script>
     let activeInboxHistoryCategory = "ALL";
-    function setInboxHistoryCategoryFilter(cat) { activeInboxHistoryCategory = cat || "ALL"; renderInboxLists(); }
+    function setInboxHistoryCategoryFilter(cat) { activeInboxHistoryCategory = cat || "ALL"; if (typeof renderInboxLists === 'function') renderInboxLists(); }
     function classifyInboxActiveItem(sl) {
+      if (!sl) return "EXTRA";
       const cat = (sl.category || "").toLowerCase();
       if (cat.indexOf("urlaub") !== -1 || cat.indexOf("freizeit") !== -1) return "URLAUB";
       if (cat.indexOf("krank") !== -1 || cat.indexOf("abwesen") !== -1 || cat.indexOf("arbeitsunfähig") !== -1) return "KRANK";
       return "EXTRA";
     }
-
-    // Sicherheits-Timer: Entriegelt die Ansicht nach 1 Sekunde automatisch, falls das Skript stockt
-    setTimeout(() => {
-      if (document.body.classList.contains("portal-locked")) {
-        document.body.classList.remove("portal-locked");
-      }
-    }, 1000);
   </script>
 </body>
 </html>
