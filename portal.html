@@ -97,10 +97,10 @@
           <img src="logo.png" alt="Bayer Logo" style="width: 52px; height: 52px; object-fit: contain; margin-bottom: 6px;" onerror="this.style.display='none'">
           <h3 style="color: var(--bayer-blue); font-size: 1.2rem; margin: 0;">👤 Mitarbeiter-Portal Login</h3>
         </div>
-        <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 14px; text-align:center;">Bitte wähle deinen Namen aus und gib deine PIN ein.</p>
+        <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 14px; text-align:center;">Bitte wähle deinen Namen aus der Liste aus und gib deine PIN ein.</p>
         <div id="portalLoginError" style="display:none; background:#fee2e2; color:#b91c1c; padding:8px; border-radius:6px; font-size:0.8rem; font-weight:700; margin-bottom:10px; text-align:center;"></div>
         <div class="form-group" style="position:relative;">
-          <label>Dein Name</label>
+          <label>Dein Name (mind. 3 Buchstaben)</label>
           <input type="text" id="portalLoginNameInput" class="form-control" placeholder="Vor- und Nachname tippen..." autocomplete="off" onfocus="onPortalLoginNameInput(this.value)" oninput="onPortalLoginNameInput(this.value)">
           <div id="portalLoginSuggestions" class="suggestions-box"></div>
         </div>
@@ -331,12 +331,23 @@
     }
 
     function verifyPortalLogin() {
-      const nameVal = document.getElementById("portalLoginNameInput").value.trim().toLowerCase(), pinVal = document.getElementById("portalLoginPinInput").value.trim();
-      let emp = selectedLoginPortalEmpId ? employees.find(e => e.id === selectedLoginPortalEmpId) : employees.find(e => fullName(e).toLowerCase() === nameVal);
-      if (!emp && nameVal) { const p = employees.filter(e => fullName(e).toLowerCase().indexOf(nameVal) !== -1); if (p.length === 1) emp = p[0]; }
-      if (!emp || (emp.password || "1234") !== pinVal) {
-        const err = document.getElementById("portalLoginError"); err.textContent = "❌ Name oder PIN nicht korrekt!"; err.style.display = "block"; return;
+      const pinVal = document.getElementById("portalLoginPinInput").value.trim();
+      let emp = selectedLoginPortalEmpId ? employees.find(e => e.id === selectedLoginPortalEmpId) : null;
+      
+      if (!emp) {
+        const err = document.getElementById("portalLoginError"); 
+        err.textContent = "❌ Bitte wähle deinen vollständigen Namen aus der Vorschlagsliste aus!"; 
+        err.style.display = "block"; 
+        return;
       }
+      
+      if ((emp.password || "1234") !== pinVal) {
+        const err = document.getElementById("portalLoginError"); 
+        err.textContent = "❌ PIN nicht korrekt!"; 
+        err.style.display = "block"; 
+        return;
+      }
+
       const finishPortalLogin = () => {
         loggedInPortalEmpId = emp.id; sessionStorage.setItem("portal_logged_emp_id", emp.id);
         document.body.classList.remove("portal-locked");
