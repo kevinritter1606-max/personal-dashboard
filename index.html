@@ -71,6 +71,10 @@
     .card-fix-tag { display: none; font-size: 0.62rem; padding: 1px 5px; background: #fef08a; color: #854d0e; border-radius: 4px; font-weight: 700; }
     body.planner-active .card-fix-tag { display: inline-block; }
 
+    .pin-btn { position: absolute; top: 4px; right: 4px; background: none; border: none; cursor: pointer; font-size: 0.75rem; padding: 2px; opacity: 0.4; transition: 0.15s; }
+    .pin-btn:hover { opacity: 1; }
+    .employee-card.pinned .pin-btn { opacity: 1; color: #d97706; }
+
     .board-container { flex: 1; background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .board-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 1120px; }
     .board-table th.shift-header { position: sticky; left: 0; z-index: 15; box-shadow: 2px 0 4px rgba(0,0,0,0.04); }
@@ -615,7 +619,6 @@
 
   <script src="planer.js?v=4.9.41"></script>
   <script>
-    // Hilfsfunktionen für die Postfach-Ansichten und manuellen Formular-Toggles in index.html
     let activeInboxHistoryCategory = "ALL";
     function setInboxHistoryCategoryFilter(cat) { 
       activeInboxHistoryCategory = cat || "ALL"; 
@@ -650,6 +653,16 @@
       } else {
         content.style.display = "none";
         if (arrow) arrow.textContent = "▼ Formular öffnen";
+      }
+    }
+    // Öffnet die Einstellungen direkt beim Klick auf "Auto aktiv" im Header
+    function openShiftModelSettingsQuick() {
+      if (typeof openSettingsModal === "function") {
+        openSettingsModal();
+        if (typeof switchTab === "function") {
+          const teamsBtn = document.getElementById("tabBtnTeams");
+          switchTab("tabTeams", teamsBtn);
+        }
       }
     }
   </script>
