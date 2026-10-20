@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Vollständige & Korrigierte Version
+   PLANER-BOARD LOGIK (planer.js) - Vollständige korrigierte Version 4.9.37
    ========================================================================== */
 
 try {
@@ -236,6 +236,22 @@ function syncExtraZones() {
   return changed;
 }
 
+// HIER WAR DER FEHLER: Die fehlende Funktion syncAbsentZones ist nun vollständig da
+function syncAbsentZones() {
+  if (!hasLoadedFromCloud) return false;
+  const now = new Date(), calToday = getTodayIso(now), logToday = getLogicalDateIso(now);
+  let changed = false;
+  employees.forEach(emp => {
+    let activeLeave = getActiveLeaveForEmpOnDate(emp.id, calToday);
+    if (!activeLeave && logToday !== calToday && !isSundayRestPeriod(now)) {
+      if (shiftRotation.nacht === emp.team) activeLeave = getActiveLeaveForEmpOnDate(emp.id, logToday);
+    }
+    if (activeLeave && emp.zone !== "absent") { emp.zone = "absent"; changed = true; }
+    else if (!activeLeave && emp.zone === "absent") { emp.zone = "pool"; changed = true; }
+  });
+  return changed;
+}
+
 function checkAndRunSundayResetAndRotation() {
   if (!hasLoadedFromCloud || !shiftModelConfig) return;
   const now = new Date(), day = now.getDay(), hour = now.getHours(), todayIso = getTodayIso(now);
@@ -439,14 +455,6 @@ function sanitizeTeamReferences() {
   ["frueh", "spaet", "nacht", "frei"].forEach(slot => { if (!shiftRotation[slot] || !teamsConfig[shiftRotation[slot]]) shiftRotation[slot] = fallbackKey; });
   employees.forEach(emp => { if (!emp.team || !teamsConfig[emp.team]) emp.team = fallbackKey; });
   Object.keys(activeTeamFilters).forEach(k => { if (!teamsConfig[k]) delete activeTeamFilters[k]; });
-}
-
-function getActiveLeaveForEmpOnDate(empId, isoDate) {
-  return sickLeaves.find(sl => {
-    if (sl.empId !== empId || sl.status === "rejected" || sl.status === "pending") return false;
-    if (sl.blocks && sl.blocks.length) return sl.blocks.some(b => b.status === "approved" && b.start <= isoDate && b.end >= isoDate);
-    return sl.status === "approved" && sl.startDate <= isoDate && sl.endDate >= isoDate;
-  });
 }
 
 window.deletePin = function(id) {
