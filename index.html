@@ -147,10 +147,10 @@
     
     body.planner-lvl-2 button[onclick="openInboxModal()"] { display: none !important; }
 
-    body.planner-lvl-3 .lvl-3-only { display: inline-flex !important; }
-    body.planner-lvl-3 div.lvl-3-only { display: block !important; }
-    body.planner-lvl-4 .lvl-4-only, body.planner-lvl-4 .lvl-3-only { display: inline-flex !important; }
-    body.planner-lvl-4 div.lvl-4-only, body.planner-lvl-4 div.lvl-3-only { display: block !important; }
+    /* KORREKTUR: Sichtbarkeit für Stufe 3 und Stufe 4 (Admin) im Einstellungs-Menü freigeschaltet */
+    body.planner-lvl-3 .lvl-3-only, body.planner-lvl-4 .lvl-3-only, body.planner-lvl-4 .lvl-4-only { display: inline-block !important; }
+    body.planner-lvl-3 button.lvl-3-only, body.planner-lvl-4 button.lvl-3-only, body.planner-lvl-4 button.lvl-4-only,
+    body.planner-lvl-3 button.tab-btn.lvl-3-only, body.planner-lvl-4 button.tab-btn.lvl-3-only { display: inline-block !important; }
     
     body.planner-lvl-2 #tabBtnEmployees { display: none !important; }
     body.planner-lvl-2 #tabBtnProfile { display: inline-block !important; }
@@ -162,7 +162,7 @@
 <body>
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
-  <div class="version-footer-badge">Version 4.9.39 (Logo Click Fix)</div>
+  <div class="version-footer-badge">Version 4.9.40 (Tabs Fix)</div>
 
   <div id="boardLockModal" class="modal-overlay" style="background: #f4f6f9; z-index: 180;">
     <div class="modal" style="max-width: 380px; text-align: center; padding: 0; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
@@ -608,7 +608,7 @@
     </div>
   </main>
 
-  <script src="planer.js?v=4.9.39"></script>
+  <script src="planer.js?v=4.9.40"></script>
   <script>
     let activeInboxHistoryCategory = "ALL";
     function setInboxHistoryCategoryFilter(cat) { activeInboxHistoryCategory = cat || "ALL"; renderInboxLists(); }
