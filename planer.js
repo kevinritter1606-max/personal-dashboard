@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Version 4.9.36 (Vollständig mit initBoard Fix)
+   PLANER-BOARD LOGIK (planer.js) - Version 4.9.36 (Komplett korrigiert)
    ========================================================================== */
 
 try {
@@ -106,8 +106,7 @@ function getRotationForDate(targetIso) {
 window.getEmpRegularShiftOnDate = function(emp, dateIso) {
   if (!emp || !dateIso || isIsoDateSunday(dateIso)) return null;
   const rot = getRotationForDate(dateIso);
-  let empShift = ["frueh", "spaet", "nacht"].find(s => rot[s] === emp.team) || null;
-  return empShift;
+  return ["frueh", "spaet", "nacht"].find(s => rot[s] === emp.team) || null;
 };
 
 function getActiveLeaveForEmpOnDate(empId, isoDate) {
@@ -182,6 +181,7 @@ function showTimedBoxMsg(elId, text, isSuccess) {
 
 function closeModal(id) {
   const el = document.getElementById(id); if (el) el.style.display = "none";
+  if (id === "settingsModal" && typeof resetEmpForm === "function") resetEmpForm();
 }
 
 function checkBoardLockState() {
@@ -200,8 +200,8 @@ window.unlockBoardView = function() {
   } else showTimedBoxMsg("boardLockError", "❌ Falsches Zugangs-Passwort!", false);
 };
 
-/* HIER WAR DER FEHLER: initBoard() ist nun wieder vollständig vorhanden */
-function initBoard() {
+/* Wiederhergestellte Kernfunktionen */
+window.initBoard = function() {
   if (isDraggingCard) return;
   sanitizeTeamReferences(); syncAbsentZones();
   updateHeaderDateKw(); updateShiftApprovalUI(); updateAutoRotationUI();
@@ -214,7 +214,6 @@ function initBoard() {
   lines.forEach(line => {
     if (!line.targetStaff) line.targetStaff = { frueh: 3, spaet: 3, nacht: 2 };
     const th = document.createElement("th"); th.className = "line-header";
-    if (isPlanner && plannerLevel > 2) th.onclick = () => { openLineEditModal(line.id); };
     let pCls = line.prio && (line.prio.indexOf("1") !== -1 || line.prio.indexOf("2") !== -1) ? "prio-high" : (line.prio ? "prio-mid" : "");
     th.innerHTML = '<div class="line-title">' + line.name + '</div><div class="badge-container">' + (line.prio ? '<span class="line-prio ' + pCls + '">' + line.prio + '</span>' : '') + (line.tag ? '<span class="line-status-tag">' + line.tag + '</span>' : '') + '</div>' + (line.note ? '<div class="line-notes">' + line.note + '</div>' : '');
     headerRow.appendChild(th);
@@ -244,7 +243,13 @@ function initBoard() {
   applyTeamStyles(); updateTeamDropdowns();
   renderTeamFilterCheckboxes(); renderRoleFilterCheckboxes();
   renderEmployees(); initDragAndDrop(); renderSettingsLists(); updateInboxBadge(); checkBoardLockState();
-}
+};
+
+window.resetEmpForm = function() {
+  const idEl = document.getElementById("editEmpId"); if (idEl) idEl.value = "";
+  const fEl = document.getElementById("newEmpFirstName"); if (fEl) fEl.value = "";
+  const lEl = document.getElementById("newEmpLastName"); if (lEl) lEl.value = "";
+};
 
 window.onShiftTeamDropdownChange = function(shiftId, selEl) {
   shiftRotation[shiftId] = selEl.value; saveToFirebase();
@@ -360,12 +365,6 @@ window.editEmployee = function(id) {
   if (document.getElementById("newEmpTeam")) document.getElementById("newEmpTeam").value = emp.team;
   if (document.getElementById("newEmpRole")) document.getElementById("newEmpRole").value = emp.role;
   document.getElementById("settingsModal").style.display = "flex";
-};
-
-window.resetEmpForm = function() {
-  document.getElementById("editEmpId").value = "";
-  document.getElementById("newEmpFirstName").value = "";
-  document.getElementById("newEmpLastName").value = "";
 };
 
 window.saveEmployee = function() {
