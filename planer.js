@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Automatische PIN-Nadel & Pool-Entfernung
+   PLANER-BOARD LOGIK (planer.js) - Vollversion mit korrigiertem Laden, Leeren & Login
    ========================================================================== */
 
 try {
@@ -352,7 +352,6 @@ function renderEmployees() {
     if (emp.ersthelfer) tagsHtml += ' <span class="card-fix-tag" style="background:#dcfce7; color:#166534;">+ Ersthelfer</span>';
     if (emp.noRotation) tagsHtml += ' <span class="card-fix-tag">⚓ Fix</span>';
 
-    // PIN-Nadel-Button (nur im Pool klickbar zum Entfernen, ansonsten rein als Anzeige)
     card.innerHTML = '<button class="pin-btn" title="PIN-Nadel (Nur im Pool entfernbar)" onclick="clickPinButton(\'' + emp.id + '\', event)">📌</button>' +
       '<div class="card-name">' + fName + '</div>' +
       '<div style="display:flex; justify-content:space-between; align-items:center; gap:4px; margin-top:2px;">' +
@@ -373,7 +372,6 @@ function renderEmployees() {
   if (document.getElementById("absentCount")) document.getElementById("absentCount").textContent = "(" + (aEl ? aEl.children.length : 0) + ")";
 }
 
-// Nadel kann nur im Pool entfernt werden
 window.clickPinButton = function(empId, evt) {
   if (evt) evt.stopPropagation();
   const emp = employees.find(e => e.id === empId);
@@ -399,11 +397,9 @@ function initDragAndDrop() {
         const emp = employees.find(e => e.id === empId);
         if (emp) { 
           emp.zone = newZone; 
-          // Wenn auf eine Linie gezogen -> Automatisch PIN-Nadel (Memory) auf diese Linie setzen
           if (newZone !== "pool" && newZone !== "absent" && newZone !== "extra") {
             emp.pinnedZone = newZone;
           } else {
-            // Im Pool wird die Nadel automatisch gelöst
             emp.pinnedZone = null;
           }
           saveToFirebase(); 
@@ -673,7 +669,7 @@ window.filterSettingsEmployees = function(q) { settingsEmpSearchQuery = (q || ""
 window.onPlannerLoginInput = function(val) {
   selectedLoginPlannerId = null;
   const box = document.getElementById("plannerLoginSuggestions"), q = (val || "").trim().toLowerCase();
-  if (!employees || !employees.length || q.length < 2) { if (box) box.style.display = "none"; return; }
+  if (!employees || !employees.length || q.length < 1) { if (box) box.style.display = "none"; return; }
   const matches = employees.filter(e => fullName(e).toLowerCase().indexOf(q) !== -1);
   if (!matches.length) { if (box) box.style.display = "none"; return; }
   if (box) {
@@ -698,7 +694,7 @@ window.selectLoginPlannerEmp = function(id) {
 window.onManualSickNameInput = function(val) {
   selectedManualSickEmpId = null;
   const box = document.getElementById("manualSickSuggestions"), q = (val || "").trim().toLowerCase();
-  if (!employees || !employees.length || q.length < 2) { if (box) box.style.display = "none"; return; }
+  if (!employees || !employees.length || q.length < 1) { if (box) box.style.display = "none"; return; }
   const matches = employees.filter(e => fullName(e).toLowerCase().indexOf(q) !== -1);
   if (!matches.length) { if (box) box.style.display = "none"; return; }
   if (box) {
@@ -721,7 +717,7 @@ window.selectManualSickEmp = function(id) {
 window.onManualExtraNameInput = function(val) {
   selectedManualExtraEmpId = null;
   const box = document.getElementById("manualExtraSuggestions"), q = (val || "").trim().toLowerCase();
-  if (!employees || !employees.length || q.length < 2) { if (box) box.style.display = "none"; return; }
+  if (!employees || !employees.length || q.length < 1) { if (box) box.style.display = "none"; return; }
   const matches = employees.filter(e => fullName(e).toLowerCase().indexOf(q) !== -1);
   if (!matches.length) { if (box) box.style.display = "none"; return; }
   if (box) {
@@ -968,7 +964,7 @@ window.verifyPin = function() {
   let emp = selectedLoginPlannerId ? employees.find(e => e.id === selectedLoginPlannerId) : null;
   
   if (!emp) {
-    showTimedBoxMsg("loginModalError", "❌ Bitte wähle einen vollständigen Namen aus der Vorschlagsliste aus!", false);
+    showTimedBoxMsg("loginModalError", "❌ Bitte wähle deinen vollständigen Namen aus der Vorschlagsliste aus!", false);
     return;
   }
   
@@ -988,9 +984,30 @@ window.rotateAllShifts = function() {
   performShiftRotationLogic(true);
 };
 
-window.clearEntireBoard = function() { employees.forEach(e => { if (e.zone && ["pool","absent","extra"].indexOf(e.zone) === -1 && !e.noRotation && !e.pinnedZone) e.zone = "pool"; }); saveToFirebase(); renderEmployees(); };
-window.clearShiftRow = function(sId) { employees.forEach(e => { if (extractShiftIdFromZone(e.zone) === sId && !e.noRotation && !e.pinnedZone) e.zone = "pool"; }); saveToFirebase(); renderEmployees(); };
+// Korrigiertes Leeren: Nur nicht-fixe und nicht-gepinnte Mitarbeiter werden in den Pool geschickt (Anker bleiben stehen)
+window.clearEntireBoard = function() { 
+  employees.forEach(e => { 
+    if (e.zone && ["pool","absent","extra"].indexOf(e.zone) === -1 && !e.noRotation) { 
+      e.zone = "pool"; 
+      e.pinnedZone = null; // Nadel im Pool automatisch lösen
+    } 
+  }); 
+  saveToFirebase(); 
+  renderEmployees(); 
+};
 
+window.clearShiftRow = function(sId) { 
+  employees.forEach(e => { 
+    if (extractShiftIdFromZone(e.zone) === sId && !e.noRotation) { 
+      e.zone = "pool"; 
+      e.pinnedZone = null; 
+    } 
+  }); 
+  saveToFirebase(); 
+  renderEmployees(); 
+};
+
+// Korrigiertes Laden: Berücksichtigt den Memory-Effekt (gepinnte Linie) sauber für alle Teammitglieder
 window.loadTeamToShift = function(slotKey) {
   const sel = document.getElementById("teamSelect_" + slotKey); if (!sel) return;
   const teamKey = sel.value; shiftRotation[slotKey] = teamKey;
