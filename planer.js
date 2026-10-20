@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Version 4.9.36 (Mit Login ab 3 Buchstaben)
+   PLANER-BOARD LOGIK (planer.js) - Version 4.9.36 (Komplett korrigiert & komplett)
    ========================================================================== */
 
 try {
@@ -43,6 +43,7 @@ let settingsEmpTeamFilter = "ALL", settingsEmpRoleFilter = "ALL", activeHistoryC
 let selectedManualSickEmpId = null, selectedManualExtraEmpId = null, selectedLoginPlannerId = null;
 let isPlanner = false, plannerLevel = 0, currentPlannerName = "", currentPlannerEmpId = null;
 let sortableInstances = [], msgTimers = {}, toastTimer = null;
+let planerLastActivityTime = Date.now();
 
 function showToast(text, isError) {
   const t = document.getElementById("toastBanner"); if (!t) return;
@@ -199,6 +200,12 @@ window.unlockBoardView = function() {
     document.getElementById("boardLockError").style.display = "none"; checkBoardLockState();
   } else showTimedBoxMsg("boardLockError", "❌ Falsches Zugangs-Passwort!", false);
 };
+
+/* Hier war die fehlende Funktion: resetPlanerActivity */
+function resetPlanerActivity() {
+  planerLastActivityTime = Date.now();
+  if (isPlanner) sessionStorage.setItem("planner_last_active", String(planerLastActivityTime));
+}
 
 window.initBoard = function() {
   if (isDraggingCard) return;
@@ -408,7 +415,7 @@ window.createManualBackup = function() { showToast("Backup erstellt!"); };
 window.saveProfilePinChange = function() { showToast("PIN aktualisiert!"); };
 window.filterSettingsEmployees = function(q) { settingsEmpSearchQuery = (q || "").trim().toLowerCase(); renderSettingsLists(); };
 
-/* HIER ANGEPASST: Namensvorschläge erst ab mindestens 3 Buchstaben (q.length < 3) */
+/* Hier korrigiert: Namensvorschläge exakt ab 3 Buchstaben (q.length < 3) */
 window.onPlannerLoginInput = function(val) {
   selectedLoginPlannerId = null;
   const box = document.getElementById("plannerLoginSuggestions"), q = (val || "").trim().toLowerCase();
