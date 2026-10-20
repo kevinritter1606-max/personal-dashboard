@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Version 4.9.36 (Komplett korrigiert)
+   PLANER-BOARD LOGIK (planer.js) - Version 4.9.36 (Mit direktem Modal-Fix)
    ========================================================================== */
 
 try {
@@ -200,7 +200,6 @@ window.unlockBoardView = function() {
   } else showTimedBoxMsg("boardLockError", "❌ Falsches Zugangs-Passwort!", false);
 };
 
-/* Wiederhergestellte Kernfunktionen */
 window.initBoard = function() {
   if (isDraggingCard) return;
   sanitizeTeamReferences(); syncAbsentZones();
@@ -214,6 +213,7 @@ window.initBoard = function() {
   lines.forEach(line => {
     if (!line.targetStaff) line.targetStaff = { frueh: 3, spaet: 3, nacht: 2 };
     const th = document.createElement("th"); th.className = "line-header";
+    if (isPlanner && plannerLevel > 2) th.onclick = () => { openLineEditModal(line.id); };
     let pCls = line.prio && (line.prio.indexOf("1") !== -1 || line.prio.indexOf("2") !== -1) ? "prio-high" : (line.prio ? "prio-mid" : "");
     th.innerHTML = '<div class="line-title">' + line.name + '</div><div class="badge-container">' + (line.prio ? '<span class="line-prio ' + pCls + '">' + line.prio + '</span>' : '') + (line.tag ? '<span class="line-status-tag">' + line.tag + '</span>' : '') + '</div>' + (line.note ? '<div class="line-notes">' + line.note + '</div>' : '');
     headerRow.appendChild(th);
@@ -521,16 +521,25 @@ window.handleLogoClick = function() {
 window.verifyPin = function() {
   const nameVal = document.getElementById("loginPlannerName").value.trim().toLowerCase();
   const pinVal = document.getElementById("pinInput").value.trim();
+  
+  // Direktes Schließen des Modals erzwingen, damit es nicht hängen bleibt
+  const pinModal = document.getElementById("pinModal");
+  if (pinModal) pinModal.style.display = "none";
+
   if ((nameVal === "admin" || nameVal === "planer") && pinVal === "1234") {
     sessionStorage.setItem("board_unlocked", "true");
-    applyPlannerLoginState("Admin", 4, null); closeModal("pinModal"); initBoard(); return;
+    applyPlannerLoginState("Admin", 4, null); initBoard(); return;
   }
   let emp = selectedLoginPlannerId ? employees.find(e => e.id === selectedLoginPlannerId) : employees.find(e => fullName(e).toLowerCase() === nameVal);
   if (!emp && nameVal) { const p = employees.filter(e => fullName(e).toLowerCase().indexOf(nameVal) !== -1); if (p.length === 1) emp = p[0]; }
-  if (!emp || (emp.password || "1234") !== pinVal) { showTimedBoxMsg("loginModalError", "❌ Name oder PIN nicht korrekt!", false); return; }
+  if (!emp || (emp.password || "1234") !== pinVal) { 
+    if (pinModal) pinModal.style.display = "flex"; // Wieder öffnen bei Fehler
+    showTimedBoxMsg("loginModalError", "❌ Name oder PIN nicht korrekt!", false); 
+    return; 
+  }
   
   applyPlannerLoginState(fullName(emp), Number(emp.accessLevel) || 2, emp.id);
-  closeModal("pinModal"); initBoard();
+  initBoard();
 };
 
 window.rotateAllShifts = function() { performShiftRotationLogic(true); };
