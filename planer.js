@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Teil 1/2
+   PLANER-BOARD LOGIK (planer.js) - Komplettversion
    ========================================================================== */
 
 try {
@@ -146,17 +146,6 @@ window.didEmpWorkNightBefore = function(emp, dateIso) {
   return extraShifts.some(es => es.empId === emp.id && es.date === prevIso && es.shift === "nacht" && (es.status === "approved" || es.status === "pending"));
 };
 
-function getShiftTimeBounds(dateIso, shiftId) {
-  const p = dateIso.split("-"), y = Number(p[0]), m = Number(p[1]) - 1, d = Number(p[2]);
-  let startHour = 6, endHour = 14, endDayOffset = 0;
-  if (shiftId === "frueh") { startHour = 6; endHour = 14; }
-  else if (shiftId === "spaet") { startHour = 14; endHour = 22; }
-  else if (shiftId === "nacht") { startHour = 22; endHour = 6; endDayOffset = 1; }
-  const shiftStartMs = new Date(y, m, d, startHour, 0, 0, 0).getTime();
-  const shiftEndMs = new Date(y, m, d + endDayOffset, endHour, 0, 0, 0).getTime();
-  return { prepStartMs: shiftStartMs - 3600000, shiftStartMs: shiftStartMs, shiftEndMs: shiftEndMs };
-}
-
 function updateShiftApprovalUI() {
   const approved = isCurrentShiftApproved();
   const bar = document.getElementById("brandGradientBar");
@@ -287,7 +276,14 @@ window.initBoard = function() {
     const sunBadge = isShiftSundayOff ? '<div style="font-size:0.64rem; color:#0284c7; background:#e0f2fe; padding:2px 4px; border-radius:4px; margin-top:3px;">So. Frei</div>' : '';
     const tr = document.createElement("tr"), thS = document.createElement("th");
     thS.className = "shift-header";
-    thS.innerHTML = '<div>' + shift.name + '</div>' + sunBadge + '<div class="shift-team-badge" style="border-left:4px solid ' + curObj.color + ';"><span style="color:' + curObj.color + ';">■</span> ' + curObj.name + '</div><div class="shift-controls"><div style="display:flex; gap:4px;"><select id="teamSelect_' + shift.id + '" class="shift-team-select" style="flex:1; border-left:6px solid ' + curObj.color + '; color:' + curObj.color + ';" onchange="onShiftTeamDropdownChange(\'' + shift.id + '\', this)">' + opts + '</select></div><button class="shift-clear-btn" onclick="clearShiftRow(\'' + shift.id + '\')">🧹 Leeren</button></div>';
+    thS.innerHTML = '<div>' + shift.name + '</div>' + sunBadge + '<div class="shift-team-badge" style="border-left:4px solid ' + curObj.color + ';"><span style="color:' + curObj.color + ';">■</span> ' + curObj.name + '</div>' +
+      '<div class="shift-controls">' +
+        '<div class="shift-load-row">' +
+          '<select id="teamSelect_' + shift.id + '" class="shift-team-select" style="border-left:6px solid ' + curObj.color + '; color:' + curObj.color + ';" onchange="onShiftTeamDropdownChange(\'' + shift.id + '\', this)">' + opts + '</select>' +
+          '<button class="shift-load-btn" onclick="loadTeamToShift(\'' + shift.id + '\')" title="Team in Linien laden">📥</button>' +
+        '</div>' +
+        '<button class="shift-clear-btn" onclick="clearShiftRow(\'' + shift.id + '\')">🧹 Leeren</button>' +
+      '</div>';
     tr.appendChild(thS);
     
     lines.forEach(line => {
@@ -359,7 +355,11 @@ function renderEmployees() {
         '<div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">' + tagsHtml + '</div>' +
       '</div>';
 
-    const targetZone = document.getElementById(emp.zone) || document.getElementById("pool");
+    let targetZone = document.getElementById(emp.zone);
+    if (!targetZone) {
+      emp.zone = "pool";
+      targetZone = document.getElementById("pool");
+    }
     if (targetZone) targetZone.appendChild(card);
   });
 
@@ -401,6 +401,12 @@ function updateTeamDropdowns() {
   }
 }
 
+window.onShiftTeamDropdownChange = function(shiftId, selEl) {
+  if (!selEl) return;
+  shiftRotation[shiftId] = selEl.value;
+  saveToFirebase();
+};
+
 window.updatePoolSearch = function(val) {
   poolSearchQuery = (val || "").trim().toLowerCase();
   renderEmployees();
@@ -430,12 +436,51 @@ window.switchTab = function(tabId, btnEl) {
 function renderSettingsLists() {
   const empListEl = document.getElementById("employeeList");
   if (empListEl) {
-    empListEl.innerHTML = employees.map(e => {
+    const filteredEmps = employees.filter(e => {
+      if (settingsEmpSearchQuery && fullName(e).toLowerCase().indexOf(settingsEmpSearchQuery) === -1) return false;
+      return true;
+    });
+
+    empListEl.innerHTML = filteredEmps.map(e => {
       const tObj = teamsConfig[e.team] || { name: e.team, color: "#0091df" };
-      return '<div class="item-row"><span><span style="color:' + tObj.color + '; font-weight:700;">■</span> <b>' + fullName(e) + '</b> (' + e.role + ')</span>' +
+      const pinInfo = (plannerLevel >= 3 && e.password) ? ' · <span style="color:#0284c7; font-weight:700;">PIN: ' + e.password + '</span>' : '';
+      return '<div class="item-row"><span><span style="color:' + tObj.color + '; font-weight:700;">■</span> <b>' + fullName(e) + '</b> (' + e.role + ')' + pinInfo + '</span>' +
         '<div style="display:flex; gap:6px;"><button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem;" onclick="editEmployee(\'' + e.id + '\')">✏️ Bearbeiten</button>' +
         '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem; color:#dc2626; border-color:#fca5a5;" onclick="deleteEmployee(\'' + e.id + '\')">🗑️</button></div></div>';
     }).join("");
+  }
+
+  // Checkboxen für Prio- und Sekundärlinien im Mitarbeiter-Formular rendern
+  const mainLinesBox = document.getElementById("mainLinesCheckboxes");
+  const secLinesBox = document.getElementById("secLinesCheckboxes");
+  const currentMain = window._tempEditEmpMainLines || [];
+  const currentSec = window._tempEditEmpSecLines || [];
+
+  if (mainLinesBox) {
+    mainLinesBox.innerHTML = lines.map(l => 
+      '<label style="font-size:0.76rem; display:inline-flex; align-items:center; gap:3px; cursor:pointer; background:#fff; padding:3px 6px; border:1px solid #cbd5e1; border-radius:4px;"><input type="checkbox" value="' + l.id + '" class="emp-main-line-chk" ' + (currentMain.indexOf(l.id) !== -1 ? 'checked' : '') + '> ' + l.name + '</label>'
+    ).join("");
+  }
+  if (secLinesBox) {
+    secLinesBox.innerHTML = lines.map(l => 
+      '<label style="font-size:0.76rem; display:inline-flex; align-items:center; gap:3px; cursor:pointer; background:#fff; padding:3px 6px; border:1px solid #cbd5e1; border-radius:4px;"><input type="checkbox" value="' + l.id + '" class="emp-sec-line-chk" ' + (currentSec.indexOf(l.id) !== -1 ? 'checked' : '') + '> ' + l.name + '</label>'
+    ).join("");
+  }
+
+  // Team-Dropdown im Mitarbeiter-Formular befüllen
+  const teamSel = document.getElementById("newEmpTeam");
+  if (teamSel) {
+    const curTeam = teamSel.value || Object.keys(teamsConfig)[0];
+    teamSel.innerHTML = Object.keys(teamsConfig).sort().map(k => '<option value="' + k + '">' + teamsConfig[k].name + '</option>').join("");
+    teamSel.value = curTeam;
+  }
+
+  // Rollen-Dropdown im Mitarbeiter-Formular befüllen
+  const roleSel = document.getElementById("newEmpRole");
+  if (roleSel) {
+    const curRole = roleSel.value || roles[0];
+    roleSel.innerHTML = roles.map(r => '<option value="' + r + '">' + r + '</option>').join("");
+    roleSel.value = curRole;
   }
 
   const roleListEl = document.getElementById("roleList");
@@ -495,9 +540,31 @@ window.editEmployee = function(id) {
   document.getElementById("editEmpId").value = emp.id;
   document.getElementById("newEmpFirstName").value = emp.firstName || "";
   document.getElementById("newEmpLastName").value = emp.lastName || "";
-  if (document.getElementById("newEmpTeam")) document.getElementById("newEmpTeam").value = emp.team;
-  if (document.getElementById("newEmpRole")) document.getElementById("newEmpRole").value = emp.role;
-  document.getElementById("settingsModal").style.display = "flex";
+  document.getElementById("newEmpTeam").value = emp.team || Object.keys(teamsConfig)[0];
+  document.getElementById("newEmpRole").value = emp.role || roles[0];
+  document.getElementById("newEmpAccessLevel").value = emp.accessLevel || 1;
+  document.getElementById("newEmpFirstAider").checked = !!emp.ersthelfer;
+  document.getElementById("newEmpNoRotation").checked = !!emp.noRotation;
+  
+  window._tempEditEmpMainLines = Array.isArray(emp.mainLines) ? emp.mainLines.slice() : [];
+  window._tempEditEmpSecLines = Array.isArray(emp.secLines) ? emp.secLines.slice() : [];
+
+  document.getElementById("btnCancelEditEmp").style.display = "inline-block";
+  document.getElementById("btnSaveEmp").textContent = "Änderungen speichern";
+  renderSettingsLists();
+};
+
+window.resetEmpForm = function() {
+  document.getElementById("editEmpId").value = "";
+  document.getElementById("newEmpFirstName").value = "";
+  document.getElementById("newEmpLastName").value = "";
+  document.getElementById("newEmpFirstAider").checked = false;
+  document.getElementById("newEmpNoRotation").checked = false;
+  window._tempEditEmpMainLines = [];
+  window._tempEditEmpSecLines = [];
+  document.getElementById("btnCancelEditEmp").style.display = "none";
+  document.getElementById("btnSaveEmp").textContent = "Speichern";
+  renderSettingsLists();
 };
 
 window.saveEmployee = function() {
@@ -505,15 +572,52 @@ window.saveEmployee = function() {
   const fName = document.getElementById("newEmpFirstName").value.trim();
   const lName = document.getElementById("newEmpLastName").value.trim();
   if (!fName || !lName) { showToast("Bitte Vor- und Nachname eingeben", true); return; }
+
+  // Ausgewählte Prio- und Sekundärlinien auslesen
+  const mainChecked = Array.from(document.querySelectorAll(".emp-main-line-chk:checked")).map(c => c.value);
+  const secChecked = Array.from(document.querySelectorAll(".emp-sec-line-chk:checked")).map(c => c.value);
   
+  const teamVal = document.getElementById("newEmpTeam").value;
+  const roleVal = document.getElementById("newEmpRole").value;
+  const lvlVal = Number(document.getElementById("newEmpAccessLevel").value) || 1;
+  const ersthelferVal = document.getElementById("newEmpFirstAider").checked;
+  const noRotVal = document.getElementById("newEmpNoRotation").checked;
+
   if (id) {
     const emp = employees.find(e => e.id === id);
-    if (emp) { emp.firstName = fName; emp.lastName = lName; }
+    if (emp) {
+      emp.firstName = fName;
+      emp.lastName = lName;
+      emp.team = teamVal;
+      emp.role = roleVal;
+      emp.accessLevel = lvlVal;
+      emp.ersthelfer = ersthelferVal;
+      emp.noRotation = noRotVal;
+      emp.mainLines = mainChecked;
+      emp.secLines = secChecked;
+    }
   } else {
-    employees.push({ id: "emp_" + Date.now(), firstName: fName, lastName: lName, team: "team-1", role: roles[0] || "Bediener", password: "1234", zone: "pool" });
+    // Zufällige Start-PIN (4-stellig) generieren
+    const randomPin = String(Math.floor(1000 + Math.random() * 9000));
+    employees.push({
+      id: "emp_" + Date.now(),
+      firstName: fName,
+      lastName: lName,
+      team: teamVal,
+      role: roleVal,
+      accessLevel: lvlVal,
+      ersthelfer: ersthelferVal,
+      noRotation: noRotVal,
+      mainLines: mainChecked,
+      secLines: secChecked,
+      password: randomPin,
+      mustChangePw: true,
+      zone: "pool"
+    });
   }
-  saveToFirebase(); renderEmployees(); renderSettingsLists(); closeModal("settingsModal");
-  showToast("Mitarbeiter gespeichert!");
+
+  saveToFirebase(); renderEmployees(); resetEmpForm();
+  showToast("Mitarbeiter erfolgreich gespeichert!");
 };
 
 window.addRole = function() {
@@ -683,9 +787,23 @@ window.verifyPin = function() {
   initBoard();
 };
 
-window.rotateAllShifts = function() { performShiftRotationLogic(true); };
+// Punkt 1: "Rotieren"-Button öffnet direkt den Schichtmodell- & Team-Tab in den Einstellungen
+window.rotateAllShifts = function() {
+  if (typeof window.openSettingsModal === "function") {
+    window.openSettingsModal();
+    if (typeof switchTab === "function") {
+      const teamsBtn = document.getElementById("tabBtnTeams");
+      switchTab("tabTeams", teamsBtn);
+    }
+  } else {
+    performShiftRotationLogic(true);
+  }
+};
+
 window.clearEntireBoard = function() { employees.forEach(e => { if (e.zone && ["pool","absent","extra"].indexOf(e.zone) === -1 && !e.noRotation) e.zone = "pool"; }); saveToFirebase(); renderEmployees(); };
 window.clearShiftRow = function(sId) { employees.forEach(e => { if (extractShiftIdFromZone(e.zone) === sId && !e.noRotation) e.zone = "pool"; }); saveToFirebase(); renderEmployees(); };
+
+// Punkt 4: Team-Lade-Button Logik zum Einteilen der Teams in die Linien
 window.loadTeamToShift = function(slotKey) {
   const sel = document.getElementById("teamSelect_" + slotKey); if (!sel) return;
   const teamKey = sel.value; shiftRotation[slotKey] = teamKey;
@@ -699,7 +817,9 @@ window.loadTeamToShift = function(slotKey) {
     }
   });
   saveToFirebase(); initBoard();
+  showToast("Team " + (teamsConfig[teamKey] ? teamsConfig[teamKey].name : teamKey) + " in Schicht eingeteilt!");
 };
+
 window.performShiftRotationLogic = function() {
   const slotOrder = ["frueh", "spaet", "nacht", "frei"];
   const activeSlots = slotOrder.filter(s => shiftRotation[s]);
@@ -708,6 +828,7 @@ window.performShiftRotationLogic = function() {
   activeSlots.forEach((fromSlot, idx) => { nextShiftRotation[activeSlots[(idx + 1) % activeSlots.length]] = shiftRotation[fromSlot]; });
   shiftRotation = nextShiftRotation; saveToFirebase(); initBoard();
 };
+
 window.updateInboxBadge = function() {};
 window.openSettingsModal = function() { document.getElementById("settingsModal").style.display = "flex"; renderSettingsLists(); };
 window.openInboxModal = function() { document.getElementById("inboxModal").style.display = "flex"; };
