@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Vollversion mit korrigiertem Laden, Leeren & Login
+   PLANER-BOARD LOGIK (planer.js) - PIN-Datenschutz & Reset-Funktion
    ========================================================================== */
 
 try {
@@ -468,9 +468,11 @@ function renderSettingsLists() {
 
     empListEl.innerHTML = filteredEmps.map(e => {
       const tObj = teamsConfig[e.team] || { name: e.team, color: "#0091df" };
-      const pinInfo = (plannerLevel >= 3 && e.password) ? ' · <span style="color:#0284c7; font-weight:700;">PIN: ' + e.password + '</span>' : '';
-      return '<div class="item-row"><span><span style="color:' + tObj.color + '; font-weight:700;">■</span> <b>' + fullName(e) + '</b> (' + e.role + ')' + pinInfo + '</span>' +
-        '<div style="display:flex; gap:6px;"><button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem;" onclick="editEmployee(\'' + e.id + '\')">✏️ Bearbeiten</button>' +
+      // Datenschutz: PIN wird in der Liste nicht mehr im Klartext angezeigt, stattdessen Reset-Button
+      const pinAction = (plannerLevel >= 3) ? '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.72rem; color:#0284c7; border-color:#bae6fd;" onclick="resetEmployeePin(\'' + e.id + '\')">🔄 PIN zurücksetzen</button>' : '';
+      return '<div class="item-row"><span><span style="color:' + tObj.color + '; font-weight:700;">■</span> <b>' + fullName(e) + '</b> (' + e.role + ')</span>' +
+        '<div style="display:flex; gap:6px; align-items:center;">' + pinAction + 
+        '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem;" onclick="editEmployee(\'' + e.id + '\')">✏️ Bearbeiten</button>' +
         '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem; color:#dc2626; border-color:#fca5a5;" onclick="deleteEmployee(\'' + e.id + '\')">🗑️</button></div></div>';
     }).join("");
   }
@@ -530,6 +532,16 @@ function renderSettingsLists() {
     }).join("");
   }
 }
+
+// PIN zurücksetzen / generieren für Mitarbeiter
+window.resetEmployeePin = function(id) {
+  const emp = employees.find(e => e.id === id);
+  if (!emp) return;
+  const newPin = String(Math.floor(1000 + Math.random() * 9000));
+  emp.password = newPin;
+  saveToFirebase();
+  showToast("Neue Start-PIN für " + fullName(emp) + " generiert: " + newPin);
+};
 
 window.deleteRole = function(idx) {
   roles.splice(idx, 1);
@@ -635,10 +647,10 @@ window.saveEmployee = function() {
       zone: "pool",
       pinnedZone: null
     });
+    showToast("Mitarbeiter erstellt. Start-PIN: " + randomPin);
   }
 
   saveToFirebase(); renderEmployees(); resetEmpForm();
-  showToast("Mitarbeiter erfolgreich gespeichert!");
 };
 
 window.addRole = function() {
@@ -984,12 +996,11 @@ window.rotateAllShifts = function() {
   performShiftRotationLogic(true);
 };
 
-// Korrigiertes Leeren: Nur nicht-fixe und nicht-gepinnte Mitarbeiter werden in den Pool geschickt (Anker bleiben stehen)
 window.clearEntireBoard = function() { 
   employees.forEach(e => { 
     if (e.zone && ["pool","absent","extra"].indexOf(e.zone) === -1 && !e.noRotation) { 
       e.zone = "pool"; 
-      e.pinnedZone = null; // Nadel im Pool automatisch lösen
+      e.pinnedZone = null; 
     } 
   }); 
   saveToFirebase(); 
@@ -1007,7 +1018,6 @@ window.clearShiftRow = function(sId) {
   renderEmployees(); 
 };
 
-// Korrigiertes Laden: Berücksichtigt den Memory-Effekt (gepinnte Linie) sauber für alle Teammitglieder
 window.loadTeamToShift = function(slotKey) {
   const sel = document.getElementById("teamSelect_" + slotKey); if (!sel) return;
   const teamKey = sel.value; shiftRotation[slotKey] = teamKey;
