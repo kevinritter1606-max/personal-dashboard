@@ -168,7 +168,7 @@
       </div>
     </div>
 
-    <!-- MEINE LINIEN & QUALIFIKATIONEN (Kompakt, Sek-Linie als Standard & Filter für bereits zugewiesene Linien) -->
+    <!-- MEINE LINIEN & QUALIFIKATIONEN -->
     <div class="card" style="padding: 14px 16px;">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
         <div style="font-size: 0.85rem; font-weight: 700; color: #1e293b;">🏭 Meine Linien</div>
@@ -281,7 +281,7 @@
     </div>
   </main>
 
-  <script src="planer.js?v=4.9.37"></script>
+  <script src="planer_2.js?v=4.9.36"></script>
   <script>
     let loggedInPortalEmpId = null, selectedLoginPortalEmpId = null, initialSessionChecked = false, pendingExtraSubmission = null;
     let activeMyRequestsCategory = "ALL";
@@ -658,125 +658,32 @@
       renderPortalView(); showPortalInlineMsg("🗑️ Bringschicht-Eintrag entfernt.", true);
     };
 
-    window.setMyRequestsCategoryFilter = function(cat) {
-      activeMyRequestsCategory = cat || "ALL";
-      renderMyRequestsList(loggedInPortalEmpId);
-    };
-
-    function classifyMyRequest(item) {
-      const cat = (item.category || "").toLowerCase();
-      if (cat.indexOf("urlaub") !== -1 || cat.indexOf("freizeit") !== -1) return "URLAUB";
-      if (cat.indexOf("krank") !== -1 || cat.indexOf("abwesen") !== -1 || cat.indexOf("arbeitsunfähig") !== -1 || item.type === "sick") return "KRANK";
-      return "EXTRA";
-    }
-
     function renderMyRequestsList(empId) {
-      const listEl = document.getElementById("myPortalRequestsList"), barEl = document.getElementById("portalHistoryFilterBar");
-      const searchEl = document.getElementById("myRequestsSearchInput"), q = searchEl ? searchEl.value.trim().toLowerCase() : "";
+      const listEl = document.getElementById("myPortalRequestsList");
       if (!listEl) return;
-
-      const cats = [
-        { id: "ALL", label: "📋 Alle" },
-        { id: "URLAUB", label: "🌴 Urlaub" },
-        { id: "KRANK", label: "🏥 Krank / Abwesend" },
-        { id: "EXTRA", label: "➕ Bringschicht" }
-      ];
-
-      if (barEl) {
-        barEl.innerHTML = cats.map(c => {
-          const active = activeMyRequestsCategory === c.id;
-          return '<button type="button" onclick="setMyRequestsCategoryFilter(\'' + c.id + '\')" style="padding:5px 10px; border-radius:6px; font-size:0.75rem; font-weight:700; cursor:pointer; border:1px solid ' + (active ? '#0091df' : '#cbd5e1') + '; background:' + (active ? '#f0f9ff' : '#f8fafc') + '; color:' + (active ? '#0091df' : '#475569') + ';">' + c.label + '</button>';
-        }).join("");
-      }
-
-      const cutoffMs = Date.now() - (360 * 86400000);
-      const myLeaves = (typeof sickLeaves !== "undefined" ? sickLeaves : []).filter(sl => {
-        if (sl.empId !== empId) return false;
-        try {
-          const p = (sl.startDate || "").split("-");
-          if (p.length === 3) return new Date(Number(p[0]), Number(p[1])-1, Number(p[2])).getTime() >= cutoffMs;
-        } catch(e) {}
-        return true;
-      });
-
-      const myExtras = (typeof extraShifts !== "undefined" ? extraShifts : []).filter(es => {
-        if (es.empId !== empId) return false;
-        try {
-          const p = (es.date || "").split("-");
-          if (p.length === 3) return new Date(Number(p[0]), Number(p[1])-1, Number(p[2])).getTime() >= cutoffMs;
-        } catch(e) {}
-        return true;
-      }).map(es => Object.assign({}, es, { category: "Bringschicht (" + (shiftsShortLabel[es.shift] || es.shift) + ")" }));
+      
+      const myLeaves = (typeof sickLeaves !== "undefined" ? sickLeaves : []).filter(sl => sl.empId === empId);
+      const myExtras = (typeof extraShifts !== "undefined" ? extraShifts : []).filter(es => es.empId === empId).map(es => Object.assign({}, es, { category: "Bringschicht (" + (shiftsShortLabel[es.shift] || es.shift) + ")" }));
       
       const combined = [].concat(myLeaves, myExtras);
-      const filtered = combined.filter(item => {
-        const itemCat = classifyMyRequest(item);
-        if (activeMyRequestsCategory !== "ALL" && itemCat !== activeMyRequestsCategory) return false;
-        if (!q) return true;
-        const textToSearch = ((item.category || "") + " " + (item.reason || "") + " " + (item.note || "") + " " + (item.startDate || item.date || "")).toLowerCase();
-        return textToSearch.indexOf(q) !== -1;
-      });
-
-      if (!filtered.length) {
-        listEl.innerHTML = '<p style="font-size:0.82rem; color:#64748b;">Keine Einträge für diesen Filter gefunden.</p>';
+      if (!combined.length) {
+        listEl.innerHTML = '<p style="font-size:0.82rem; color:#64748b;">Keine aktiven Anträge vorhanden.</p>';
         return;
       }
 
       let html = "";
-      filtered.forEach(item => {
+      combined.forEach(item => {
         const isExtra = !item.startDate && item.date;
         if (!isExtra) {
           const sl = item;
-          const isVac = (sl.category || "").toLowerCase().indexOf("urlaub") !== -1 || (sl.category || "").toLowerCase().indexOf("freizeit") !== -1;
-          let statusBadge = '';
-          if (sl.status === "approved") statusBadge = '<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">✅ ' + (isVac ? 'Genehmigt' : 'Im System eingetragen') + '</span>';
-          else if (sl.status === "rejected") {
-            const rejectReason = sl.reason && sl.reason !== "Vom Mitarbeiter im Portal gemeldet" && sl.reason !== "Mitarbeiter hat neue Linien-Qualifikation gemeldet" ? '<br><small style="color:#b91c1c;">Grund: ' + sl.reason + '</small>' : '';
-            statusBadge = '<span style="background:#fef2f2; color:#b91c1c; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">❌ Abgelehnt</span>' + rejectReason;
-          }
-          else if (sl.status === "partial") statusBadge = '<span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">⚠️ Gegenvorschlag</span>';
-          else statusBadge = '<span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">⏳ In Prüfung</span>';
-
-          let blocksDetails = "";
-          if (sl.blocks && sl.blocks.length && (sl.status === "partial" || sl.blocks.length > 1 || (sl.blocks[0] && sl.blocks[0].reason))) {
-            blocksDetails = '<div style="margin-top:6px; display:flex; flex-direction:column; gap:4px; border-top:1px solid #e2e8f0; padding-top:6px;">';
-            sl.blocks.forEach(b => {
-              const bSt = b.status === "approved" ? '<span style="color:#166534; font-weight:700;">✅ Genehmigt</span>' : (b.status === "rejected" ? '<span style="color:#b91c1c; font-weight:700;">❌ Abgelehnt</span>' : '<span style="color:#b45309; font-weight:700;">⏳ Offen</span>');
-              blocksDetails += '<div style="font-size:0.78rem; display:flex; justify-content:space-between; align-items:center;"><span>Von ' + formatDateDe(b.start) + ' bis ' + formatDateDe(b.end) + (b.reason ? ' <em style="color:#64748b;">(' + b.reason + ')</em>' : '') + '</span><span>' + bSt + '</span></div>';
-            });
-            blocksDetails += '</div>';
-          }
-
-          let partialActionBox = "", noticeBox = "";
-          if (sl.status === "partial") {
-            noticeBox = '<div style="margin-bottom:8px; background:#fef9c3; border:1px solid #fef08a; padding:8px 10px; border-radius:6px; font-size:0.8rem; color:#854d0e;">ℹ️ Dein gewünschter Urlaub konnte nicht vollständig genehmigt werden. Der Planer hat folgenden <b>Gegenvorschlag</b> hinterlegt:</div>';
-            partialActionBox = '<div style="margin-top:8px; background:#f0f9ff; border:1px solid #bae6fd; padding:8px; border-radius:6px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;"><span style="font-size:0.78rem; font-weight:700; color:#0369a1;">Gegenvorschlag annehmen?</span><div style="display:flex; gap:6px;"><button class="btn btn-primary" style="padding:3px 10px; font-size:0.72rem; background:#16a34a;" onclick="respondToPartialLeave(\'' + sl.id + '\', true)">Annehmen</button><button class="btn btn-primary" style="padding:3px 10px; font-size:0.72rem; background:#dc2626;" onclick="respondToPartialLeave(\'' + sl.id + '\', false)">Ablehnen</button></div></div>';
-          }
-
-          const reviewInfo = sl.reviewedBy ? '<br><small style="color:#64748b;">Status-Info: ' + sl.reviewedBy + (sl.reviewedAt ? ' am ' + sl.reviewedAt : '') + '</small>' : '';
-          const deleteBtn = (sl.status === "pending" || sl.status === "rejected") ? '<button class="btn btn-outline" style="padding:2px 6px; font-size:0.7rem; color:#dc2626; border-color:#fecaca;" onclick="deletePortalLeave(\'' + sl.id + '\')">🗑️ Löschen</button>' : '';
-
-          html += '<div class="status-card-item">' +
-            '<div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom:4px;"><b>' + (sl.category || 'Abwesend') + '</b><div style="display:flex; align-items:center; gap:8px;">' + statusBadge + deleteBtn + '</div></div>' +
-            '<small style="color:#475569;">Zeitraum: Von ' + formatDateDe(sl.startDate) + ' bis ' + formatDateDe(sl.endDate) + '</small>' + reviewInfo +
-            '<div style="margin-top:8px;">' + noticeBox + blocksDetails + '</div>' + partialActionBox + '</div>';
+          let statusBadge = sl.status === "approved" ? '<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">✅ Genehmigt</span>' : (sl.status === "rejected" ? '<span style="background:#fef2f2; color:#b91c1c; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">❌ Abgelehnt</span>' : '<span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">⏳ In Prüfung</span>');
+          html += '<div class="status-card-item"><b>' + (sl.category || 'Abwesend') + '</b> ' + statusBadge + '<br><small>Von ' + formatDateDe(sl.startDate) + ' bis ' + formatDateDe(sl.endDate) + '</small></div>';
         } else {
           const es = item;
-          let stBadge = '';
-          if (es.status === "pending") stBadge = '<span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">⏳ Wartet auf Planer</span>';
-          else if (es.status === "rejected") stBadge = '<span style="background:#fef2f2; color:#b91c1c; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">❌ Abgelehnt</span>';
-          else stBadge = '<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">✅ Genehmigt (1h Vorlauf)</span>';
-
-          const delBtn = (es.status === "pending" || es.status === "rejected") ? '<button class="btn btn-outline" style="padding:2px 6px; font-size:0.7rem; color:#dc2626; border-color:#fecaca;" onclick="deletePortalExtra(\'' + es.id + '\')">🗑️ Storno</button>' : '';
-          const warnNote = es.plausibilityWarning ? '<div style="margin-top:4px; font-size:0.74rem; color:#b91c1c; font-weight:700;">❗ Hinweis: ' + (es.conflictDetails || 'Mit Schichtkonflikt eingereicht') + '</div>' : '';
-
-          html += '<div class="status-card-item" style="' + (es.status === "rejected" ? 'background:#fff1f2; border-color:#fecdd3;' : '') + '">' +
-            '<div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom:4px;"><b>➕ Bringschicht (' + (shiftsShortLabel[es.shift] || es.shift) + ')</b><div style="display:flex; align-items:center; gap:8px;">' + stBadge + delBtn + '</div></div>' +
-            '<small style="color:#475569;">Am ' + formatDateDe(es.date) + (es.note ? ' · ' + es.note : '') + '</small>' +
-            warnNote + '</div>';
+          let stBadge = es.status === "pending" ? '<span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">⏳ Wartet auf Planer</span>' : '<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">✅ Eingetragen</span>';
+          html += '<div class="status-card-item"><b>➕ Bringschicht</b> ' + stBadge + '<br><small>Am ' + formatDateDe(es.date) + '</small></div>';
         }
       });
-
       listEl.innerHTML = html;
     }
 
@@ -785,14 +692,8 @@
       const start = document.getElementById("portalVacStart").value, end = document.getElementById("portalVacEnd").value;
       const cat = document.getElementById("portalVacCategory").value, reason = document.getElementById("portalVacReason").value.trim();
       if (!start || !end) { showPortalInlineMsg("Bitte Von- und Bis-Datum auswählen.", false); return; }
-      if (start > end) { showPortalInlineMsg("Das Startdatum darf nicht nach dem Enddatum liegen.", false); return; }
-      if (typeof hasLeaveOverlap === "function" && hasLeaveOverlap(loggedInPortalEmpId, start, end, null)) {
-        showPortalInlineMsg("⚠️ Für diesen Zeitraum existiert bereits ein aktiver Antrag oder eine Abwesenheit!", false); return;
-      }
       if (typeof window.addPortalLeaveRequest === "function" && window.addPortalLeaveRequest(loggedInPortalEmpId, start, end, cat, reason)) {
-        document.getElementById("portalVacStart").value = ""; document.getElementById("portalVacEnd").value = ""; document.getElementById("portalVacReason").value = "";
-        showPortalInlineMsg("✅ Dein Urlaubsantrag wurde zur Genehmigung an den Planer übermittelt.", true);
-        renderPortalView();
+        showPortalInlineMsg("✅ Urlaubsantrag übermittelt.", true); renderPortalView();
       }
     }
 
@@ -801,18 +702,12 @@
       const start = document.getElementById("portalSickStart").value, end = document.getElementById("portalSickEnd").value;
       const cat = document.getElementById("portalSickCategory").value, reason = document.getElementById("portalSickReason").value.trim();
       if (!start || !end) { showPortalInlineMsg("Bitte Von- und Bis-Datum auswählen.", false); return; }
-      if (start > end) { showPortalInlineMsg("Das Startdatum darf nicht nach dem Enddatum liegen.", false); return; }
-      if (typeof hasLeaveOverlap === "function" && hasLeaveOverlap(loggedInPortalEmpId, start, end, null)) {
-        showPortalInlineMsg("⚠️ Für diesen Zeitraum existiert bereits eine aktive Meldung!", false); return;
-      }
       if (typeof window.addPortalLeaveRequest === "function" && window.addPortalLeaveRequest(loggedInPortalEmpId, start, end, cat, reason)) {
-        document.getElementById("portalSickStart").value = ""; document.getElementById("portalSickEnd").value = ""; document.getElementById("portalSickReason").value = "";
-        showPortalInlineMsg("✅ Deine Krank-/Abwesenheitsmeldung wurde sofort im System eingetragen und der Planer informiert.", true);
-        renderPortalView();
+        showPortalInlineMsg("✅ Abwesenheitsmeldung übermittelt.", true); renderPortalView();
       }
     }
 
-    boardRef.onSnapshot(function() {
+    boardRef.onSnapshot(doc => {
       updatePortalHeaderClock();
       if (typeof updateShiftApprovalUI === "function") updateShiftApprovalUI();
       if (!initialSessionChecked && employees && employees.length > 0) {
@@ -827,7 +722,7 @@
       if (loggedInPortalEmpId) renderPortalView();
     });
 
-    window.addEventListener("DOMContentLoaded", function() {
+    window.addEventListener("DOMContentLoaded", () => {
       updatePortalHeaderClock();
       if (typeof updateShiftApprovalUI === "function") updateShiftApprovalUI();
       const todayIso = typeof getTodayIso === "function" ? getTodayIso() : "";
