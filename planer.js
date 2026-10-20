@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Vollständige Finale Version
+   PLANER-BOARD LOGIK (planer.js) - Vollständige finale Korrektur
    ========================================================================== */
 
 try {
@@ -141,10 +141,33 @@ function sanitizeTeamReferences() {
 
 function fullName(e) { return ((e.firstName || "") + " " + (e.lastName || "")).trim(); }
 function isTeamRotating(teamKey) { return teamsConfig[teamKey] ? (teamsConfig[teamKey].rotates !== false) : true; }
+
 function updateHeaderDateKw() {
   const el = document.getElementById("headerDateKw"); if (!el) return;
   const now = new Date(), ld = getLogicalDateObj(now);
   el.textContent = now.toLocaleDateString("de-DE", { weekday: "short", year: "numeric", month: "2-digit", day: "2-digit" }) + " · KW " + getCalendarWeek(ld);
+}
+
+// Ergänzte Funktion, die den Fehler behoben hat:
+function updateShiftApprovalUI() {
+  const approved = isCurrentShiftApproved();
+  const bar = document.getElementById("brandGradientBar");
+  if (bar) bar.className = approved ? "brand-gradient approved" : "brand-gradient pending";
+
+  const dot = document.getElementById("indicatorDot"), text = document.getElementById("indicatorText"), btn = document.getElementById("plannerApprovalIndicator");
+  if (dot && text && btn) {
+    dot.style.background = approved ? "#16a34a" : "#dc2626"; text.textContent = approved ? "Freigegeben" : "Freigeben";
+    btn.style.borderColor = approved ? "#86efac" : "#fecaca"; btn.style.background = approved ? "#f0fdf4" : "#fef2f2"; btn.style.color = approved ? "#166534" : "#b91c1c";
+  }
+}
+
+function updateAutoRotationUI() {
+  const isAuto = shiftModelConfig.autoRotate !== false;
+  const badge = document.getElementById("autoRotationBadge"), badgeIcon = document.getElementById("autoRotationIcon"), badgeText = document.getElementById("autoRotationText");
+  if (badge && badgeIcon && badgeText) {
+    badge.className = isAuto ? "auto-rotation-badge active" : "auto-rotation-badge";
+    badgeText.textContent = isAuto ? "Auto aktiv" : "Manuell";
+  }
 }
 
 function showTimedBoxMsg(elId, text, isSuccess) {
@@ -157,12 +180,6 @@ function showTimedBoxMsg(elId, text, isSuccess) {
 
 function closeModal(id) {
   const el = document.getElementById(id); if (el) el.style.display = "none";
-}
-
-function styleShiftDropdown(selEl, teamKey) {
-  if (!selEl || !teamsConfig[teamKey]) return;
-  selEl.style.borderLeft = "6px solid " + teamsConfig[teamKey].color;
-  selEl.style.color = teamsConfig[teamKey].color; selEl.style.fontWeight = "700";
 }
 
 function checkBoardLockState() {
@@ -181,11 +198,6 @@ window.unlockBoardView = function() {
   } else showTimedBoxMsg("boardLockError", "❌ Falsches Zugangs-Passwort!", false);
 };
 
-function logHistory(action, details) {
-  historyLogs.unshift({ id: "h_" + Date.now(), time: new Date().toLocaleString("de-DE"), user: currentPlannerName || "System", action: action, details: details || "" });
-  if (historyLogs.length > 150) historyLogs = historyLogs.slice(0, 150);
-}
-
 function initBoard() {
   if (isDraggingCard) return;
   sanitizeTeamReferences(); syncAbsentZones();
@@ -194,7 +206,7 @@ function initBoard() {
   const headerRow = document.getElementById("headerRow"); if (!headerRow) return;
   if (!Array.isArray(lines) || !lines.length) lines = defaultLines.slice();
 
-  headerRow.innerHTML = '<th class="shift-header"><div>Schicht</div><div class="shift-controls"><button class="shift-rotate-btn" onclick="rotateAllShifts()"><span style="display:inline-flex; align-items:center; gap:5px; justify-content:center;">' + ROUND_SYNC_SVG + '<span>Rotieren</span></span></button><button class="shift-clear-btn" onclick="clearEntireBoard()">🧹 Alle leeren</button></div></th>';
+  headerRow.innerHTML = '<th class="shift-header"><div>Schicht</div><div class="shift-controls"><button class="shift-rotate-btn" onclick="rotateAllShifts()"><span>Rotieren</span></button><button class="shift-clear-btn" onclick="clearEntireBoard()">🧹 Alle leeren</button></div></th>';
   
   lines.forEach(line => {
     if (!line.targetStaff) line.targetStaff = { frueh: 3, spaet: 3, nacht: 2 };
@@ -210,12 +222,12 @@ function initBoard() {
 
   shifts.forEach(shift => {
     const curKey = shiftRotation[shift.id] || keys[0], curObj = teamsConfig[curKey] || { name: "Team", color: "#0091df" };
-    const opts = keys.map(k => '<option value="' + k + '" style="color:' + teamsConfig[k].color + '; font-weight:700;" ' + (k === curKey ? 'selected' : '') + '>■ ' + teamsConfig[k].name + (isTeamRotating(k) ? ' 🔄' : '') + '</option>').join("");
+    const opts = keys.map(k => '<option value="' + k + '" style="color:' + teamsConfig[k].color + '; font-weight:700;" ' + (k === curKey ? 'selected' : '') + '>■ ' + teamsConfig[k].name + '</option>').join("");
     const isShiftSundayOff = sundayFree;
     const sunBadge = isShiftSundayOff ? '<div style="font-size:0.64rem; color:#0284c7; background:#e0f2fe; padding:2px 4px; border-radius:4px; margin-top:3px;">So. Frei</div>' : '';
     const tr = document.createElement("tr"), thS = document.createElement("th");
     thS.className = "shift-header";
-    thS.innerHTML = '<div>' + shift.name + '</div>' + sunBadge + '<div class="shift-team-badge" style="border-left:4px solid ' + curObj.color + ';"><span style="color:' + curObj.color + ';">■</span> ' + curObj.name + '</div><div class="shift-controls"><div style="display:flex; gap:4px;"><select id="teamSelect_' + shift.id + '" class="shift-team-select" style="flex:1; border-left:6px solid ' + curObj.color + '; color:' + curObj.color + ';" onchange="onShiftTeamDropdownChange(\'' + shift.id + '\', this)">' + opts + '</select><button class="shift-clear-btn" style="width:26px; padding:0; color:var(--bayer-blue); border-color:var(--bayer-blue);" onclick="loadTeamToShift(\'' + shift.id + '\')" title="Team auf Linien laden">📥</button></div><button class="shift-clear-btn" onclick="clearShiftRow(\'' + shift.id + '\')">🧹 Leeren</button></div>';
+    thS.innerHTML = '<div>' + shift.name + '</div>' + sunBadge + '<div class="shift-team-badge" style="border-left:4px solid ' + curObj.color + ';"><span style="color:' + curObj.color + ';">■</span> ' + curObj.name + '</div><div class="shift-controls"><div style="display:flex; gap:4px;"><select id="teamSelect_' + shift.id + '" class="shift-team-select" style="flex:1; border-left:6px solid ' + curObj.color + '; color:' + curObj.color + ';" onchange="onShiftTeamDropdownChange(\'' + shift.id + '\', this)">' + opts + '</select></div><button class="shift-clear-btn" onclick="clearShiftRow(\'' + shift.id + '\')">🧹 Leeren</button></div>';
     tr.appendChild(thS);
     
     lines.forEach(line => {
@@ -226,13 +238,13 @@ function initBoard() {
     matrixBody.appendChild(tr);
   });
 
-  applyTeamStyles(); updateRoleDropdown(); updateTeamDropdowns();
-  renderTeamFilterCheckboxes(); renderRoleFilterCheckboxes(); renderLineCheckboxes();
+  applyTeamStyles(); updateTeamDropdowns();
+  renderTeamFilterCheckboxes(); renderRoleFilterCheckboxes();
   renderEmployees(); initDragAndDrop(); renderSettingsLists(); updateInboxBadge(); checkBoardLockState();
 }
 
 window.onShiftTeamDropdownChange = function(shiftId, selEl) {
-  styleShiftDropdown(selEl, selEl.value); shiftRotation[shiftId] = selEl.value; saveToFirebase();
+  shiftRotation[shiftId] = selEl.value; saveToFirebase();
 };
 
 function renderEmployees() {
@@ -243,14 +255,6 @@ function renderEmployees() {
 
   employees.forEach(emp => {
     const fName = fullName(emp);
-    if (isPlanner && emp.zone === "pool") {
-      if (activeTeamFilters[emp.team] === false || activeRoleFilters[emp.role] === false) return;
-      if (poolSearchQuery) {
-        const nMatch = fName.toLowerCase().indexOf(poolSearchQuery) !== -1;
-        if (!nMatch) return;
-      }
-    }
-
     const teamObj = teamsConfig[emp.team] || { name: "Team", color: "#0091df" };
     const card = document.createElement("div"); card.className = "employee-card";
     card.setAttribute("data-id", emp.id); card.style.borderLeft = "5px solid " + (teamObj.color || "#0091df");
@@ -303,11 +307,6 @@ function updateTeamDropdowns() {
   }
 }
 
-function updatePoolSearch(val) {
-  poolSearchQuery = (val || "").trim().toLowerCase();
-  renderEmployees();
-}
-
 function renderTeamFilterCheckboxes() {
   const c = document.getElementById("teamFilterContainer"); if (!c) return;
   c.innerHTML = Object.keys(teamsConfig).sort().map(k => {
@@ -315,16 +314,12 @@ function renderTeamFilterCheckboxes() {
     return '<label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" ' + (activeTeamFilters[k] !== false ? 'checked' : '') + ' onchange="activeTeamFilters[\'' + k + '\']=this.checked; renderEmployees();"> <span style="color:' + t.color + '; font-weight:700;">■</span> ' + t.name + '</label>';
   }).join("");
 }
-function toggleAllTeamFilters(s) { Object.keys(teamsConfig).forEach(k => { activeTeamFilters[k] = s; }); renderTeamFilterCheckboxes(); renderEmployees(); }
 
 function renderRoleFilterCheckboxes() {
   const c = document.getElementById("roleFilterContainer"); if (!c) return;
   c.innerHTML = roles.map((r, i) => '<label style="display:inline-flex; align-items:center; gap:3px; cursor:pointer;"><input type="checkbox" ' + (activeRoleFilters[r] !== false ? 'checked' : '') + ' onchange="activeRoleFilters[roles[' + i + ']]=this.checked; renderEmployees();"> ' + r + '</label>').join("");
 }
-function toggleAllRoleFilters(s) { roles.forEach(r => { activeRoleFilters[r] = s; }); renderRoleFilterCheckboxes(); renderEmployees(); }
 
-function renderLineCheckboxes() {}
-function updateRoleDropdown() {}
 function renderSettingsLists() {}
 
 function applyIncomingDocData(d) {
@@ -359,16 +354,8 @@ window.addEventListener("DOMContentLoaded", function() {
   const savedName = sessionStorage.getItem("planner_name"), savedLvl = Number(sessionStorage.getItem("planner_level") || 0);
   if (savedName && savedLvl >= 2) applyPlannerLoginState(savedName, savedLvl, null);
   
-  // Sofortiger Start des Boards mit Standarddaten, falls Cloud-Antwort kurz braucht
   initBoard();
-
-  // Automatischer Fallback-Load nach 600ms, falls Firebase-Daten noch nicht da waren
-  setTimeout(() => {
-    if (!hasLoadedFromCloud) {
-      hasLoadedFromCloud = true;
-      initBoard();
-    }
-  }, 600);
+  setTimeout(() => { if (!hasLoadedFromCloud) { hasLoadedFromCloud = true; initBoard(); } }, 600);
 });
 
 function applyPlannerLoginState(name, lvl, empId) {
@@ -378,13 +365,6 @@ function applyPlannerLoginState(name, lvl, empId) {
   const badge = document.getElementById("plannerStatusBadge");
   if (badge) badge.textContent = "👤 " + name + " (Stufe " + lvl + ")";
   checkBoardLockState();
-}
-
-function logoutPlanner() {
-  isPlanner = false; plannerLevel = 0; currentPlannerName = "";
-  ["planner_name","planner_level","planner_emp_id","planner_last_active"].forEach(k => sessionStorage.removeItem(k));
-  document.body.classList.remove("planner-active");
-  initBoard();
 }
 
 window.handleLogoClick = function() {
