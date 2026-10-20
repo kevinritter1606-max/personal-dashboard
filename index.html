@@ -93,12 +93,14 @@
     .line-header { background: #f8fafc; padding: 10px 4px; text-align: center; position: relative; }
     body.planner-active .line-header { cursor: pointer; }
     body.planner-active .line-header:hover { background: #f1f5f9; }
+    .line-header.ausgeplant { background: #f1f5f9; opacity: 0.75; }
     .line-title { font-size: 0.85rem; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .badge-container { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; margin-top: 2px; }
     .line-prio { font-size: 0.6rem; padding: 1px 3px; border-radius: 3px; background: #e2e8f0; font-weight: 700; color: #334155; }
     .line-prio.prio-high { background: #fee2e2; color: #b91c1c; }
     .line-prio.prio-mid { background: #fef3c7; color: #b45309; }
     .line-status-tag { font-size: 0.6rem; padding: 1px 3px; border-radius: 3px; background: #fecdd3; color: #9f1239; font-weight: 700; }
+    .line-ausgeplant-tag { font-size: 0.6rem; padding: 1px 4px; border-radius: 3px; background: #475569; color: #fff; font-weight: 700; }
     .line-notes { font-size: 0.65rem; color: #475569; margin-top: 3px; background: #fff; padding: 3px; border-radius: 3px; border: 1px dashed #cbd5e1; white-space: pre-wrap; word-break: break-word; }
     
     .shift-header { background: #f1f5f9; font-weight: 700; font-size: 0.85rem; width: 110px; text-align: center; padding: 12px 2px; color: #334155; vertical-align: middle; }
@@ -114,7 +116,7 @@
     .shift-clear-btn:hover { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
     .drop-zone { padding: 5px; min-height: 120px; display: flex; flex-direction: column; gap: 5px; background: #fafafa; }
 
-    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #f4f6f9; display: none; align-items: center; justify-content: center; z-index: 100; padding: 12px; }
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.45); display: none; align-items: center; justify-content: center; z-index: 100; padding: 12px; }
     .modal { background: #fff; padding: 24px; border-radius: 10px; width: 100%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.18); max-height: 90vh; overflow-y: auto; }
     .form-group { margin-bottom: 12px; position: relative; }
     .form-group label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 4px; color: #475569; }
@@ -160,7 +162,7 @@
 <body>
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
-  <div class="version-footer-badge">Version 4.9.36</div>
+  <div class="version-footer-badge">Version 4.9.41</div>
 
   <div id="boardLockModal" class="modal-overlay" style="background: #f4f6f9; z-index: 180;">
     <div class="modal" style="max-width: 380px; text-align: center; padding: 0; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
@@ -278,7 +280,7 @@
         <div id="loginModalError" style="display:none; background:#fee2e2; color:#b91c1c; padding:10px; border-radius:6px; font-size:0.82rem; font-weight:700; margin-bottom:12px; text-align:center;"></div>
         <div class="form-group" id="plannerLoginSearchGroup">
           <label>Dein Name (oder "Admin")</label>
-          <input type="text" id="loginPlannerName" class="form-control" placeholder="Vor- und Nachname tippen..." autocomplete="off" onfocus="onPlannerLoginInput(this.value)" oninput="onPlannerLoginInput(this.value)" onkeydown="if(event.key==='Enter') document.getElementById('pinInput').focus()">
+          <input type="text" id="loginPlannerName" class="form-control" placeholder="Mindestens 3 Buchstaben tippen..." autocomplete="off" onfocus="onPlannerLoginInput(this.value)" oninput="onPlannerLoginInput(this.value)" onkeydown="if(event.key==='Enter') document.getElementById('pinInput').focus()">
           <div id="plannerLoginSuggestions" class="suggestions-box"></div>
         </div>
         <div class="form-group">
@@ -400,6 +402,14 @@
     <div class="modal" style="max-width: 450px;">
       <h3 id="lineEditTitle" style="color: var(--bayer-blue); margin-bottom: 16px;">Linie bearbeiten</h3>
       <input type="hidden" id="editLineId">
+
+      <div class="form-group" style="background:#fef2f2; border:1px solid #fecaca; padding:10px 12px; border-radius:6px; margin-bottom:14px;">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin:0; color:#b91c1c; font-weight:700; font-size:0.88rem;">
+          <input type="checkbox" id="editLineAusgeplant" style="width:17px; height:17px; cursor:pointer;" onchange="saveLineDetails(true)">
+          🚫 Linie ausgeplant
+        </label>
+      </div>
+
       <div class="form-group">
         <label>Priorität</label>
         <select id="editLinePrio" class="form-control" onchange="saveLineDetails(true)">
@@ -430,12 +440,12 @@
       </h3>
       <div class="tabs">
         <button id="tabBtnEmployees" class="tab-btn active" onclick="switchTab('tabEmployees', this)">Mitarbeiter</button>
-        <button class="tab-btn lvl-3-only" onclick="switchTab('tabRoles', this)">Rollen</button>
-        <button class="tab-btn lvl-3-only" onclick="switchTab('tabLines', this)">Linien</button>
+        <button id="tabRolesBtn" class="tab-btn lvl-3-only" onclick="switchTab('tabRoles', this)">Rollen</button>
+        <button id="tabLinesBtn" class="tab-btn lvl-3-only" onclick="switchTab('tabLines', this)">Linien</button>
         <button id="tabBtnTeams" class="tab-btn lvl-3-only" onclick="switchTab('tabTeams', this)">Teams</button>
-        <button class="tab-btn lvl-3-only" onclick="switchTab('tabSecurity', this)">Sicherheit</button>
-        <button class="tab-btn lvl-3-only" onclick="switchTab('tabHistory', this)">Historie</button>
-        <button class="tab-btn lvl-3-only" onclick="switchTab('tabBackups', this)">Backups</button>
+        <button id="tabSecurityBtn" class="tab-btn lvl-3-only" onclick="switchTab('tabSecurity', this)">Sicherheit</button>
+        <button id="tabHistoryBtn" class="tab-btn lvl-3-only" onclick="switchTab('tabHistory', this)">Historie</button>
+        <button id="tabBackupsBtn" class="tab-btn lvl-3-only" onclick="switchTab('tabBackups', this)">Backups</button>
         <button id="tabBtnProfile" class="tab-btn" onclick="switchTab('tabProfile', this)">Mein Profil</button>
       </div>
       
@@ -477,7 +487,7 @@
           </div>
         </div>
         <div style="margin-bottom:8px;"><input type="text" id="settingsEmpSearchInput" class="search-input" placeholder="🔍 Mitarbeiter suchen..." oninput="filterSettingsEmployees(this.value)" style="font-size:0.8rem; padding:6px 10px;"></div>
-        <div id="employeeList" style="max-height: 190px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
+        <div id="employeeList" style="max-height: 220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
       
       <div id="tabRoles" class="tab-content">
@@ -510,7 +520,6 @@
           </div>
 
           <div style="border-top: 1px solid #cbd5e1; padding-top: 10px; margin-top: 10px; display:flex; flex-direction:column; gap:10px;">
-            
             <div style="background:#f8fafc; padding:8px 10px; border-radius:6px; border:1px solid #e2e8f0;">
               <div style="display:flex; align-items:center; gap:8px; margin-bottom: 6px;">
                 <input type="checkbox" id="cfgResetEnabled" onchange="saveShiftModelSettings()">
@@ -542,7 +551,6 @@
                 </select>
               </div>
             </div>
-
           </div>
         </div>
 
@@ -606,10 +614,10 @@
     </div>
   </div>
 
-  <script src="planer.js?v=4.9.36"></script>
+  <script src="planer.js?v=4.9.41"></script>
   <script>
     let activeInboxHistoryCategory = "ALL";
-    function setInboxHistoryCategoryFilter(cat) { activeInboxHistoryCategory = cat || "ALL"; if (typeof renderInboxLists === 'function') renderInboxLists(); }
+    function setInboxHistoryCategoryFilter(cat) { activeInboxHistoryCategory = cat || "ALL"; if (typeof renderInboxLists === "function") renderInboxLists(); }
     function classifyInboxActiveItem(sl) {
       if (!sl) return "EXTRA";
       const cat = (sl.category || "").toLowerCase();
