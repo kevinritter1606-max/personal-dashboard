@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Version 4.9.36 (Komplett korrigiert & komplett)
+   PLANER-BOARD LOGIK (planer.js) - Version 4.9.36 (Strikter Namens-Login)
    ========================================================================== */
 
 try {
@@ -44,6 +44,11 @@ let selectedManualSickEmpId = null, selectedManualExtraEmpId = null, selectedLog
 let isPlanner = false, plannerLevel = 0, currentPlannerName = "", currentPlannerEmpId = null;
 let sortableInstances = [], msgTimers = {}, toastTimer = null;
 let planerLastActivityTime = Date.now();
+
+window.resetPlanerActivity = function() {
+  planerLastActivityTime = Date.now();
+  if (isPlanner) sessionStorage.setItem("planner_last_active", String(planerLastActivityTime));
+};
 
 function showToast(text, isError) {
   const t = document.getElementById("toastBanner"); if (!t) return;
@@ -200,12 +205,6 @@ window.unlockBoardView = function() {
     document.getElementById("boardLockError").style.display = "none"; checkBoardLockState();
   } else showTimedBoxMsg("boardLockError", "❌ Falsches Zugangs-Passwort!", false);
 };
-
-/* Hier war die fehlende Funktion: resetPlanerActivity */
-function resetPlanerActivity() {
-  planerLastActivityTime = Date.now();
-  if (isPlanner) sessionStorage.setItem("planner_last_active", String(planerLastActivityTime));
-}
 
 window.initBoard = function() {
   if (isDraggingCard) return;
@@ -415,7 +414,7 @@ window.createManualBackup = function() { showToast("Backup erstellt!"); };
 window.saveProfilePinChange = function() { showToast("PIN aktualisiert!"); };
 window.filterSettingsEmployees = function(q) { settingsEmpSearchQuery = (q || "").trim().toLowerCase(); renderSettingsLists(); };
 
-/* Hier korrigiert: Namensvorschläge exakt ab 3 Buchstaben (q.length < 3) */
+/* Suche erst ab 3 Buchstaben */
 window.onPlannerLoginInput = function(val) {
   selectedLoginPlannerId = null;
   const box = document.getElementById("plannerLoginSuggestions"), q = (val || "").trim().toLowerCase();
@@ -526,24 +525,34 @@ window.handleLogoClick = function() {
   }
 };
 
+/* STRIKTER LOGIN-CHECK: Erfordert zwingend die vollständige Auswahl oder exakte Übereinstimmung */
 window.verifyPin = function() {
   const nameVal = document.getElementById("loginPlannerName").value.trim().toLowerCase();
   const pinVal = document.getElementById("pinInput").value.trim();
   
+  if ((nameVal === "admin" || nameVal === "planer") && pinVal === "1234") {
+    const pinModal = document.getElementById("pinModal");
+    if (pinModal) pinModal.style.display = "none";
+    sessionStorage.setItem("board_unlocked", "true");
+    applyPlannerLoginState("Admin", 4, null); 
+    initBoard(); 
+    return;
+  }
+  
+  let emp = selectedLoginPlannerId ? employees.find(e => e.id === selectedLoginPlannerId) : employees.find(e => fullName(e).toLowerCase() === nameVal);
+  
+  if (!emp) {
+    showTimedBoxMsg("loginModalError", "❌ Bitte wähle einen vollständigen Namen aus der Vorschlagsliste aus!", false);
+    return;
+  }
+  
+  if ((emp.password || "1234") !== pinVal) {
+    showTimedBoxMsg("loginModalError", "❌ PIN nicht korrekt!", false);
+    return;
+  }
+  
   const pinModal = document.getElementById("pinModal");
   if (pinModal) pinModal.style.display = "none";
-
-  if ((nameVal === "admin" || nameVal === "planer") && pinVal === "1234") {
-    sessionStorage.setItem("board_unlocked", "true");
-    applyPlannerLoginState("Admin", 4, null); initBoard(); return;
-  }
-  let emp = selectedLoginPlannerId ? employees.find(e => e.id === selectedLoginPlannerId) : employees.find(e => fullName(e).toLowerCase() === nameVal);
-  if (!emp && nameVal) { const p = employees.filter(e => fullName(e).toLowerCase().indexOf(nameVal) !== -1); if (p.length === 1) emp = p[0]; }
-  if (!emp || (emp.password || "1234") !== pinVal) { 
-    if (pinModal) pinModal.style.display = "flex"; 
-    showTimedBoxMsg("loginModalError", "❌ Name oder PIN nicht korrekt!", false); 
-    return; 
-  }
   
   applyPlannerLoginState(fullName(emp), Number(emp.accessLevel) || 2, emp.id);
   initBoard();
