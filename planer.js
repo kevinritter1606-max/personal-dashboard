@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Vollversion mit echter Rotation & PIN-Nadel
+   PLANER-BOARD LOGIK (planer.js) - Angepasster Login (ohne Admin-Fallback)
    ========================================================================== */
 
 try {
@@ -399,7 +399,7 @@ function initDragAndDrop() {
         const emp = employees.find(e => e.id === empId);
         if (emp) { 
           emp.zone = newZone; 
-          if (emp.pinnedZone) emp.pinnedZone = newZone; // Aktualisiere gepinnte Zone beim manuellen Verschieben
+          if (emp.pinnedZone) emp.pinnedZone = newZone; 
           saveToFirebase(); 
           renderEmployees(); 
         }
@@ -664,10 +664,11 @@ window.createManualBackup = function() { showToast("Backup erstellt!"); };
 window.saveProfilePinChange = function() { showToast("PIN aktualisiert!"); };
 window.filterSettingsEmployees = function(q) { settingsEmpSearchQuery = (q || "").trim().toLowerCase(); renderSettingsLists(); };
 
+// Planer-Login: Strikte Namensauswahl ab mindestens 2 Zeichen (ohne Admin-Text-Fallback)
 window.onPlannerLoginInput = function(val) {
   selectedLoginPlannerId = null;
   const box = document.getElementById("plannerLoginSuggestions"), q = (val || "").trim().toLowerCase();
-  if (!employees || !employees.length || q.length < 3) { if (box) box.style.display = "none"; return; }
+  if (!employees || !employees.length || q.length < 2) { if (box) box.style.display = "none"; return; }
   const matches = employees.filter(e => fullName(e).toLowerCase().indexOf(q) !== -1);
   if (!matches.length) { if (box) box.style.display = "none"; return; }
   if (box) {
@@ -958,22 +959,11 @@ window.handleLogoClick = function() {
 };
 
 window.verifyPin = function() {
-  const nameVal = document.getElementById("loginPlannerName").value.trim().toLowerCase();
   const pinVal = document.getElementById("pinInput").value.trim();
-  
-  if ((nameVal === "admin" || nameVal === "planer") && pinVal === "1234") {
-    const pinModal = document.getElementById("pinModal");
-    if (pinModal) pinModal.style.display = "none";
-    sessionStorage.setItem("board_unlocked", "true");
-    applyPlannerLoginState("Admin", 4, null); 
-    initBoard(); 
-    return;
-  }
-  
-  let emp = selectedLoginPlannerId ? employees.find(e => e.id === selectedLoginPlannerId) : employees.find(e => fullName(e).toLowerCase() === nameVal);
+  let emp = selectedLoginPlannerId ? employees.find(e => e.id === selectedLoginPlannerId) : null;
   
   if (!emp) {
-    showTimedBoxMsg("loginModalError", "❌ Bitte wähle einen vollständigen Namen aus der Vorschlagsliste aus!", false);
+    showTimedBoxMsg("loginModalError", "❌ Bitte wähle deinen vollständigen Namen aus der Vorschlagsliste aus!", false);
     return;
   }
   
@@ -986,7 +976,7 @@ window.verifyPin = function() {
   if (pinModal) pinModal.style.display = "none";
   
   applyPlannerLoginState(fullName(emp), Number(emp.accessLevel) || 2, emp.id);
-  initBoard();
+    initBoard();
 };
 
 // Echte Schichtrotation (Rotieren-Button in der Schichtspalte)
@@ -1004,7 +994,7 @@ window.loadTeamToShift = function(slotKey) {
   employees.forEach(emp => {
     if (emp.team === teamKey && emp.zone !== "absent" && emp.zone !== "extra" && !emp.noRotation) {
       if (emp.pinnedZone) {
-        emp.zone = emp.pinnedZone; // Memory-Effekt: Nimmt die festgepinnte Linie
+        emp.zone = emp.pinnedZone; 
       } else if (slotKey === "frei") {
         emp.zone = "pool";
       } else {
