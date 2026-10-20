@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Ersthelfer rotes Kreuz & dezente Nadel
+   PLANER-BOARD LOGIK (planer.js) - Fix für Schichtmodell-Checkboxen Speicherung
    ========================================================================== */
 
 try {
@@ -31,8 +31,8 @@ let teamsConfig = {
 let securityConfig = { boardPwEnabled: false, boardPw: "0110", plannerTimeoutMin: 180 };
 let shiftModelConfig = {
   model: "vollkonti_sonntag_frei", autoRotate: true,
-  resetEnabled: true, resetDay: 0, resetHour: 6,
-  loadEnabled: true, loadDay: 0, loadHour: 12,
+  resetEnabled: false, resetDay: 0, resetHour: 6,
+  loadEnabled: false, loadDay: 0, loadHour: 5,
   lastRotationStepKey: "", lastResetRunKey: "", lastLoadRunKey: ""
 };
 
@@ -233,7 +233,7 @@ function closeModal(id) {
 function checkBoardLockState() {
   const modal = document.getElementById("boardLockModal"); if (!modal) return;
   if (securityConfig && securityConfig.boardPwEnabled && !isPlanner) {
-    modal.style.display = sessionStorage.getItem("board_unlocked") === "true" ? "none" : "flex";
+    modal.style.display = sessionStorage.getItem("board_unlocked"] === "true" ? "none" : "flex";
   } else modal.style.display = "none";
 }
 
@@ -297,6 +297,7 @@ window.initBoard = function() {
   applyTeamStyles(); updateTeamDropdowns();
   renderTeamFilterCheckboxes(); renderRoleFilterCheckboxes();
   renderEmployees(); initDragAndDrop(); renderSettingsLists(); updateInboxBadge(); checkBoardLockState();
+  syncShiftModelSettingsUI();
 };
 
 window.openLineEditModal = function(lineId) {
@@ -348,13 +349,9 @@ function renderEmployees() {
     card.setAttribute("data-id", emp.id); 
     card.style.borderLeft = "5px solid " + (teamObj.color || "#0091df");
 
-    // Ersthelfer rotes Plus oben rechts
     const ersthelferHtml = emp.ersthelfer ? '<span class="ersthelfer-plus" title="Ersthelfer">+</span>' : '';
-    
-    // Anker Fix-Tag
     let fixTagHtml = emp.noRotation ? ' <span class="card-fix-tag">⚓ Fix</span>' : '';
 
-    // Dezentes Nadel-Badge mit Liniennummer im Pool
     let pinInfoHtml = '';
     if (emp.pinnedZone) {
       const lineIdPure = extractLineIdFromZone(emp.pinnedZone);
@@ -541,7 +538,59 @@ function renderSettingsLists() {
         '</div></div>';
     }).join("");
   }
+
+  syncShiftModelSettingsUI();
 }
+
+window.syncShiftModelSettingsUI = function() {
+  const autoChk = document.getElementById("cfgAutoRotate");
+  if (autoChk) autoChk.checked = shiftModelConfig.autoRotate !== false;
+
+  const resetChk = document.getElementById("cfgResetEnabled");
+  if (resetChk) resetChk.checked = !!shiftModelConfig.resetEnabled;
+  const resetDay = document.getElementById("cfgResetDay");
+  if (resetDay) resetDay.value = shiftModelConfig.resetDay ?? 0;
+  const resetHour = document.getElementById("cfgResetHour");
+  if (resetHour) resetHour.value = shiftModelConfig.resetHour ?? 6;
+
+  const loadChk = document.getElementById("cfgLoadEnabled");
+  if (loadChk) loadChk.checked = !!shiftModelConfig.loadEnabled;
+  const loadDay = document.getElementById("cfgLoadDay");
+  if (loadDay) loadDay.value = shiftModelConfig.loadDay ?? 0;
+  const loadHour = document.getElementById("cfgLoadHour");
+  if (loadHour) loadHour.value = shiftModelConfig.loadHour ?? 5;
+};
+
+window.saveShiftModelSettings = function() {
+  const autoChk = document.getElementById("cfgAutoRotate");
+  if (autoChk) shiftModelConfig.autoRotate = autoChk.checked;
+
+  const resetChk = document.getElementById("cfgResetEnabled");
+  if (resetChk) shiftModelConfig.resetEnabled = resetChk.checked;
+  const resetDay = document.getElementById("cfgResetDay");
+  if (resetDay) shiftModelConfig.resetDay = parseInt(resetDay.value) || 0;
+  const resetHour = document.getElementById("cfgResetHour");
+  if (resetHour) shiftModelConfig.resetHour = parseInt(resetHour.value) || 6;
+
+  const loadChk = document.getElementById("cfgLoadEnabled");
+  if (loadChk) shiftModelConfig.loadEnabled = loadChk.checked;
+  const loadDay = document.getElementById("cfgLoadDay");
+  if (loadDay) shiftModelConfig.loadDay = parseInt(loadDay.value) || 0;
+  const loadHour = document.getElementById("cfgLoadHour");
+  if (loadHour) shiftModelConfig.loadHour = parseInt(loadHour.value) || 5;
+
+  saveToFirebase();
+  updateAutoRotationUI();
+  showToast("Schichtmodell-Einstellungen gespeichert!");
+};
+
+window.toggleTeamRotationSetting = function(key, val) {
+  if (teamsConfig[key]) {
+    teamsConfig[key].rotates = val;
+    saveToFirebase();
+    showToast("Team-Rotation aktualisiert");
+  }
+};
 
 window.resetEmployeePin = function(id) {
   const emp = employees.find(e => e.id === id);
@@ -912,7 +961,9 @@ function applyIncomingDocData(d) {
       Object.keys(teamsConfig).forEach(k => { if (typeof activeTeamFilters[k] === "undefined") activeTeamFilters[k] = true; });
     }
     if (d.securityConfig && typeof d.securityConfig === "object") securityConfig = Object.assign(securityConfig, d.securityConfig);
-    if (d.shiftModelConfig && typeof d.shiftModelConfig === "object") shiftModelConfig = Object.assign(shiftModelConfig, d.shiftModelConfig);
+    if (d.shiftModelConfig && typeof d.shiftModelConfig === "object") {
+      shiftModelConfig = Object.assign(shiftModelConfig, d.shiftModelConfig);
+    }
     if (typeof d.approvedShiftKey === "string") approvedShiftKey = d.approvedShiftKey;
     if (Array.isArray(d.employees)) employees = d.employees;
 
