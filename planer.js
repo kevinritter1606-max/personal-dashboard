@@ -236,7 +236,6 @@ function syncExtraZones() {
   return changed;
 }
 
-// HIER WAR DER FEHLER: Die fehlende Funktion syncAbsentZones ist nun vollständig da
 function syncAbsentZones() {
   if (!hasLoadedFromCloud) return false;
   const now = new Date(), calToday = getTodayIso(now), logToday = getLogicalDateIso(now);
