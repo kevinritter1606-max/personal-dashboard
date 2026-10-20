@@ -70,11 +70,6 @@
     .card-role { font-size: 0.68rem; padding: 2px 5px; background: #f1f5f9; border-radius: 4px; color: #475569; font-weight: 600; }
     .card-fix-tag { display: none; font-size: 0.62rem; padding: 1px 5px; background: #fef08a; color: #854d0e; border-radius: 4px; font-weight: 700; }
     body.planner-active .card-fix-tag { display: inline-block; }
-    .card-lines-info { display: none; font-size: 0.65rem; color: #64748b; margin-top: 1px; line-height: 1.25; overflow-wrap: break-word; }
-    body.planner-active .card-lines-info { display: block; }
-    .card-sick-tag { display: none; font-size: 0.62rem; color: #b91c1c; background: #fee2e2; padding: 1px 5px; border-radius: 4px; font-weight: 700; margin-top: 1px; align-self: flex-start; }
-    body.planner-active .card-sick-tag { display: inline-block; }
-    .card-extra-tag { font-size: 0.62rem; color: #166534; background: #dcfce7; padding: 1px 5px; border-radius: 4px; font-weight: 700; margin-top: 1px; align-self: flex-start; }
 
     .board-container { flex: 1; background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .board-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 1120px; }
@@ -111,7 +106,9 @@
     .shift-controls { display: none; flex-direction: column; gap: 5px; margin-top: 6px; }
     body.planner-active .shift-controls { display: flex; }
     .shift-rotate-btn { width: 100%; font-size: 0.72rem; font-weight: 700; padding: 5px 4px; border-radius: 4px; border: none; background: var(--bayer-blue); color: #fff; cursor: pointer; }
+    .shift-load-row { display: flex; gap: 4px; align-items: center; }
     .shift-team-select { width: 100%; font-size: 0.72rem; font-weight: 700; padding: 4px 2px; border-radius: 4px; border: 1px solid var(--bayer-blue); background: #fff; color: #0f172a; cursor: pointer; }
+    .shift-load-btn { padding: 4px 6px; font-size: 0.72rem; font-weight: 700; border-radius: 4px; border: 1px solid var(--bayer-blue); background: var(--bayer-blue); color: #fff; cursor: pointer; }
     .shift-clear-btn { width: 100%; font-size: 0.68rem; font-weight: 600; padding: 4px; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff; color: #64748b; cursor: pointer; }
     .shift-clear-btn:hover { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
     .drop-zone { padding: 5px; min-height: 120px; display: flex; flex-direction: column; gap: 5px; background: #fafafa; }
@@ -132,9 +129,6 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     .item-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.88rem; gap: 8px; }
-    .sick-card { background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid var(--bayer-blue); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
-    .sick-card.unread { background: #fff1f2; border-color: #fecdd3; border-left: 4px solid #dc2626; }
-    .sick-card.extra-card { background: #f0fdf4; border-color: #bbf7d0; border-left: 4px solid #16a34a; }
     .manual-entry-toggle { width: 100%; text-align: left; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; font-size: 0.86rem; font-weight: 700; color: #0f172a; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
     .manual-entry-toggle:hover { background: #f1f5f9; }
     .settings-card { background: #f8fafc; padding: 14px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #e2e8f0; }
