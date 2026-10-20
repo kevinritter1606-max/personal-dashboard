@@ -160,7 +160,7 @@
 <body>
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
-  <div class="version-footer-badge">Version 4.9.37 (Original Safeguard)</div>
+  <div class="version-footer-badge">Version 4.9.38 (Logo Fix)</div>
 
   <div id="boardLockModal" class="modal-overlay" style="background: #f4f6f9; z-index: 180;">
     <div class="modal" style="max-width: 380px; text-align: center; padding: 0; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
@@ -606,7 +606,7 @@
     </div>
   </main>
 
-  <script src="planer.js?v=4.9.37"></script>
+  <script src="planer.js?v=4.9.38"></script>
   <script>
     let activeInboxHistoryCategory = "ALL";
     function setInboxHistoryCategoryFilter(cat) { activeInboxHistoryCategory = cat || "ALL"; renderInboxLists(); }
@@ -616,6 +616,14 @@
       if (cat.indexOf("krank") !== -1 || cat.indexOf("abwesen") !== -1 || cat.indexOf("arbeitsunfähig") !== -1) return "KRANK";
       return "EXTRA";
     }
+
+    // Logo-Klick-Sicherheits-Binding, falls das Logo-Event in planers.js greifen muss
+    document.addEventListener("DOMContentLoaded", function() {
+      const logoBtn = document.querySelector(".bayer-logo-btn");
+      if (logoBtn && typeof handleLogoClick === "function") {
+        logoBtn.onclick = handleLogoClick;
+      }
+    });
 
     // Sicherheits-Timer: Entriegelt die Ansicht nach 1 Sekunde automatisch, falls das Skript stockt
     setTimeout(() => {
