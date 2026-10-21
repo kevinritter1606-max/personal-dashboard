@@ -16,83 +16,93 @@
     .brand-gradient.pending { background: linear-gradient(90deg, #0091df 0%, #ef4444 45%, #dc2626 100%); }
     .brand-gradient.approved { background: linear-gradient(90deg, #0091df 0%, #00bcff 50%, #89d329 100%); }
 
-    .version-footer-badge { position: fixed; bottom: 3px; right: 8px; font-size: 0.64rem; color: #94a3b8; font-weight: 600; pointer-events: none; z-index: 10; }
-
-    header { background: #fff; padding: 6px 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06); z-index: 50; gap: 10px; flex-wrap: wrap; flex-shrink: 0; border-bottom: 1px solid #e2e8f0; }
-    .header-left { display: flex; align-items: center; gap: 12px; }
-    .bayer-logo-btn { width: 42px; height: 42px; cursor: pointer; transition: transform 0.2s; flex-shrink: 0; }
+    header { background: #fff; padding: 6px 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06); z-index: 50; gap: 8px; flex-wrap: wrap; flex-shrink: 0; border-bottom: 1px solid #e2e8f0; }
+    .header-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .bayer-logo-btn { width: 40px; height: 40px; cursor: pointer; transition: transform 0.2s; flex-shrink: 0; }
     .bayer-logo-btn:hover { transform: scale(1.05); }
     .bayer-logo-btn img { width: 100%; height: 100%; object-fit: contain; }
-    .header-title { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    .header-title-text h1 { font-size: 1.12rem; font-weight: 700; color: var(--bayer-blue); margin: 0; line-height: 1.15; }
-    .header-meta { font-size: 0.72rem; color: #64748b; font-weight: 600; }
-    .header-badges-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .header-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .header-title-text h1 { font-size: 1.08rem; font-weight: 700; color: var(--bayer-blue); margin: 0; line-height: 1.15; }
+    .header-meta { font-size: 0.7rem; color: #64748b; font-weight: 600; }
+    .header-badges-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
     
-    .status-badge { display: none; font-size: 0.7rem; padding: 3px 9px; border-radius: 999px; font-weight: 700; background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .status-badge { display: none; font-size: 0.69rem; padding: 3px 8px; border-radius: 999px; font-weight: 700; background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
     body.planner-active .status-badge { display: inline-block; }
 
     @keyframes slowSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    .auto-rotation-badge { display: none; align-items: center; gap: 4px; font-size: 0.7rem; padding: 3px 9px; border-radius: 999px; font-weight: 700; cursor: pointer; border: 1px solid #cbd5e1; background: #f8fafc; color: #64748b; transition: 0.15s; }
+    .auto-rotation-badge { display: none; align-items: center; gap: 4px; font-size: 0.69rem; padding: 3px 8px; border-radius: 999px; font-weight: 700; cursor: pointer; border: 1px solid #cbd5e1; background: #f8fafc; color: #64748b; transition: 0.15s; user-select: none; }
     .auto-rotation-badge:hover { background: #e2e8f0; }
     .auto-rotation-badge.active { border-color: #bae6fd; background: #f0f9ff; color: #0369a1; }
     .auto-rotation-badge.active .rot-icon { display: inline-block; animation: slowSpin 8s linear infinite; }
     body.planner-active .auto-rotation-badge { display: inline-flex; }
 
-    .header-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-    .btn { padding: 5px 11px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; position: relative; transition: 0.15s; color: #1e293b; }
+    .smart-assign-badge { display: none; align-items: center; gap: 4px; font-size: 0.69rem; padding: 3px 8px; border-radius: 999px; font-weight: 700; cursor: pointer; border: 1px solid #cbd5e1; background: #f8fafc; color: #64748b; transition: 0.15s; user-select: none; }
+    .smart-assign-badge:hover { background: #e2e8f0; }
+    .smart-assign-badge.active { border-color: #ddd6fe; background: #f5f3ff; color: #6d28d9; }
+    body.planner-active .smart-assign-badge { display: inline-flex; }
+
+    .undo-assign-btn { display: none; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 700; padding: 4px 9px; border-radius: 6px; cursor: pointer; border: 1px solid #fed7aa; background: #fff7ed; color: #c2410c; transition: 0.15s; }
+    .undo-assign-btn:hover { background: #ffedd5; }
+    body.planner-active .undo-assign-btn.has-undo { display: inline-flex; }
+
+    .header-actions { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+    .btn { padding: 5px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; position: relative; transition: 0.15s; color: #1e293b; }
     .btn-primary { background: var(--bayer-blue); color: #fff; }
     .btn-primary:hover { background: #0077b6; }
     .btn-outline { border-color: #cbd5e1; background: #fff; color: #475569; }
     .btn-outline:hover { background: #f8fafc; border-color: #94a3b8; }
 
-    .planner-approval-indicator { display: none; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 700; padding: 5px 11px; border-radius: 6px; cursor: pointer; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; transition: 0.2s; }
+    .planner-approval-indicator { display: none; align-items: center; gap: 5px; font-size: 0.74rem; font-weight: 700; padding: 5px 10px; border-radius: 6px; cursor: pointer; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; transition: 0.2s; }
     body.planner-active .planner-approval-indicator { display: inline-flex; }
 
-    .inbox-badge { position: absolute; top: -5px; right: -5px; background: #dc2626; color: #fff; font-size: 0.65rem; font-weight: 800; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px; display: none; align-items: center; justify-content: center; }
+    .inbox-badge { position: absolute; top: -5px; right: -5px; background: #dc2626; color: #fff; font-size: 0.64rem; font-weight: 800; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; display: none; align-items: center; justify-content: center; }
 
     /* Hauptlayout: Komplett auf einem Bildschirm ohne Seiten-Scrollbalken */
-    main { padding: 8px 10px; display: flex; gap: 10px; flex: 1; min-height: 0; width: 100%; align-items: stretch; overflow: hidden; }
-    .sidebar { width: 256px; flex-shrink: 0; display: none; flex-direction: column; gap: 6px; height: 100%; min-height: 0; overflow: hidden; }
+    main { padding: 6px 10px; display: flex; gap: 10px; flex: 1; min-height: 0; width: 100%; align-items: stretch; overflow: hidden; }
+    .sidebar { width: 252px; flex-shrink: 0; display: none; flex-direction: column; gap: 6px; height: 100%; min-height: 0; overflow: hidden; }
     body.planner-active .sidebar { display: flex; }
     
     .panel { background: #fff; border-radius: 8px; padding: 6px 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; display: flex; flex-direction: column; flex: 1; min-height: 0; }
-    .panel-pool { flex: 1.65; }
-    .panel h2 { font-size: 0.78rem; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; color: #1e293b; flex-shrink: 0; }
+    .panel-pool { flex: 1.7; }
+    .panel h2 { font-size: 0.76rem; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; color: #1e293b; flex-shrink: 0; }
     
-    .card-list { flex: 1; overflow-y: auto; min-height: 36px; padding: 4px; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1; display: flex; flex-direction: column; gap: 4px; cursor: default; }
-    .team-filter-box { display: none; background: #fff; padding: 6px 8px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 0.72rem; flex-shrink: 0; }
+    .card-list { flex: 1; overflow-y: auto; min-height: 34px; padding: 4px; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1; display: flex; flex-direction: column; gap: 3px; cursor: default; }
+    .team-filter-box { display: none; background: #fff; padding: 6px 8px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 0.71rem; flex-shrink: 0; }
     body.planner-active .team-filter-box { display: block; }
     .team-filter-options { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 2px; }
     .filter-quick-links span { cursor: pointer; color: var(--bayer-blue); font-weight: 600; }
     .filter-quick-links span:hover { text-decoration: underline; }
-    .search-wrapper { position: relative; margin-bottom: 5px; }
-    .search-input { width: 100%; padding: 4px 22px 4px 8px; border: 1px solid #cbd5e1; border-radius: 5px; font-size: 0.75rem; background: #f8fafc; color: #0f172a; }
+    .search-wrapper { position: relative; margin-bottom: 4px; }
+    .search-input { width: 100%; padding: 4px 22px 4px 8px; border: 1px solid #cbd5e1; border-radius: 5px; font-size: 0.74rem; background: #f8fafc; color: #0f172a; }
     .search-clear { display: none; position: absolute; right: 6px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; font-weight: bold; font-size: 0.95rem; }
 
-    /* Mitarbeiterkarten: Clean, kompakt, Namen niemals zerrissen */
-    .employee-card { background: #fff; padding: 4px 6px; border-radius: 5px; border: 1px solid #e2e8f0; border-left: 4px solid #0091df; box-shadow: 0 1px 2px rgba(15,23,42,0.04); display: flex; flex-direction: column; user-select: none; gap: 2px; position: relative; backface-visibility: hidden; cursor: default; flex-shrink: 0; transition: box-shadow 0.12s, border-color 0.12s; }
+    /* Mitarbeiterkarten: Kompaktes One-Screen-Design, Namen niemals mitten im Wort getrennt */
+    .employee-card { background: #fff; padding: 3px 6px; border-radius: 5px; border: 1px solid #e2e8f0; border-left: 4px solid #0091df; box-shadow: 0 1px 2px rgba(15,23,42,0.04); display: flex; flex-direction: column; user-select: none; gap: 1px; position: relative; backface-visibility: hidden; cursor: default; flex-shrink: 0; transition: box-shadow 0.12s, border-color 0.12s; }
     body.planner-active .employee-card { cursor: grab; }
     body.planner-active .employee-card:hover { border-color: #cbd5e1; box-shadow: 0 2px 4px rgba(15,23,42,0.08); }
     body.planner-active .employee-card:active { cursor: grabbing; }
     
-    .card-name { font-size: 0.74rem; font-weight: 700; color: #0f172a; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 13px; }
-    .card-bottom-row { display: flex; justify-content: space-between; align-items: center; gap: 3px; flex-wrap: nowrap; min-height: 16px; }
+    .card-name { font-size: 0.73rem; font-weight: 700; color: #0f172a; line-height: 1.18; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 14px; }
+    .card-bottom-row { display: flex; justify-content: space-between; align-items: center; gap: 3px; flex-wrap: nowrap; min-height: 15px; }
     .card-badges-left { display: flex; gap: 3px; align-items: center; flex-wrap: nowrap; min-width: 0; }
-    .card-role { font-size: 0.61rem; padding: 1px 4px; background: #f1f5f9; border-radius: 3px; color: #475569; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .card-fix-tag { display: none; font-size: 0.58rem; padding: 1px 4px; background: #fef08a; color: #854d0e; border-radius: 3px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+    .card-role { font-size: 0.6rem; padding: 0px 4px; background: #f1f5f9; border-radius: 3px; color: #475569; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-fix-tag { display: none; font-size: 0.56rem; padding: 0px 3px; background: #fef08a; color: #854d0e; border-radius: 3px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
     body.planner-active .card-fix-tag { display: inline-block; }
 
-    /* Rotes Ersthelfer-Kreuz (+) rechts oben auf allen Karten */
-    .ersthelfer-plus { position: absolute; top: 3px; right: 5px; color: #dc2626; font-weight: 900; font-size: 0.84rem; line-height: 1; pointer-events: none; }
+    .card-qual-warn { display: none; font-size: 0.58rem; color: #d97706; font-weight: 800; cursor: help; flex-shrink: 0; }
+    body.planner-active .card-qual-warn { display: inline-block; }
 
-    /* Dezente PIN-Nadel & Prio-Anzeige: Nur im Planer-Modus sichtbar, auf der Übersicht ausgeblendet */
+    /* Rotes Ersthelfer-Kreuz (+) rechts oben auf allen Karten */
+    .ersthelfer-plus { position: absolute; top: 2px; right: 5px; color: #dc2626; font-weight: 900; font-size: 0.82rem; line-height: 1; pointer-events: none; }
+
+    /* Dezente PIN-Nadel & Touch-optimiertes ✕ für Smartphone und PC */
     .card-pin-info { display: none; }
-    body.planner-active .card-pin-info { display: inline-flex; align-items: center; gap: 2px; font-size: 0.61rem; font-weight: 700; color: #0369a1; background: #f0f9ff; border: 1px solid #bae6fd; padding: 0 4px; border-radius: 3px; white-space: nowrap; flex-shrink: 0; }
-    .pin-remove-x { color: #dc2626; cursor: pointer; font-weight: 900; margin-left: 2px; padding: 0 1px; font-size: 0.64rem; line-height: 1; }
-    .pin-remove-x:hover { color: #991b1b; transform: scale(1.15); }
+    body.planner-active .card-pin-info { display: inline-flex; align-items: center; gap: 2px; font-size: 0.6rem; font-weight: 700; color: #0369a1; background: #f0f9ff; border: 1px solid #bae6fd; padding: 0 4px; border-radius: 3px; white-space: nowrap; flex-shrink: 0; position: relative; z-index: 5; }
+    .pin-remove-x { color: #dc2626; cursor: pointer; font-weight: 900; margin-left: 2px; padding: 2px 5px; margin-right: -3px; border-radius: 3px; font-size: 0.68rem; line-height: 1; touch-action: manipulation; pointer-events: auto; user-select: none; }
+    .pin-remove-x:hover, .pin-remove-x:active { background: #fee2e2; color: #991b1b; }
     
     .card-prio-hint { display: none; }
-    body.planner-active .sidebar .card-prio-hint { display: inline-block; font-size: 0.6rem; color: #64748b; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+    body.planner-active .sidebar .card-prio-hint { display: inline-block; font-size: 0.58rem; color: #64748b; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
 
     /* Schicht-Matrix (Board) */
     .board-container { flex: 1; min-width: 0; height: 100%; min-height: 0; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow-x: auto; overflow-y: hidden; }
@@ -101,67 +111,119 @@
 
     .board-table th, .board-table td { border: 1px solid #e2e8f0; vertical-align: top; }
     .board-table tbody tr { height: 33.33%; }
-    .board-table tbody td { height: 33.33%; padding: 0; }
+    .board-table tbody td { height: 33.33%; padding: 0; position: relative; }
     
-    .line-header { background: #f8fafc; padding: 5px 3px; text-align: center; position: relative; }
+    .line-header { background: #f8fafc; padding: 4px 3px; text-align: center; position: relative; }
     body.planner-active .line-header { cursor: pointer; }
     body.planner-active .line-header:hover { background: #f1f5f9; }
-    .line-header.ausgeplant { background: #f1f5f9; opacity: 0.75; }
-    .line-title { font-size: 0.78rem; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .line-header.ausgeplant { background: #f1f5f9; opacity: 0.72; }
+    .line-title-row { display: flex; align-items: center; justify-content: center; gap: 3px; flex-wrap: nowrap; }
+    .line-title { font-size: 0.76rem; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .line-floor-badge { font-size: 0.55rem; padding: 1px 4px; border-radius: 3px; background: #e0f2fe; color: #0369a1; font-weight: 700; white-space: nowrap; flex-shrink: 0; border: 1px solid #bae6fd; }
+    .line-floor-badge.floor-2 { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+    .line-floor-badge.floor-3 { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+    .line-floor-badge.floor-eg { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+
     .badge-container { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; margin-top: 2px; }
-    .line-prio { font-size: 0.56rem; padding: 1px 3px; border-radius: 3px; background: #e2e8f0; font-weight: 700; color: #334155; }
+    .line-prio { font-size: 0.55rem; padding: 1px 3px; border-radius: 3px; background: #e2e8f0; font-weight: 700; color: #334155; }
     .line-prio.prio-high { background: #fee2e2; color: #b91c1c; }
     .line-prio.prio-mid { background: #fef3c7; color: #b45309; }
-    .line-status-tag { font-size: 0.56rem; padding: 1px 3px; border-radius: 3px; background: #fecdd3; color: #9f1239; font-weight: 700; }
-    .line-ausgeplant-tag { font-size: 0.56rem; padding: 1px 3px; border-radius: 3px; background: #475569; color: #fff; font-weight: 700; }
-    .line-notes { font-size: 0.6rem; color: #475569; margin-top: 2px; background: #fff; padding: 1px 3px; border-radius: 3px; border: 1px dashed #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .line-status-tag { font-size: 0.55rem; padding: 1px 3px; border-radius: 3px; background: #fecdd3; color: #9f1239; font-weight: 700; }
+    .line-ausgeplant-tag { font-size: 0.55rem; padding: 1px 3px; border-radius: 3px; background: #475569; color: #fff; font-weight: 700; }
+    .line-role-summary-tag { display: none; font-size: 0.54rem; color: #64748b; font-weight: 600; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    body.planner-active .line-role-summary-tag { display: block; }
+    .line-notes { font-size: 0.58rem; color: #475569; margin-top: 2px; background: #fff; padding: 1px 3px; border-radius: 3px; border: 1px dashed #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     
-    .shift-header { background: #f1f5f9; font-weight: 700; font-size: 0.78rem; width: 92px; text-align: center; padding: 6px 3px; color: #334155; vertical-align: middle; }
-    body.planner-active .shift-header { width: 112px; padding: 5px 4px; }
+    .shift-header { background: #f1f5f9; font-weight: 700; font-size: 0.76rem; width: 92px; text-align: center; padding: 4px 3px; color: #334155; vertical-align: middle; }
+    body.planner-active .shift-header { width: 118px; padding: 4px; }
 
-    .shift-team-badge { display: inline-flex; align-items: center; justify-content: center; gap: 3px; margin-top: 4px; padding: 2px 5px; border-radius: 4px; background: #fff; border: 1px solid #cbd5e1; font-size: 0.68rem; font-weight: 700; color: #1e293b; }
+    .shift-team-badge { display: inline-flex; align-items: center; justify-content: center; gap: 3px; margin-top: 3px; padding: 2px 5px; border-radius: 4px; background: #fff; border: 1px solid #cbd5e1; font-size: 0.66rem; font-weight: 700; color: #1e293b; }
     body.planner-active .shift-team-badge { display: none; }
-    .shift-controls { display: none; flex-direction: column; gap: 3px; margin-top: 4px; }
+    
+    .shift-kpi-row { display: none; justify-content: center; gap: 3px; flex-wrap: wrap; margin-top: 2px; }
+    body.planner-active .shift-kpi-row { display: flex; }
+    .shift-kpi-pill { font-size: 0.56rem; font-weight: 700; padding: 1px 4px; border-radius: 3px; background: #e2e8f0; color: #334155; white-space: nowrap; }
+    .shift-kpi-pill.ok { background: #dcfce7; color: #166534; }
+    .shift-kpi-pill.warn { background: #fee2e2; color: #b91c1c; }
+
+    .shift-controls { display: none; flex-direction: column; gap: 3px; margin-top: 3px; }
     body.planner-active .shift-controls { display: flex; }
-    .shift-rotate-btn { width: 100%; font-size: 0.66rem; font-weight: 700; padding: 3px 2px; border-radius: 4px; border: none; background: var(--bayer-blue); color: #fff; cursor: pointer; }
+    .shift-rotate-btn { width: 100%; font-size: 0.64rem; font-weight: 700; padding: 3px 2px; border-radius: 4px; border: none; background: var(--bayer-blue); color: #fff; cursor: pointer; }
     .shift-rotate-btn:hover { background: #0077b6; }
-    .shift-load-row { display: flex; gap: 3px; align-items: center; }
-    .shift-team-select { width: 100%; font-size: 0.66rem; font-weight: 700; padding: 2px 1px; border-radius: 4px; border: 1px solid var(--bayer-blue); background: #fff; color: #0f172a; cursor: pointer; }
-    .shift-load-btn { padding: 2px 5px; font-size: 0.66rem; font-weight: 700; border-radius: 4px; border: 1px solid var(--bayer-blue); background: var(--bayer-blue); color: #fff; cursor: pointer; }
-    .shift-clear-btn { width: 100%; font-size: 0.62rem; font-weight: 600; padding: 2px; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff; color: #64748b; cursor: pointer; }
+    .shift-auto-btn { width: 100%; font-size: 0.63rem; font-weight: 700; padding: 3px 2px; border-radius: 4px; border: 1px solid #c4b5fd; background: #f5f3ff; color: #5b21b6; cursor: pointer; }
+    .shift-auto-btn:hover { background: #ede9fe; }
+    .shift-undo-mini-btn { display: none; width: 100%; font-size: 0.61rem; font-weight: 700; padding: 2px; border-radius: 4px; border: 1px solid #fed7aa; background: #fff7ed; color: #c2410c; cursor: pointer; }
+    body.planner-active .shift-undo-mini-btn.has-undo { display: block; }
+    .shift-load-row { display: flex; gap: 2px; align-items: center; }
+    .shift-team-select { width: 100%; font-size: 0.64rem; font-weight: 700; padding: 2px 1px; border-radius: 4px; border: 1px solid var(--bayer-blue); background: #fff; color: #0f172a; cursor: pointer; min-width: 0; }
+    .shift-load-btn { padding: 2px 4px; font-size: 0.64rem; font-weight: 700; border-radius: 4px; border: 1px solid var(--bayer-blue); background: var(--bayer-blue); color: #fff; cursor: pointer; flex-shrink: 0; }
+    .shift-magic-btn { padding: 2px 4px; font-size: 0.64rem; font-weight: 700; border-radius: 4px; border: 1px solid #8b5cf6; background: #8b5cf6; color: #fff; cursor: pointer; flex-shrink: 0; }
+    .shift-magic-btn:hover { background: #7c3aed; }
+    .shift-clear-btn { width: 100%; font-size: 0.6rem; font-weight: 600; padding: 2px; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff; color: #64748b; cursor: pointer; }
     .shift-clear-btn:hover { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
-    .drop-zone { padding: 4px; height: 100%; width: 100%; display: flex; flex-direction: column; gap: 3px; background: #fafafa; overflow-y: auto; border: none; border-radius: 0; }
+
+    /* Visuelle Personalbedarf-Leiste (Ist / Soll & Rollen-Check) in jeder Zelle (nur Planer) */
+    .cell-wrapper { display: flex; flex-direction: column; height: 100%; width: 100%; }
+    .zone-staff-bar { display: none; justify-content: space-between; align-items: center; padding: 1px 4px; font-size: 0.56rem; font-weight: 700; border-bottom: 1px solid #e2e8f0; background: #f8fafc; color: #475569; gap: 2px; flex-shrink: 0; white-space: nowrap; overflow: hidden; }
+    body.planner-active .zone-staff-bar { display: flex; }
+    .zone-staff-bar.status-missing { background: #fef2f2; color: #b91c1c; border-bottom-color: #fecaca; }
+    .zone-staff-bar.status-ok { background: #f0fdf4; color: #166534; border-bottom-color: #bbf7d0; }
+    .zone-staff-bar.status-over { background: #eff6ff; color: #1d4ed8; border-bottom-color: #bfdbfe; }
+    .zone-staff-bar.status-off { background: #f1f5f9; color: #64748b; }
+    .zone-missing-roles { overflow: hidden; text-overflow: ellipsis; font-size: 0.54rem; font-weight: 600; }
+
+    .drop-zone { padding: 3px; flex: 1; width: 100%; display: flex; flex-direction: column; gap: 3px; background: #fafafa; overflow-y: auto; border: none; border-radius: 0; min-height: 40px; }
 
     @media (max-width: 768px) {
       body { height: auto; min-height: 100vh; overflow-y: auto; }
       header { padding: 8px 10px; }
       main { padding: 6px; flex-direction: column; height: auto; overflow: visible; }
       .sidebar, .board-container { width: 100%; height: auto; }
-      .panel { max-height: 240px; }
-      .board-table { min-width: 900px; height: auto; }
+      .panel { max-height: 250px; }
+      .board-table { min-width: 920px; height: auto; }
+      .pin-remove-x { padding: 4px 8px; font-size: 0.78rem; }
     }
 
     .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.45); display: none; align-items: center; justify-content: center; z-index: 100; padding: 12px; }
-    .modal { background: #fff; padding: 22px; border-radius: 10px; width: 100%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.18); max-height: 90vh; overflow-y: auto; color: #0f172a; }
-    .form-group { margin-bottom: 12px; position: relative; }
-    .form-group label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; color: #475569; }
-    .form-control { width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.88rem; background: #fff; color: #0f172a; }
-    textarea.form-control { resize: vertical; min-height: 60px; }
-    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+    .modal { background: #fff; padding: 20px; border-radius: 10px; width: 100%; max-width: 520px; box-shadow: 0 10px 25px rgba(0,0,0,0.18); max-height: 90vh; overflow-y: auto; color: #0f172a; }
+    .form-group { margin-bottom: 10px; position: relative; }
+    .form-group label { display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 3px; color: #475569; }
+    .form-control { width: 100%; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; background: #fff; color: #0f172a; }
+    textarea.form-control { resize: vertical; min-height: 54px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
     .suggestions-box { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 8px 20px rgba(0,0,0,0.12); max-height: 180px; overflow-y: auto; z-index: 60; margin-top: 2px; text-align: left; }
-    .suggestion-item { padding: 8px 10px; font-size: 0.84rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; color: #0f172a; }
+    .suggestion-item { padding: 8px 10px; font-size: 0.82rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; color: #0f172a; }
     .suggestion-item:hover { background: #f0f9ff; color: var(--bayer-blue); }
-    .tabs { display: flex; gap: 4px; border-bottom: 2px solid #e2e8f0; margin-bottom: 14px; overflow-x: auto; }
-    .tab-btn { padding: 7px 10px; background: none; border: none; border-bottom: 2px solid transparent; font-weight: 600; cursor: pointer; color: #64748b; margin-bottom: -2px; font-size: 0.82rem; white-space: nowrap; }
+    .tabs { display: flex; gap: 3px; border-bottom: 2px solid #e2e8f0; margin-bottom: 12px; overflow-x: auto; }
+    .tab-btn { padding: 7px 9px; background: none; border: none; border-bottom: 2px solid transparent; font-weight: 600; cursor: pointer; color: #64748b; margin-bottom: -2px; font-size: 0.8rem; white-space: nowrap; }
     .tab-btn.active { color: var(--bayer-blue); border-bottom-color: var(--bayer-blue); }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-    .item-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.84rem; gap: 8px; }
+    
+    /* Kompakte Mitarbeiter-Zeilen mit sichtbarer Start-PIN */
+    .item-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 8px; border-bottom: 1px solid #f1f5f9; font-size: 0.82rem; gap: 6px; flex-wrap: nowrap; }
+    .emp-row-info { min-width: 0; flex: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+    .emp-row-actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+    .start-pin-badge { font-size: 0.68rem; font-weight: 800; padding: 1px 6px; border-radius: 4px; background: #fef3c7; color: #92400e; border: 1px solid #fde68a; white-space: nowrap; }
+    .own-pin-badge { font-size: 0.65rem; font-weight: 600; padding: 1px 5px; border-radius: 4px; background: #f1f5f9; color: #64748b; white-space: nowrap; }
+
+    /* Historie-Filter & Suchverlauf-Chips */
+    .history-filter-pills { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+    .history-pill { padding: 3px 8px; font-size: 0.72rem; font-weight: 600; border-radius: 999px; border: 1px solid #cbd5e1; background: #fff; color: #475569; cursor: pointer; }
+    .history-pill.active { background: var(--bayer-blue); color: #fff; border-color: var(--bayer-blue); }
+    .recent-search-chips { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; align-items: center; }
+    .recent-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: #e0f2fe; color: #0369a1; cursor: pointer; border: 1px solid #bae6fd; }
+    .recent-chip:hover { background: #bae6fd; }
+
+    .role-target-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 6px; margin-top: 6px; }
+    .role-target-item { display: flex; align-items: center; justify-content: space-between; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 0.75rem; font-weight: 600; }
+    .role-target-item input { width: 44px; padding: 3px 4px; text-align: center; border: 1px solid #94a3b8; border-radius: 4px; font-weight: 700; font-size: 0.78rem; }
+
     .manual-entry-toggle { width: 100%; text-align: left; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 9px 12px; font-size: 0.84rem; font-weight: 700; color: #0f172a; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
     .manual-entry-toggle:hover { background: #f1f5f9; }
-    .settings-card { background: #f8fafc; padding: 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #e2e8f0; }
-    .settings-card-title { font-size: 0.84rem; font-weight: 700; color: #1e293b; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
-    .toast-banner { display: none; position: fixed; top: 16px; right: 16px; background: #16a34a; color: #fff; padding: 9px 15px; border-radius: 8px; font-weight: 700; font-size: 0.84rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 250; }
+    .settings-card { background: #f8fafc; padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #e2e8f0; }
+    .settings-card-title { font-size: 0.82rem; font-weight: 700; color: #1e293b; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
+    .toast-banner { display: none; position: fixed; top: 16px; right: 16px; background: #16a34a; color: #fff; padding: 9px 15px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 250; max-width: 90vw; }
     
     .lvl-4-only, .lvl-3-only, .admin-element, .lvl-2-hide { display: none !important; }
     body.planner-active .admin-element { display: inline-flex !important; }
@@ -184,7 +246,6 @@
 <body>
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
-  <div class="version-footer-badge">Version 4.9.42</div>
 
   <div id="boardLockModal" class="modal-overlay" style="background: #f4f6f9; z-index: 180;">
     <div class="modal" style="max-width: 380px; text-align: center; padding: 0; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
@@ -214,18 +275,25 @@
       <div class="header-title">
         <div class="header-title-text">
           <h1>Schicht und Linienübersicht</h1>
-          <div id="headerDateKw" class="header-meta">Lade Datum...</div>
+          <div id="headerDateKw" class="header-meta">Lade Datum... · v4.9.43</div>
         </div>
         <div class="header-badges-row">
           <span id="plannerStatusBadge" class="status-badge">Planer-Modus aktiv</span>
-          <span id="autoRotationBadge" class="auto-rotation-badge active" onclick="openShiftModelSettingsQuick()" title="Klicken für Schichtmodell & Rotations-Einstellungen">
+          <span id="autoRotationBadge" class="auto-rotation-badge active" onclick="openShiftModelSettingsQuick()" title="Schicht-Rotation Einstellungen öffnen">
             <span id="autoRotationIcon" class="rot-icon">🔄</span>
-            <span id="autoRotationText">Auto aktiv</span>
+            <span id="autoRotationText">Auto: Vollkonti</span>
+          </span>
+          <span id="smartAssignToggleBadge" class="smart-assign-badge active" onclick="toggleSmartAssignQuick()" title="Intelligente Linien-Zuweisung (Prio, Rollen, Etagen & Ringtausch) separat an-/ausschalten">
+            <span>🧠</span>
+            <span id="smartAssignBadgeText">Auto-Zuweisung: AN</span>
           </span>
         </div>
       </div>
     </div>
     <div class="header-actions">
+      <button id="btnUndoAutoAssignHeader" class="undo-assign-btn" onclick="undoLastAutoAssignment()" title="Letzte automatische Schicht-Zuweisung komplett rückgängig machen">
+        ↩️ Zurück korrigieren
+      </button>
       <button id="plannerApprovalIndicator" class="planner-approval-indicator" onclick="toggleShiftApprovalState()">
         <span id="indicatorDot" style="width:8px; height:8px; border-radius:50%; background:#dc2626;"></span>
         <span id="indicatorText">Freigeben</span>
@@ -240,7 +308,7 @@
     <aside class="sidebar">
       <div class="team-filter-box">
         <div class="search-wrapper">
-          <input type="text" id="poolSearchInput" class="search-input" placeholder="🔍 Name oder Linie (z.B. 37)..." oninput="updatePoolSearch(this.value)">
+          <input type="text" id="poolSearchInput" class="search-input" placeholder="🔍 Name, Rolle oder Linie (z.B. 37)..." oninput="updatePoolSearch(this.value)">
           <span id="clearSearchBtn" class="search-clear" onclick="document.getElementById('poolSearchInput').value=''; updatePoolSearch('')">&times;</span>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -273,7 +341,7 @@
           <button class="btn btn-outline lvl-2-hide admin-element" style="padding:1px 6px; font-size:0.68rem;" onclick="openInboxModal(null, false, true)">+ Neu</button>
         </h2>
         <div id="extra" class="card-list drop-zone" data-zone="extra" style="background:#f0fdf4; border-color:#86efac;"></div>
-        <div id="approvedExtraList" style="max-height:52px; overflow-y:auto; margin-top:2px; font-size:0.68rem;"></div>
+        <div id="approvedExtraList" style="max-height:48px; overflow-y:auto; margin-top:2px; font-size:0.66rem;"></div>
       </div>
 
       <div class="panel">
@@ -428,32 +496,58 @@
   </div>
 
   <div id="lineEditModal" class="modal-overlay">
-    <div class="modal" style="max-width: 450px;">
-      <h3 id="lineEditTitle" style="color: var(--bayer-blue); margin-bottom: 16px;">Linie bearbeiten</h3>
+    <div class="modal" style="max-width: 490px;">
+      <h3 id="lineEditTitle" style="color: var(--bayer-blue); margin-bottom: 12px;">Linie bearbeiten</h3>
       <input type="hidden" id="editLineId">
 
-      <div class="form-group" style="background:#fef2f2; border:1px solid #fecaca; padding:10px 12px; border-radius:6px; margin-bottom:14px;">
-        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin:0; color:#b91c1c; font-weight:700; font-size:0.88rem;">
-          <input type="checkbox" id="editLineAusgeplant" style="width:17px; height:17px; cursor:pointer;" onchange="saveLineDetails(true)">
-          🚫 Linie ausgeplant
+      <div class="form-group" style="background:#fef2f2; border:1px solid #fecaca; padding:9px 12px; border-radius:6px; margin-bottom:10px;">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin:0; color:#b91c1c; font-weight:700; font-size:0.85rem;">
+          <input type="checkbox" id="editLineAusgeplant" style="width:16px; height:16px; cursor:pointer;" onchange="saveLineDetails(true)">
+          🚫 Linie ausgeplant (Bei Auto-Zuweisung überspringen)
         </label>
       </div>
 
-      <div class="form-group">
-        <label>Priorität</label>
-        <select id="editLinePrio" class="form-control" onchange="saveLineDetails(true)">
-          <option value="">Keine</option><option value="PRIO 1">PRIO 1</option><option value="PRIO 2">PRIO 2</option><option value="PRIO 3">PRIO 3</option>
-        </select>
+      <div style="display:flex; gap:8px;">
+        <div class="form-group" style="flex:1;">
+          <label>🏢 Etage / Stockwerk</label>
+          <select id="editLineFloor" class="form-control" onchange="saveLineDetails(true)">
+            <option value="1. OG">1. OG</option>
+            <option value="2. OG">2. OG</option>
+            <option value="3. OG">3. OG</option>
+            <option value="EG">EG (Erdgeschoss)</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>🔥 Priorität</label>
+          <select id="editLinePrio" class="form-control" onchange="saveLineDetails(true)">
+            <option value="">Keine</option>
+            <option value="PRIO 1">PRIO 1 (Höchste)</option>
+            <option value="PRIO 2">PRIO 2 (Mittel)</option>
+            <option value="PRIO 3">PRIO 3 (Normal)</option>
+          </select>
+        </div>
       </div>
-      <div class="form-group"><label>Status / Tag (z.B. Wartung)</label><input type="text" id="editLineTag" class="form-control" onchange="saveLineDetails(true)"></div>
-      <div class="form-group"><label>Notiz</label><textarea id="editLineNote" class="form-control" onchange="saveLineDetails(true)"></textarea></div>
+
+      <div style="display:flex; gap:8px;">
+        <div class="form-group" style="flex:1;"><label>Status / Tag (z.B. Wartung)</label><input type="text" id="editLineTag" class="form-control" onchange="saveLineDetails(true)"></div>
+        <div class="form-group" style="flex:1.3;"><label>Kurz-Notiz (für Header)</label><input type="text" id="editLineNote" class="form-control" placeholder="z.B. Noch 120.000 bis FW" onchange="saveLineDetails(true)"></div>
+      </div>
+
+      <div style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 6px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label style="font-size:0.8rem; font-weight:700; color:#1e293b; margin:0;">👥 Rollen-Bedarf an dieser Linie (Soll pro Rolle):</label>
+          <button type="button" class="btn btn-outline" style="padding:2px 7px; font-size:0.68rem; color:var(--bayer-blue); border-color:var(--bayer-blue);" onclick="syncRoleSumToTargetStaff()">∑ Auf Früh/Spät übertragen</button>
+        </div>
+        <p style="font-size:0.7rem; color:#64748b; margin-top:2px;">z.B. Linie 09 benötigt 2 LOP, 2 Bediener und 1 TL:</p>
+        <div id="editLineRoleTargetsContainer" class="role-target-grid"></div>
+      </div>
       
-      <div style="border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 10px;">
-        <label style="font-size:0.82rem; font-weight:700; color:#1e293b; margin-bottom:6px; display:block;">Personalbedarf (Soll-Mitarbeiter):</label>
+      <div style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 10px;">
+        <label style="font-size:0.8rem; font-weight:700; color:#1e293b; margin-bottom:4px; display:block;">Gesamt-Personalbedarf (Soll-Mitarbeiter je Schicht):</label>
         <div style="display:flex; gap:8px;">
-          <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.75rem;">Früh</label><input type="number" id="editLineStaffFrueh" min="0" max="20" class="form-control" style="padding:6px;" onchange="saveLineDetails(true)"></div>
-          <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.75rem;">Spät</label><input type="number" id="editLineStaffSpaet" min="0" max="20" class="form-control" style="padding:6px;" onchange="saveLineDetails(true)"></div>
-          <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.75rem;">Nacht</label><input type="number" id="editLineStaffNacht" min="0" max="20" class="form-control" style="padding:6px;" onchange="saveLineDetails(true)"></div>
+          <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.72rem;">Früh</label><input type="number" id="editLineStaffFrueh" min="0" max="20" class="form-control" style="padding:5px;" onchange="saveLineDetails(true)"></div>
+          <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.72rem;">Spät</label><input type="number" id="editLineStaffSpaet" min="0" max="20" class="form-control" style="padding:5px;" onchange="saveLineDetails(true)"></div>
+          <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.72rem;">Nacht</label><input type="number" id="editLineStaffNacht" min="0" max="20" class="form-control" style="padding:5px;" onchange="saveLineDetails(true)"></div>
         </div>
       </div>
 
@@ -462,16 +556,16 @@
   </div>
 
   <div id="settingsModal" class="modal-overlay">
-    <div class="modal" style="max-width: 680px;">
-      <h3 style="display:flex; justify-content:space-between; color:var(--bayer-blue); margin-bottom:14px;">
-        <span>⚙️ Einstellungen</span>
+    <div class="modal" style="max-width: 720px;">
+      <h3 style="display:flex; justify-content:space-between; color:var(--bayer-blue); margin-bottom:12px;">
+        <span>⚙️ Einstellungen <small style="font-size:0.72rem; color:#94a3b8; font-weight:600;">v4.9.43</small></span>
         <button onclick="closeModal('settingsModal')" style="border:none; background:none; font-size:1.5rem; cursor:pointer;">&times;</button>
       </h3>
       <div class="tabs">
         <button id="tabBtnEmployees" class="tab-btn active" onclick="switchTab('tabEmployees', this)">Mitarbeiter</button>
         <button id="tabRolesBtn" class="tab-btn lvl-3-only" onclick="switchTab('tabRoles', this)">Rollen</button>
-        <button id="tabLinesBtn" class="tab-btn lvl-3-only" onclick="switchTab('tabLines', this)">Linien</button>
-        <button id="tabBtnTeams" class="tab-btn lvl-3-only" onclick="switchTab('tabTeams', this)">Teams</button>
+        <button id="tabLinesBtn" class="tab-btn lvl-3-only" onclick="switchTab('tabLines', this)">Linien & Etagen</button>
+        <button id="tabBtnTeams" class="tab-btn lvl-3-only" onclick="switchTab('tabTeams', this)">Teams & Automatik</button>
         <button id="tabSecurityBtn" class="tab-btn lvl-3-only" onclick="switchTab('tabSecurity', this)">Sicherheit</button>
         <button id="tabHistoryBtn" class="tab-btn lvl-3-only" onclick="switchTab('tabHistory', this)">Historie</button>
         <button id="tabBackupsBtn" class="tab-btn lvl-3-only" onclick="switchTab('tabBackups', this)">Backups</button>
@@ -481,14 +575,14 @@
       <div id="tabEmployees" class="tab-content active">
         <div class="settings-card">
           <input type="hidden" id="editEmpId">
-          <div style="display:flex; gap:10px;">
+          <div style="display:flex; gap:8px;">
             <div class="form-group" style="flex:1;"><label>Vorname</label><input type="text" id="newEmpFirstName" class="form-control"></div>
             <div class="form-group" style="flex:1;"><label>Nachname</label><input type="text" id="newEmpLastName" class="form-control"></div>
           </div>
-          <div style="display:flex; gap:10px;">
-            <div class="form-group" style="flex:1;"><label>Team</label><select id="newEmpTeam" class="form-control"></select></div>
-            <div class="form-group" style="flex:1;"><label>Rolle</label><select id="newEmpRole" class="form-control"></select></div>
-            <div class="form-group" style="flex:1.2;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <div class="form-group" style="flex:1; min-width:120px;"><label>Team</label><select id="newEmpTeam" class="form-control"></select></div>
+            <div class="form-group" style="flex:1; min-width:120px;"><label>Rolle</label><select id="newEmpRole" class="form-control"></select></div>
+            <div class="form-group" style="flex:1.2; min-width:150px;">
               <label>Freischalt-Stufe</label>
               <select id="newEmpAccessLevel" class="form-control">
                 <option value="1">Mitarbeiter (Stufe 1)</option>
@@ -500,82 +594,111 @@
           </div>
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; flex-wrap:wrap; gap:8px;">
             <div style="display:flex; gap:14px; align-items:center;">
-              <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.84rem; font-weight:600;"><input type="checkbox" id="newEmpFirstAider"> Ersthelfer +</label>
-              <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.84rem; font-weight:600;"><input type="checkbox" id="newEmpNoRotation" onchange="document.getElementById('newEmpAnchorDaysWrap').style.display=this.checked?'block':'none'; if(this.checked && typeof renderAnchorDayButtons==='function') renderAnchorDayButtons([1,2,3,4,5]);"> ⚓ Fix</label>
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.82rem; font-weight:600;"><input type="checkbox" id="newEmpFirstAider"> Ersthelfer <span style="color:#dc2626; font-weight:900;">+</span></label>
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.82rem; font-weight:600;"><input type="checkbox" id="newEmpNoRotation" onchange="document.getElementById('newEmpAnchorDaysWrap').style.display=this.checked?'block':'none'; if(this.checked && typeof renderAnchorDayButtons==='function') renderAnchorDayButtons([1,2,3,4,5]);"> ⚓ Fix (Anker)</label>
             </div>
           </div>
-          <div id="newEmpAnchorDaysWrap" style="margin-bottom:12px; background:#f1f5f9; padding:10px; border-radius:6px; display:none;">
-            <label style="display:block; font-size:0.78rem; font-weight:700; margin-bottom:6px;">Anker-Modus (Wochentage aktiv):</label>
-            <div id="anchorDaysContainer" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+          <div id="newEmpAnchorDaysWrap" style="margin-bottom:10px; background:#f1f5f9; padding:8px 10px; border-radius:6px; display:none;">
+            <label style="display:block; font-size:0.75rem; font-weight:700; margin-bottom:5px;">Anker-Modus (Wochentage aktiv):</label>
+            <div id="anchorDaysContainer" style="display:flex; gap:5px; flex-wrap:wrap;"></div>
           </div>
-          <div class="form-group"><label>Prio-Linien (Stammlinien):</label><div id="mainLinesCheckboxes" style="display:flex; flex-wrap:wrap; gap:6px;"></div></div>
-          <div class="form-group"><label>Sek-Linien:</label><div id="secLinesCheckboxes" style="display:flex; flex-wrap:wrap; gap:6px;"></div></div>
-          <div style="display:flex; gap:10px; margin-top: 10px;">
+          <div class="form-group"><label>Prio-Linien (Stammlinien):</label><div id="mainLinesCheckboxes" style="display:flex; flex-wrap:wrap; gap:5px;"></div></div>
+          <div class="form-group"><label>Sek-Linien (Zweitlinien):</label><div id="secLinesCheckboxes" style="display:flex; flex-wrap:wrap; gap:5px;"></div></div>
+          <div style="display:flex; gap:8px; margin-top: 8px;">
             <button id="btnSaveEmp" class="btn btn-primary" style="flex:1;" onclick="saveEmployee()">Speichern</button>
             <button id="btnCancelEditEmp" class="btn btn-outline" style="display:none;" onclick="resetEmpForm()">Abbrechen</button>
           </div>
         </div>
-        <div style="margin-bottom:8px;"><input type="text" id="settingsEmpSearchInput" class="search-input" placeholder="🔍 Mitarbeiter suchen..." oninput="filterSettingsEmployees(this.value)" style="font-size:0.8rem; padding:6px 10px;"></div>
-        <div id="employeeList" style="max-height: 220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
+        <div style="margin-bottom:6px;"><input type="text" id="settingsEmpSearchInput" class="search-input" placeholder="🔍 Mitarbeiter oder Start-PIN suchen..." oninput="filterSettingsEmployees(this.value)" style="font-size:0.8rem; padding:6px 10px;"></div>
+        <div id="employeeList" style="max-height: 240px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
       
       <div id="tabRoles" class="tab-content">
-        <div style="display:flex; gap:10px; margin-bottom:14px;">
-          <input type="text" id="newRoleName" class="form-control" placeholder="Neue Rolle eingeben..." onkeydown="if(event.key==='Enter') addRole()">
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <input type="text" id="newRoleName" class="form-control" placeholder="Neue Rolle eingeben (z.B. SF, Springer)..." onkeydown="if(event.key==='Enter') addRole()">
           <button class="btn btn-primary" onclick="addRole()">Hinzufügen</button>
         </div>
         <div id="roleList" style="max-height: 260px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
 
       <div id="tabLines" class="tab-content">
-        <div style="display:flex; gap:10px; margin-bottom:14px;">
-          <input type="text" id="newLineName" class="form-control" placeholder="Neue Linie (z.B. Linie 40)..." onkeydown="if(event.key==='Enter') addLine()">
+        <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+          <input type="text" id="newLineName" class="form-control" style="flex:1.5; min-width:150px;" placeholder="Neue Linie (z.B. Linie 40)..." onkeydown="if(event.key==='Enter') addLine()">
+          <select id="newLineFloor" class="form-control" style="flex:1; min-width:110px;">
+            <option value="1. OG">🏢 1. OG</option>
+            <option value="2. OG">🏢 2. OG</option>
+            <option value="3. OG">🏢 3. OG</option>
+            <option value="EG">🏢 EG</option>
+          </select>
           <button class="btn btn-primary" onclick="addLine()">Hinzufügen</button>
         </div>
-        <div id="lineSettingsList" style="max-height: 260px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
+        <div id="lineSettingsList" style="max-height: 280px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
 
       <div id="tabTeams" class="tab-content">
+        <div class="settings-card" style="border-left: 4px solid #8b5cf6; background: #faf5ff;">
+          <div class="settings-card-title">
+            <span style="color:#5b21b6;">🧠 Intelligente Linien-Zuweisung (Auto-Besetzung & Ringtausch)</span>
+          </div>
+          <p style="font-size:0.74rem; color:#475569; margin-bottom:8px;">
+            Steuert separat von der Schicht-Rotation, ob Mitarbeiter nach Linien-Priorität (PRIO 1–3), Rollen-Bedarf (z.B. 2 LOP, 2 Bediener, 1 TL), Etage (EG / 1. OG / 2. OG / 3. OG) und Bringschicht-Ringtausch automatisch zugewiesen werden.
+          </p>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.82rem; font-weight:700; color:#1e293b; cursor:pointer;">
+              <input type="checkbox" id="cfgSmartAssignEnabled" checked onchange="saveShiftModelSettings()">
+              Intelligente Auto-Zuweisung aktivieren (Separat schaltbar)
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.78rem; font-weight:600; color:#334155; cursor:pointer;">
+              <input type="checkbox" id="cfgSmartRespectFloorTL" checked onchange="saveShiftModelSettings()">
+              🏢 Etagen-Logik für Teamleiter (TL kann bei Unterbesetzung mehrere Linien derselben Etage betreuen)
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.78rem; font-weight:600; color:#334155; cursor:pointer;">
+              <input type="checkbox" id="cfgSmartAllowSwap" checked onchange="saveShiftModelSettings()">
+              🔄 Automatischer Ringtausch (Stamm-Mitarbeiter für Bringschichtler verschieben, wenn Fachwissen es erfordert)
+            </label>
+          </div>
+        </div>
+
         <div class="settings-card">
           <div class="settings-card-title">
             <span>🔄 Schichtmodell & Automatische Rotation</span>
           </div>
           
-          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom: 12px;">
-            <label style="display:flex; align-items:center; gap:8px; font-size:0.86rem; font-weight:700; color:#1e293b; cursor:pointer;">
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom: 10px;">
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.84rem; font-weight:700; color:#1e293b; cursor:pointer;">
               <input type="checkbox" id="cfgAutoRotate" checked onchange="saveShiftModelSettings()"> Automatische Schicht-Rotation aktiv
             </label>
             <span id="cfgRotationStatusHint" style="font-size:0.75rem; color:#166534; font-weight:700;"></span>
           </div>
 
-          <div style="border-top: 1px solid #cbd5e1; padding-top: 10px; margin-top: 10px; display:flex; flex-direction:column; gap:10px;">
-            <div style="background:#f8fafc; padding:8px 10px; border-radius:6px; border:1px solid #e2e8f0;">
-              <div style="display:flex; align-items:center; gap:8px; margin-bottom: 6px;">
+          <div style="border-top: 1px solid #cbd5e1; padding-top: 8px; display:flex; flex-direction:column; gap:8px;">
+            <div style="background:#fff; padding:8px 10px; border-radius:6px; border:1px solid #e2e8f0;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom: 5px;">
                 <input type="checkbox" id="cfgResetEnabled" onchange="saveShiftModelSettings()">
-                <label for="cfgResetEnabled" style="font-size:0.81rem; font-weight:700; color:#1e293b; margin:0; cursor:pointer;">Mitarbeiter automatisch in den Pool schicken</label>
+                <label for="cfgResetEnabled" style="font-size:0.8rem; font-weight:700; color:#1e293b; margin:0; cursor:pointer;">Mitarbeiter automatisch in den Pool schicken</label>
               </div>
               <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                <select id="cfgResetDay" class="form-control" style="flex:1; font-size:0.78rem; padding:5px;" onchange="saveShiftModelSettings()">
+                <select id="cfgResetDay" class="form-control" style="flex:1; font-size:0.76rem; padding:4px;" onchange="saveShiftModelSettings()">
                   <option value="0">Sonntag</option><option value="1">Montag</option><option value="2">Dienstag</option>
                   <option value="3">Mittwoch</option><option value="4">Donnerstag</option><option value="5">Freitag</option><option value="6">Samstag</option>
                 </select>
-                <select id="cfgResetHour" class="form-control" style="flex:1; font-size:0.78rem; padding:5px;" onchange="saveShiftModelSettings()">
+                <select id="cfgResetHour" class="form-control" style="flex:1; font-size:0.76rem; padding:4px;" onchange="saveShiftModelSettings()">
                   <option value="0">00:00 Uhr</option><option value="1">01:00 Uhr</option><option value="2">02:00 Uhr</option><option value="3">03:00 Uhr</option><option value="4">04:00 Uhr</option><option value="5">05:00 Uhr</option><option value="6" selected>06:00 Uhr</option><option value="7">07:00 Uhr</option><option value="8">08:00 Uhr</option><option value="9">09:00 Uhr</option><option value="10">10:00 Uhr</option><option value="11">11:00 Uhr</option><option value="12">12:00 Uhr</option><option value="13">13:00 Uhr</option><option value="14">14:00 Uhr</option><option value="15">15:00 Uhr</option><option value="16">16:00 Uhr</option><option value="17">17:00 Uhr</option><option value="18">18:00 Uhr</option><option value="19">19:00 Uhr</option><option value="20">20:00 Uhr</option><option value="21">21:00 Uhr</option><option value="22">22:00 Uhr</option><option value="23">23:00 Uhr</option>
                 </select>
               </div>
             </div>
 
-            <div style="background:#f8fafc; padding:8px 10px; border-radius:6px; border:1px solid #e2e8f0;">
-              <div style="display:flex; align-items:center; gap:8px; margin-bottom: 6px;">
+            <div style="background:#fff; padding:8px 10px; border-radius:6px; border:1px solid #e2e8f0;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom: 5px;">
                 <input type="checkbox" id="cfgLoadEnabled" onchange="saveShiftModelSettings()">
-                <label for="cfgLoadEnabled" style="font-size:0.81rem; font-weight:700; color:#1e293b; margin:0; cursor:pointer;">Teams automatisch auf ihre Positionen verteilen</label>
+                <label for="cfgLoadEnabled" style="font-size:0.8rem; font-weight:700; color:#1e293b; margin:0; cursor:pointer;">Teams automatisch auf ihre Positionen verteilen</label>
               </div>
               <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                <select id="cfgLoadDay" class="form-control" style="flex:1; font-size:0.78rem; padding:5px;" onchange="saveShiftModelSettings()">
+                <select id="cfgLoadDay" class="form-control" style="flex:1; font-size:0.76rem; padding:4px;" onchange="saveShiftModelSettings()">
                   <option value="0" selected>Sonntag</option><option value="1">Montag</option><option value="2">Dienstag</option>
                   <option value="3">Mittwoch</option><option value="4">Donnerstag</option><option value="5">Freitag</option><option value="6">Samstag</option>
                 </select>
-                <select id="cfgLoadHour" class="form-control" style="flex:1; font-size:0.78rem; padding:5px;" onchange="saveShiftModelSettings()">
+                <select id="cfgLoadHour" class="form-control" style="flex:1; font-size:0.76rem; padding:4px;" onchange="saveShiftModelSettings()">
                   <option value="0">00:00 Uhr</option><option value="1">01:00 Uhr</option><option value="2">02:00 Uhr</option><option value="3">03:00 Uhr</option><option value="4">04:00 Uhr</option><option value="5" selected>05:00 Uhr</option><option value="6">06:00 Uhr</option><option value="7">07:00 Uhr</option><option value="8">08:00 Uhr</option><option value="9">09:00 Uhr</option><option value="10">10:00 Uhr</option><option value="11">11:00 Uhr</option><option value="12">12:00 Uhr</option><option value="13">13:00 Uhr</option><option value="14">14:00 Uhr</option><option value="15">15:00 Uhr</option><option value="16">16:00 Uhr</option><option value="17">17:00 Uhr</option><option value="18">18:00 Uhr</option><option value="19">19:00 Uhr</option><option value="20">20:00 Uhr</option><option value="21">21:00 Uhr</option><option value="22">22:00 Uhr</option><option value="23">23:00 Uhr</option>
                 </select>
               </div>
@@ -583,40 +706,68 @@
           </div>
         </div>
 
-        <div style="margin-bottom: 12px; text-align: right;">
-          <button id="toggleNewTeamBtn" class="btn btn-outline" style="font-size: 0.8rem; padding: 6px 12px; color: var(--bayer-blue); border-color: var(--bayer-blue);" onclick="toggleNewTeamForm()">+ Neues Team hinzufügen</button>
+        <div style="margin-bottom: 10px; text-align: right;">
+          <button id="toggleNewTeamBtn" class="btn btn-outline" style="font-size: 0.78rem; padding: 5px 10px; color: var(--bayer-blue); border-color: var(--bayer-blue);" onclick="toggleNewTeamForm()">+ Neues Team hinzufügen</button>
         </div>
 
         <div id="newTeamFormWrapper" class="settings-card" style="display: none; border-left: 4px solid var(--bayer-blue);">
-          <label style="font-size:0.82rem; font-weight:700; color:#1e293b; display:block; margin-bottom:8px;">Neues Team anlegen</label>
-          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <input type="color" id="newTeamColor" value="#3b82f6" style="width:40px; height:38px; border:1px solid #cbd5e1; border-radius:6px; cursor:pointer; background:#fff; padding:2px;">
+          <label style="font-size:0.8rem; font-weight:700; color:#1e293b; display:block; margin-bottom:6px;">Neues Team anlegen</label>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <input type="color" id="newTeamColor" value="#3b82f6" style="width:38px; height:36px; border:1px solid #cbd5e1; border-radius:6px; cursor:pointer; background:#fff; padding:2px;">
             <input type="text" id="newTeamName" class="form-control" placeholder="Teamname..." style="flex:1; min-width:140px;" onkeydown="if(event.key==='Enter') addTeam()">
-            <label style="display:flex; align-items:center; gap:5px; font-size:0.82rem; font-weight:600; cursor:pointer; background:#fff; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1;">
+            <label style="display:flex; align-items:center; gap:5px; font-size:0.8rem; font-weight:600; cursor:pointer; background:#fff; padding:7px 10px; border-radius:6px; border:1px solid #cbd5e1;">
               <input type="checkbox" id="newTeamRotates" checked> Rotiert
             </label>
             <button class="btn btn-primary" onclick="addTeam()">Hinzufügen</button>
           </div>
         </div>
 
-        <div id="teamSettingsList" style="max-height: 220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
+        <div id="teamSettingsList" style="max-height: 180px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
 
       <div id="tabSecurity" class="tab-content">
         <div class="settings-card">
-          <h4 style="font-size:0.88rem; color:#0f172a; margin-bottom:8px;">Start-Passwort für die Übersicht</h4>
-          <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-            <label style="display:flex; align-items:center; gap:6px; font-size:0.84rem; font-weight:600; cursor:pointer; background:#fff; padding:8px 12px; border-radius:6px; border:1px solid #cbd5e1;">
+          <h4 style="font-size:0.86rem; color:#0f172a; margin-bottom:8px;">Start-Passwort für die Übersicht</h4>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <label style="display:flex; align-items:center; gap:6px; font-size:0.82rem; font-weight:600; cursor:pointer; background:#fff; padding:7px 12px; border-radius:6px; border:1px solid #cbd5e1;">
               <input type="checkbox" id="secBoardPwEnabled" onchange="autoSaveSecurityConfig()"> Aktivieren
             </label>
-            <input type="text" id="secBoardPwValue" class="form-control" placeholder="Passwort" style="padding:8px 10px; flex:1;" onchange="autoSaveSecurityConfig()">
+            <input type="text" id="secBoardPwValue" class="form-control" placeholder="Passwort" style="padding:7px 10px; flex:1;" onchange="autoSaveSecurityConfig()">
           </div>
         </div>
       </div>
 
       <div id="tabHistory" class="tab-content">
-        <div style="margin-bottom:10px;"><input type="text" id="historyUnifiedInput" class="form-control" placeholder="🔍 Historie filtern (automatische 360-Tage Bereinigung)..." oninput="filterHistoryUnified()" style="font-size:0.82rem; padding:8px 10px;"></div>
-        <div id="historyList" style="max-height: 250px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; padding:8px;"></div>
+        <div id="historyCategoryPills" class="history-filter-pills">
+          <button type="button" class="history-pill active" onclick="setHistoryCatFilter('ALL')">Alle</button>
+          <button type="button" class="history-pill" onclick="setHistoryCatFilter('SHIFT')">🔄 Schicht & Laden</button>
+          <button type="button" class="history-pill" onclick="setHistoryCatFilter('AUTO')">🪄 Auto-Zuweisung</button>
+          <button type="button" class="history-pill" onclick="setHistoryCatFilter('EMP')">👤 Personal & Linie</button>
+          <button type="button" class="history-pill" onclick="setHistoryCatFilter('ABSENCE')">🏖️ Abwesenheit & Extra</button>
+          <button type="button" class="history-pill" onclick="setHistoryCatFilter('LOGIN')">🔐 Login & PIN</button>
+          <button type="button" class="history-pill" onclick="setHistoryCatFilter('BACKUP')">💾 Backup</button>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
+          <select id="historyTimeFilter" class="form-control" style="flex:1; min-width:130px; font-size:0.78rem; padding:5px 8px;" onchange="filterHistoryUnified()">
+            <option value="ALL">📅 Alle (360 Tage)</option>
+            <option value="TODAY">📅 Nur Heute</option>
+            <option value="7D">📅 Letzte 7 Tage</option>
+            <option value="30D">📅 Letzte 30 Tage</option>
+          </select>
+          <select id="historyActorFilter" class="form-control" style="flex:1; min-width:140px; font-size:0.78rem; padding:5px 8px;" onchange="filterHistoryUnified()">
+            <option value="ALL">👤 Alle Planer / System</option>
+          </select>
+        </div>
+
+        <div style="display:flex; gap:6px; margin-bottom:6px;">
+          <input type="text" id="historyUnifiedInput" class="form-control" placeholder="🔍 Begriff suchen (Enter speichert im Suchverlauf)..." oninput="filterHistoryUnified()" onkeydown="if(event.key==='Enter') saveCurrentHistorySearchTerm()" style="font-size:0.8rem; padding:6px 10px; flex:1;">
+          <button type="button" class="btn btn-outline" style="padding:5px 10px; font-size:0.76rem;" onclick="saveCurrentHistorySearchTerm()" title="Suchbegriff im Verlauf merken">📌 Merken</button>
+        </div>
+
+        <div id="historyRecentChips" class="recent-search-chips"></div>
+
+        <div id="historyList" style="max-height: 230px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; padding:6px;"></div>
       </div>
 
       <div id="tabBackups" class="tab-content">
@@ -643,7 +794,7 @@
     </div>
   </div>
 
-  <script src="planer.js?v=4.9.42"></script>
+  <script src="planer.js?v=4.9.43"></script>
   <script>
     let activeInboxHistoryCategory = "ALL";
     function setInboxHistoryCategoryFilter(cat) { 
