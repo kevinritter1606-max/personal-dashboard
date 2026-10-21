@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Version 4.9.46 (All Helpers Fixed)
+   PLANER-BOARD LOGIK (planer.js) - Version 4.9.47 (Absolute Sync Edition)
    ========================================================================== */
 
 try {
@@ -103,7 +103,7 @@ let toastTimer = null;
 let planerLastActivityTime = Date.now();
 
 /* ==========================================================================
-   ZENTRALE BASIS-FUNKTIONEN (HIER SIND ALLE HELFER FEST DEKLARIERT)
+   ZENTRALE BASIS-FUNKTIONEN (HIER SIND ALLE HELFER GANZ OBEN DEFINIERT)
    ========================================================================== */
 
 window.sanitizeTeamReferences = function() {
@@ -1122,7 +1122,7 @@ window.saveShiftModelSettings = function() {
   if (smartChk) shiftModelConfig.smartAssignEnabled = smartChk.checked;
 
   const floorChk = document.getElementById("cfgSmartRespectFloorTL");
-  if (floorChk) shiftModelConfig.smartRespectFloorTL = floorChk.checked;
+  if (floorChk) floorChk.checked = floorChk.checked;
 
   const swapChk = document.getElementById("cfgSmartAllowSwap");
   if (swapChk) shiftModelConfig.smartAllowSwap = swapChk.checked;
