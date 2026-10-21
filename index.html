@@ -16,37 +16,28 @@
     .brand-gradient.pending { background: linear-gradient(90deg, #0091df 0%, #ef4444 45%, #dc2626 100%); }
     .brand-gradient.approved { background: linear-gradient(90deg, #0091df 0%, #00bcff 50%, #89d329 100%); }
 
-    header { background: #fff; padding: 6px 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06); z-index: 50; gap: 8px; flex-wrap: wrap; flex-shrink: 0; border-bottom: 1px solid #e2e8f0; }
+    header { background: #fff; padding: 6px 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); z-index: 50; gap: 8px; flex-wrap: wrap; flex-shrink: 0; border-bottom: 1px solid #e2e8f0; }
     .header-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .bayer-logo-btn { width: 40px; height: 40px; cursor: pointer; transition: transform 0.2s; flex-shrink: 0; }
+    .bayer-logo-btn { width: 38px; height: 38px; cursor: pointer; transition: transform 0.2s; flex-shrink: 0; }
     .bayer-logo-btn:hover { transform: scale(1.05); }
     .bayer-logo-btn img { width: 100%; height: 100%; object-fit: contain; }
     .header-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .header-title-text h1 { font-size: 1.08rem; font-weight: 700; color: var(--bayer-blue); margin: 0; line-height: 1.15; }
-    .header-meta { font-size: 0.7rem; color: #64748b; font-weight: 600; }
-    .header-badges-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+    .header-title-text h1 { font-size: 1.05rem; font-weight: 700; color: var(--bayer-blue); margin: 0; line-height: 1.15; }
+    .header-meta { font-size: 0.68rem; color: #64748b; font-weight: 600; }
+    .header-badges-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     
     .status-badge { display: none; font-size: 0.68rem; padding: 3px 8px; border-radius: 999px; font-weight: 700; background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
     body.planner-active .status-badge { display: inline-block; }
 
-    @keyframes slowSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    .auto-toggle-pill { display: none; align-items: center; gap: 4px; font-size: 0.68rem; padding: 3px 8px; border-radius: 999px; font-weight: 700; cursor: pointer; border: 1px solid #cbd5e1; background: #f8fafc; color: #64748b; transition: 0.15s; user-select: none; }
-    .auto-toggle-pill:hover { background: #e2e8f0; }
-    .auto-toggle-pill.active-blue { border-color: #bae6fd; background: #f0f9ff; color: #0369a1; }
-    .auto-toggle-pill.active-blue .rot-icon { display: inline-block; animation: slowSpin 8s linear infinite; }
-    .auto-toggle-pill.active-purple { border-color: #ddd6fe; background: #f5f3ff; color: #6d28d9; }
-    .auto-toggle-pill.active-amber { border-color: #fde68a; background: #fffbeb; color: #b45309; }
-    .auto-toggle-pill.active-teal { border-color: #99f6e4; background: #f0fdfa; color: #0f766e; }
-    body.planner-active .auto-toggle-pill { display: inline-flex; }
-
-    .undo-assign-btn { display: none; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 700; padding: 4px 9px; border-radius: 6px; cursor: pointer; border: 1px solid #fed7aa; background: #fff7ed; color: #c2410c; transition: 0.15s; }
-    .undo-assign-btn:hover { background: #ffedd5; }
+    /* Punkt 10: Dezenter "Zurück korrigieren"-Button */
+    .undo-assign-btn { display: none; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 600; padding: 4px 9px; border-radius: 6px; cursor: pointer; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; transition: 0.15s; }
+    .undo-assign-btn:hover { background: #f1f5f9; color: #0f172a; border-color: #94a3b8; }
     body.planner-active .undo-assign-btn.has-undo { display: inline-flex; }
 
     .cache-warn-btn { display: none; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 800; padding: 4px 9px; border-radius: 6px; cursor: pointer; border: 1px solid #fca5a5; background: #fef2f2; color: #b91c1c; }
 
     .header-actions { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
-    .btn { padding: 5px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; position: relative; transition: 0.15s; color: #1e293b; }
+    .btn { padding: 5px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; position: relative; transition: 0.15s; color: #1e293b; }
     .btn-primary { background: var(--bayer-blue); color: #fff; }
     .btn-primary:hover { background: #0077b6; }
     .btn-outline { border-color: #cbd5e1; background: #fff; color: #475569; }
@@ -57,117 +48,121 @@
 
     .inbox-badge { position: absolute; top: -5px; right: -5px; background: #dc2626; color: #fff; font-size: 0.64rem; font-weight: 800; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; display: none; align-items: center; justify-content: center; }
 
-    /* Hauptlayout */
-    main { padding: 6px 10px; display: flex; gap: 10px; flex: 1; min-height: 0; width: 100%; align-items: stretch; overflow: hidden; }
-    .sidebar { width: 252px; flex-shrink: 0; display: none; flex-direction: column; gap: 6px; height: 100%; min-height: 0; overflow: hidden; }
+    /* Hauptlayout - Kompakte Display-Ansicht ohne horizontales Scrollen (Punkt 7) */
+    main { padding: 6px 8px; display: flex; gap: 8px; flex: 1; min-height: 0; width: 100%; align-items: stretch; overflow: hidden; }
+    .sidebar { width: 236px; flex-shrink: 0; display: none; flex-direction: column; gap: 5px; height: 100%; min-height: 0; overflow: hidden; }
     body.planner-active .sidebar { display: flex; }
     
-    .panel { background: #fff; border-radius: 8px; padding: 6px 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; display: flex; flex-direction: column; flex: 1; min-height: 0; }
-    .panel-pool { flex: 1.7; }
-    .panel h2 { font-size: 0.76rem; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; color: #1e293b; flex-shrink: 0; }
+    .panel { background: #fff; border-radius: 8px; padding: 5px 7px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .panel-pool { flex: 1.5; }
+    .panel-review { flex: 0.9; background: #fffbeb; border-color: #fde68a; }
+    .panel h2 { font-size: 0.73rem; margin-bottom: 3px; display: flex; justify-content: space-between; align-items: center; color: #1e293b; flex-shrink: 0; }
     
-    .card-list { flex: 1; overflow-y: auto; min-height: 34px; padding: 4px; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1; display: flex; flex-direction: column; gap: 3px; cursor: default; }
-    .team-filter-box { display: none; background: #fff; padding: 6px 8px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 0.71rem; flex-shrink: 0; }
+    .card-list { flex: 1; overflow-y: auto; min-height: 30px; padding: 3px; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1; display: flex; flex-direction: column; gap: 3px; cursor: default; }
+    .team-filter-box { display: none; background: #fff; padding: 5px 7px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 0.69rem; flex-shrink: 0; }
     body.planner-active .team-filter-box { display: block; }
-    .team-filter-options { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 2px; }
+    .team-filter-options { display: flex; flex-wrap: wrap; gap: 2px 6px; margin-top: 2px; }
     .filter-quick-links span { cursor: pointer; color: var(--bayer-blue); font-weight: 600; }
     .filter-quick-links span:hover { text-decoration: underline; }
     .search-wrapper { position: relative; margin-bottom: 4px; }
-    .search-input { width: 100%; padding: 4px 22px 4px 8px; border: 1px solid #cbd5e1; border-radius: 5px; font-size: 0.74rem; background: #f8fafc; color: #0f172a; }
+    .search-input { width: 100%; padding: 4px 20px 4px 7px; border: 1px solid #cbd5e1; border-radius: 5px; font-size: 0.72rem; background: #f8fafc; color: #0f172a; }
     .search-clear { display: none; position: absolute; right: 6px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; font-weight: bold; font-size: 0.95rem; }
 
-    /* Mitarbeiterkarten */
-    .employee-card { background: #fff; padding: 3px 6px; border-radius: 5px; border: 1px solid #e2e8f0; border-left: 4px solid #0091df; box-shadow: 0 1px 2px rgba(15,23,42,0.04); display: flex; flex-direction: column; user-select: none; gap: 1px; position: relative; backface-visibility: hidden; cursor: default; flex-shrink: 0; transition: box-shadow 0.12s, border-color 0.12s; }
-    body.planner-active .employee-card { cursor: grab; }
-    body.planner-active .employee-card:hover { border-color: #cbd5e1; box-shadow: 0 2px 4px rgba(15,23,42,0.08); }
-    body.planner-active .employee-card:active { cursor: grabbing; }
+    /* Mitarbeiterkarten & Mauszeiger-Fix beim Drag & Drop (Punkte 8 & 9) */
+    .employee-card { background: #fff; padding: 3px 5px; border-radius: 5px; border: 1px solid #e2e8f0; border-left: 4px solid #0091df; box-shadow: 0 1px 2px rgba(15,23,42,0.03); display: flex; flex-direction: column; user-select: none; gap: 1px; position: relative; backface-visibility: hidden; cursor: default; flex-shrink: 0; transition: box-shadow 0.12s, border-color 0.12s; }
+    body.planner-active .employee-card { cursor: pointer; }
+    body.planner-active .employee-card:hover { border-color: #94a3b8; box-shadow: 0 2px 4px rgba(15,23,42,0.08); }
     
-    .card-name { font-size: 0.73rem; font-weight: 700; color: #0f172a; line-height: 1.18; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 14px; }
-    .card-bottom-row { display: flex; justify-content: space-between; align-items: center; gap: 3px; flex-wrap: nowrap; min-height: 15px; }
-    .card-badges-left { display: flex; gap: 3px; align-items: center; flex-wrap: nowrap; min-width: 0; }
-    .card-role { font-size: 0.6rem; padding: 0px 4px; background: #f1f5f9; border-radius: 3px; color: #475569; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .card-fix-tag { display: none; font-size: 0.56rem; padding: 0px 3px; background: #fef08a; color: #854d0e; border-radius: 3px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+    /* Verhindert, dass eine gezogene Karte den Mauszeiger/Namen verdeckt */
+    .sortable-ghost { opacity: 0.35 !important; background: #e0f2fe !important; border: 1px dashed #0284c7 !important; }
+    .sortable-drag, .sortable-fallback { opacity: 0.75 !important; pointer-events: none !important; cursor: move !important; box-shadow: 0 6px 14px rgba(15,23,42,0.16) !important; transform: translate(8px, 8px) scale(0.96) !important; }
+
+    .card-name { font-size: 0.71rem; font-weight: 700; color: #0f172a; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 12px; }
+    .card-bottom-row { display: flex; justify-content: space-between; align-items: center; gap: 2px; flex-wrap: nowrap; min-height: 14px; }
+    .card-badges-left { display: flex; gap: 2px; align-items: center; flex-wrap: nowrap; min-width: 0; }
+    .card-role { font-size: 0.58rem; padding: 0px 4px; background: #f1f5f9; border-radius: 3px; color: #475569; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-fix-tag { display: none; font-size: 0.55rem; padding: 0px 3px; background: #fef08a; color: #854d0e; border-radius: 3px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
     body.planner-active .card-fix-tag { display: inline-block; }
 
-    .card-qual-warn { display: none; font-size: 0.58rem; color: #d97706; font-weight: 800; cursor: help; flex-shrink: 0; }
+    .card-qual-warn { display: none; font-size: 0.56rem; color: #d97706; font-weight: 800; cursor: help; flex-shrink: 0; }
     body.planner-active .card-qual-warn { display: inline-block; }
 
-    .ersthelfer-plus { position: absolute; top: 2px; right: 5px; color: #dc2626; font-weight: 900; font-size: 0.82rem; line-height: 1; pointer-events: none; }
+    .ersthelfer-plus { position: absolute; top: 2px; right: 4px; color: #dc2626; font-weight: 900; font-size: 0.78rem; line-height: 1; pointer-events: none; }
 
     .card-pin-info { display: none; }
-    body.planner-active .card-pin-info { display: inline-flex; align-items: center; gap: 2px; font-size: 0.6rem; font-weight: 700; color: #0369a1; background: #f0f9ff; border: 1px solid #bae6fd; padding: 0 4px; border-radius: 3px; white-space: nowrap; flex-shrink: 0; position: relative; z-index: 5; }
-    .pin-remove-x { color: #dc2626; cursor: pointer; font-weight: 900; margin-left: 2px; padding: 2px 5px; margin-right: -3px; border-radius: 3px; font-size: 0.68rem; line-height: 1; touch-action: manipulation; pointer-events: auto; user-select: none; }
+    body.planner-active .card-pin-info { display: inline-flex; align-items: center; gap: 2px; font-size: 0.58rem; font-weight: 700; color: #0369a1; background: #f0f9ff; border: 1px solid #bae6fd; padding: 0 3px; border-radius: 3px; white-space: nowrap; flex-shrink: 0; position: relative; z-index: 5; }
+    .pin-remove-x { color: #dc2626; cursor: pointer; font-weight: 900; margin-left: 2px; padding: 1px 4px; margin-right: -2px; border-radius: 3px; font-size: 0.65rem; line-height: 1; touch-action: manipulation; pointer-events: auto; user-select: none; }
     .pin-remove-x:hover, .pin-remove-x:active { background: #fee2e2; color: #991b1b; }
     
     .card-prio-hint { display: none; }
-    body.planner-active .sidebar .card-prio-hint { display: inline-block; font-size: 0.58rem; color: #64748b; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+    body.planner-active .sidebar .card-prio-hint { display: inline-block; font-size: 0.56rem; color: #64748b; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
 
-    /* Schicht-Matrix (Board) */
-    .board-container { flex: 1; min-width: 0; height: 100%; min-height: 0; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow-x: auto; overflow-y: hidden; }
-    .board-table { width: 100%; height: 100%; border-collapse: collapse; table-layout: fixed; min-width: 920px; }
-    .board-table th.shift-header { position: sticky; left: 0; z-index: 15; box-shadow: 2px 0 4px rgba(0,0,0,0.03); }
+    /* Schicht-Matrix (Board) - Kompakt ohne horizontales Scrollen (Punkt 7) */
+    .board-container { flex: 1; min-width: 0; height: 100%; min-height: 0; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.04); display: flex; flex-direction: column; overflow-x: hidden; overflow-y: hidden; }
+    .board-table { width: 100%; height: 100%; border-collapse: collapse; table-layout: fixed; min-width: 0; }
+    .board-table th.shift-header { position: sticky; left: 0; z-index: 15; box-shadow: 1px 0 3px rgba(0,0,0,0.03); }
 
     .board-table th, .board-table td { border: 1px solid #e2e8f0; vertical-align: top; }
     .board-table tbody tr { height: 33.33%; }
     .board-table tbody td { height: 33.33%; padding: 0; position: relative; }
     
-    .line-header { background: #f8fafc; padding: 4px 3px; text-align: center; position: relative; }
+    /* Punkt 1 & 3: Dezente Stockwerk-Anzeige in der Ecke & niemals abgeschnittene Liniennamen */
+    .line-header { background: #f8fafc; padding: 13px 3px 4px 3px; text-align: center; position: relative; min-width: 0; }
     body.planner-active .line-header { cursor: pointer; }
     body.planner-active .line-header:hover { background: #f1f5f9; }
     .line-header.ausgeplant { background: #f1f5f9; opacity: 0.72; }
-    .line-title-row { display: flex; align-items: center; justify-content: center; gap: 3px; flex-wrap: nowrap; }
-    .line-title { font-size: 0.76rem; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .line-floor-badge { font-size: 0.55rem; padding: 1px 4px; border-radius: 3px; background: #e0f2fe; color: #0369a1; font-weight: 700; white-space: nowrap; flex-shrink: 0; border: 1px solid #bae6fd; }
-    .line-floor-badge.floor-2 { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
-    .line-floor-badge.floor-3 { background: #fef3c7; color: #92400e; border-color: #fde68a; }
-    .line-floor-badge.floor-eg { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+    
+    .line-floor-corner { position: absolute; top: 2px; left: 4px; font-size: 0.52rem; font-weight: 700; color: #64748b; letter-spacing: 0.01em; pointer-events: none; line-height: 1; }
+    .line-title-row { display: flex; align-items: center; justify-content: center; width: 100%; }
+    .line-title { font-size: 0.73rem; font-weight: 700; color: #0f172a; white-space: normal; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.15; text-align: center; width: 100%; }
 
     .badge-container { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; margin-top: 2px; }
-    .line-prio { font-size: 0.55rem; padding: 1px 3px; border-radius: 3px; background: #e2e8f0; font-weight: 700; color: #334155; }
-    .line-prio.prio-high { background: #fee2e2; color: #b91c1c; }
-    .line-prio.prio-mid { background: #fef3c7; color: #b45309; }
-    .line-status-tag { font-size: 0.55rem; padding: 1px 3px; border-radius: 3px; background: #fecdd3; color: #9f1239; font-weight: 700; }
-    .line-ausgeplant-tag { font-size: 0.55rem; padding: 1px 3px; border-radius: 3px; background: #475569; color: #fff; font-weight: 700; }
-    .line-role-summary-tag { display: none; font-size: 0.54rem; color: #64748b; font-weight: 600; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .line-prio { font-size: 0.53rem; padding: 1px 4px; border-radius: 3px; background: #f1f5f9; font-weight: 700; color: #475569; border: 1px solid #e2e8f0; }
+    .line-prio.prio-high { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+    .line-prio.prio-mid { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+    .line-status-tag { font-size: 0.53rem; padding: 1px 3px; border-radius: 3px; background: #f3f4f6; color: #4b5563; font-weight: 700; border: 1px solid #e5e7eb; }
+    .line-ausgeplant-tag { font-size: 0.53rem; padding: 1px 3px; border-radius: 3px; background: #475569; color: #fff; font-weight: 700; }
+    .line-role-summary-tag { display: none; font-size: 0.52rem; color: #64748b; font-weight: 600; margin-top: 1px; white-space: normal; line-height: 1.1; }
     body.planner-active .line-role-summary-tag { display: block; }
-    .line-notes { font-size: 0.58rem; color: #475569; margin-top: 2px; background: #fff; padding: 1px 3px; border-radius: 3px; border: 1px dashed #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .line-notes { font-size: 0.55rem; color: #475569; margin-top: 2px; background: #fff; padding: 1px 3px; border-radius: 3px; border: 1px dashed #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     
-    .shift-header { background: #f1f5f9; font-weight: 700; font-size: 0.76rem; width: 92px; text-align: center; padding: 4px 3px; color: #334155; vertical-align: middle; }
-    body.planner-active .shift-header { width: 118px; padding: 4px; }
+    .shift-header { background: #f8fafc; font-weight: 700; font-size: 0.74rem; width: 84px; text-align: center; padding: 4px 3px; color: #334155; vertical-align: middle; }
+    body.planner-active .shift-header { width: 106px; padding: 4px 3px; }
 
-    .shift-team-badge { display: inline-flex; align-items: center; justify-content: center; gap: 3px; margin-top: 3px; padding: 2px 5px; border-radius: 4px; background: #fff; border: 1px solid #cbd5e1; font-size: 0.66rem; font-weight: 700; color: #1e293b; }
+    .shift-team-badge { display: inline-flex; align-items: center; justify-content: center; gap: 3px; margin-top: 3px; padding: 2px 5px; border-radius: 4px; background: #fff; border: 1px solid #cbd5e1; font-size: 0.64rem; font-weight: 700; color: #1e293b; }
     body.planner-active .shift-team-badge { display: none; }
     
-    .shift-kpi-row { display: none; justify-content: center; gap: 3px; flex-wrap: wrap; margin-top: 2px; }
+    .shift-kpi-row { display: none; justify-content: center; gap: 2px; flex-wrap: wrap; margin-top: 2px; }
     body.planner-active .shift-kpi-row { display: flex; }
-    .shift-kpi-pill { font-size: 0.55rem; font-weight: 700; padding: 1px 4px; border-radius: 3px; background: #e2e8f0; color: #334155; white-space: nowrap; }
-    .shift-kpi-pill.ok { background: #dcfce7; color: #166534; }
-    .shift-kpi-pill.warn { background: #fee2e2; color: #b91c1c; }
+    .shift-kpi-pill { font-size: 0.53rem; font-weight: 700; padding: 1px 3px; border-radius: 3px; background: #e2e8f0; color: #334155; white-space: nowrap; }
+    .shift-kpi-pill.ok { background: #f0fdf4; color: #166534; border: 1px solid #dcfce7; }
+    .shift-kpi-pill.warn { background: #fffbfa; color: #9a3412; border: 1px solid #ffedd5; }
 
-    .shift-controls { display: none; flex-direction: column; gap: 3px; margin-top: 3px; }
+    .shift-controls { display: none; flex-direction: column; gap: 2px; margin-top: 3px; }
     body.planner-active .shift-controls { display: flex; }
-    .shift-rotate-btn { width: 100%; font-size: 0.64rem; font-weight: 700; padding: 3px 2px; border-radius: 4px; border: none; background: var(--bayer-blue); color: #fff; cursor: pointer; }
+    .shift-rotate-btn { width: 100%; font-size: 0.62rem; font-weight: 700; padding: 2px; border-radius: 4px; border: none; background: var(--bayer-blue); color: #fff; cursor: pointer; }
     .shift-rotate-btn:hover { background: #0077b6; }
-    .shift-auto-btn { width: 100%; font-size: 0.63rem; font-weight: 700; padding: 3px 2px; border-radius: 4px; border: 1px solid #c4b5fd; background: #f5f3ff; color: #5b21b6; cursor: pointer; }
+    .shift-auto-btn { width: 100%; font-size: 0.61rem; font-weight: 700; padding: 2px; border-radius: 4px; border: 1px solid #c4b5fd; background: #f5f3ff; color: #5b21b6; cursor: pointer; }
     .shift-auto-btn:hover { background: #ede9fe; }
-    .shift-undo-mini-btn { display: none; width: 100%; font-size: 0.61rem; font-weight: 700; padding: 2px; border-radius: 4px; border: 1px solid #fed7aa; background: #fff7ed; color: #c2410c; cursor: pointer; }
+    .shift-undo-mini-btn { display: none; width: 100%; font-size: 0.59rem; font-weight: 600; padding: 2px; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; cursor: pointer; }
     body.planner-active .shift-undo-mini-btn.has-undo { display: block; }
     .shift-load-row { display: flex; gap: 2px; align-items: center; }
-    .shift-team-select { width: 100%; font-size: 0.64rem; font-weight: 700; padding: 2px 1px; border-radius: 4px; border: 1px solid var(--bayer-blue); background: #fff; color: #0f172a; cursor: pointer; min-width: 0; }
-    .shift-load-btn { padding: 2px 4px; font-size: 0.64rem; font-weight: 700; border-radius: 4px; border: 1px solid var(--bayer-blue); background: var(--bayer-blue); color: #fff; cursor: pointer; flex-shrink: 0; }
-    .shift-magic-btn { padding: 2px 4px; font-size: 0.64rem; font-weight: 700; border-radius: 4px; border: 1px solid #8b5cf6; background: #8b5cf6; color: #fff; cursor: pointer; flex-shrink: 0; }
+    .shift-team-select { width: 100%; font-size: 0.62rem; font-weight: 700; padding: 2px 1px; border-radius: 4px; border: 1px solid var(--bayer-blue); background: #fff; color: #0f172a; cursor: pointer; min-width: 0; }
+    .shift-load-btn { padding: 2px 4px; font-size: 0.62rem; font-weight: 700; border-radius: 4px; border: 1px solid var(--bayer-blue); background: var(--bayer-blue); color: #fff; cursor: pointer; flex-shrink: 0; }
+    .shift-magic-btn { padding: 2px 4px; font-size: 0.62rem; font-weight: 700; border-radius: 4px; border: 1px solid #8b5cf6; background: #8b5cf6; color: #fff; cursor: pointer; flex-shrink: 0; }
     .shift-magic-btn:hover { background: #7c3aed; }
-    .shift-clear-btn { width: 100%; font-size: 0.6rem; font-weight: 600; padding: 2px; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff; color: #64748b; cursor: pointer; }
+    .shift-clear-btn { width: 100%; font-size: 0.58rem; font-weight: 600; padding: 2px; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff; color: #64748b; cursor: pointer; }
     .shift-clear-btn:hover { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
 
+    /* Punkt 6: Ruhigere, dezente Ist/Soll-Balken in den Zellen */
     .cell-wrapper { display: flex; flex-direction: column; height: 100%; width: 100%; }
-    .zone-staff-bar { display: none; justify-content: space-between; align-items: center; padding: 1px 4px; font-size: 0.56rem; font-weight: 700; border-bottom: 1px solid #e2e8f0; background: #f8fafc; color: #475569; gap: 2px; flex-shrink: 0; white-space: nowrap; overflow: hidden; }
+    .zone-staff-bar { display: none; justify-content: space-between; align-items: center; padding: 1px 4px; font-size: 0.54rem; font-weight: 600; border-bottom: 1px solid #f1f5f9; background: #f8fafc; color: #64748b; gap: 2px; flex-shrink: 0; white-space: nowrap; overflow: hidden; }
     body.planner-active .zone-staff-bar { display: flex; }
-    .zone-staff-bar.status-missing { background: #fef2f2; color: #b91c1c; border-bottom-color: #fecaca; }
-    .zone-staff-bar.status-ok { background: #f0fdf4; color: #166534; border-bottom-color: #bbf7d0; }
-    .zone-staff-bar.status-over { background: #eff6ff; color: #1d4ed8; border-bottom-color: #bfdbfe; }
-    .zone-staff-bar.status-off { background: #f1f5f9; color: #64748b; }
-    .zone-missing-roles { overflow: hidden; text-overflow: ellipsis; font-size: 0.53rem; font-weight: 700; }
+    .zone-staff-bar.status-missing { background: #fffaf5; color: #9a3412; border-bottom-color: #ffedd5; }
+    .zone-staff-bar.status-ok { background: #f4fbf7; color: #166534; border-bottom-color: #dcfce7; }
+    .zone-staff-bar.status-over { background: #f8fafc; color: #0369a1; border-bottom-color: #e0f2fe; }
+    .zone-staff-bar.status-off { background: #f1f5f9; color: #94a3b8; }
+    .zone-missing-roles { overflow: hidden; text-overflow: ellipsis; font-size: 0.51rem; font-weight: 600; }
 
     .drop-zone { padding: 3px; flex: 1; width: 100%; display: flex; flex-direction: column; gap: 3px; background: #fafafa; overflow-y: auto; border: none; border-radius: 0; min-height: 40px; }
 
@@ -175,14 +170,13 @@
       body { height: auto; min-height: 100vh; overflow-y: auto; }
       header { padding: 8px 10px; }
       main { padding: 6px; flex-direction: column; height: auto; overflow: visible; }
-      .sidebar, .board-container { width: 100%; height: auto; }
-      .panel { max-height: 250px; }
-      .board-table { min-width: 920px; height: auto; }
+      .sidebar, .board-container { width: 100%; height: auto; overflow-x: auto; }
+      .panel { max-height: 220px; }
+      .board-table { min-width: 780px; height: auto; }
       .pin-remove-x { padding: 4px 8px; font-size: 0.78rem; }
     }
 
     .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.45); display: none; align-items: center; justify-content: center; z-index: 100; padding: 12px; }
-    /* WICHTIG: lineEditModal liegt auf z-index 150, damit es sich IMMER vor settingsModal (100) öffnet */
     #lineEditModal { z-index: 150; }
     .modal { background: #fff; padding: 20px; border-radius: 10px; width: 100%; max-width: 520px; box-shadow: 0 10px 25px rgba(0,0,0,0.18); max-height: 90vh; overflow-y: auto; color: #0f172a; }
     .form-group { margin-bottom: 10px; position: relative; }
@@ -249,6 +243,30 @@
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
 
+  <!-- ERZWUNGENE PIN-ÄNDERUNG AUCH BEIM PLANER-LOGIN MIT START-PIN (PUNKT 16) -->
+  <div id="plannerForcePinModal" class="modal-overlay" style="display:none; z-index: 2500; background: rgba(15,23,42,0.85);">
+    <div class="modal" style="max-width: 380px; background:#fff; padding:24px; border-radius:12px;">
+      <h3 style="color:var(--bayer-blue); margin-bottom:8px;">🔐 Eigene PIN festlegen</h3>
+      <p style="font-size:0.82rem; color:#475569; margin-bottom:14px;">Du hast dich mit deiner Start-PIN angemeldet. Bitte vergib jetzt deine persönliche PIN:</p>
+      <div id="plannerForcePinError" style="display:none; background:#fee2e2; color:#b91c1c; padding:8px; border-radius:6px; font-size:0.8rem; font-weight:700; margin-bottom:10px; text-align:center;"></div>
+      <div class="form-group"><label>Neue persönliche PIN (mind. 4 Zeichen)</label><input type="password" id="plannerForceNewPin1" class="form-control" placeholder="****"></div>
+      <div class="form-group"><label>Neue PIN wiederholen</label><input type="password" id="plannerForceNewPin2" class="form-control" placeholder="****" onkeydown="if(event.key==='Enter') submitPlannerForcePinChange()"></div>
+      <button class="btn btn-primary" style="width:100%;" onclick="submitPlannerForcePinChange()">PIN speichern & Anmelden</button>
+    </div>
+  </div>
+
+  <!-- QUALIFIKATIONS-FREIGABE-DIALOG FÜR SEKUNDÄR-ANLAGE (PUNKT 13) -->
+  <div id="secLineUnlockModal" class="modal-overlay" style="display:none; z-index: 2200;">
+    <div class="modal" style="max-width: 440px;">
+      <h3 style="color:#0369a1; margin-bottom:8px;">🏆 Sekundär-Anlage freischalten?</h3>
+      <p id="secLineUnlockText" style="font-size:0.85rem; color:#1e293b; line-height:1.45; margin-bottom:14px;"></p>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal('secLineUnlockModal')">Später</button>
+        <button class="btn btn-primary" style="background:#16a34a;" onclick="confirmSecondaryLineUnlock()">✅ Ja, als Sekundär-Anlage freischalten</button>
+      </div>
+    </div>
+  </div>
+
   <div id="boardLockModal" class="modal-overlay" style="background: #f4f6f9; z-index: 180;">
     <div class="modal" style="max-width: 380px; text-align: center; padding: 0; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
       <div style="height: 6px; background: linear-gradient(90deg, #0091df 0%, #00bcff 50%, #89d329 100%); width: 100%;"></div>
@@ -271,32 +289,17 @@
     </div>
   </div>
   
+  <!-- Punkt 4: Aufgeräumter Header ohne die 4 überladenen Automatik-Pills -->
   <header>
     <div class="header-left">
       <div class="bayer-logo-btn" onclick="handleLogoClick()"><img src="logo.png" alt="Bayer Logo" onerror="this.style.display='none'"></div>
       <div class="header-title">
         <div class="header-title-text">
           <h1>Schicht und Linienübersicht</h1>
-          <div id="headerDateKw" class="header-meta">Lade Datum... · v4.9.55</div>
+          <div id="headerDateKw" class="header-meta">Lade Datum... · v4.9.60</div>
         </div>
         <div class="header-badges-row">
           <span id="plannerStatusBadge" class="status-badge">Planer-Modus aktiv</span>
-          <span id="autoRotationBadge" class="auto-toggle-pill active-blue lvl-2-hide" onclick="toggleAutoRotateQuick()" title="Automatische Schicht-Rotation direkt an-/ausschalten">
-            <span id="autoRotationIcon" class="rot-icon">🔄</span>
-            <span id="autoRotationText">Auto-Rotation: AN</span>
-          </span>
-          <span id="smartAssignToggleBadge" class="auto-toggle-pill active-purple lvl-2-hide" onclick="toggleSmartAssignQuick()" title="Intelligente Linien-Zuweisung (Prio, Rollen, Etagen & Ringtausch) direkt an-/ausschalten">
-            <span>🧠</span>
-            <span id="smartAssignBadgeText">Auto-Zuweisung: AN</span>
-          </span>
-          <span id="autoPoolResetBadge" class="auto-toggle-pill lvl-2-hide" onclick="toggleAutoPoolResetQuick()" title="Zeitgesteuertes Zurückschicken in den Pool direkt an-/ausschalten">
-            <span>🧹</span>
-            <span id="autoPoolResetBadgeText">Auto-Pool: AUS</span>
-          </span>
-          <span id="autoTeamLoadBadge" class="auto-toggle-pill lvl-2-hide" onclick="toggleAutoTeamLoadQuick()" title="Zeitgesteuertes Verteilen der Teams auf Positionen direkt an-/ausschalten">
-            <span>📥</span>
-            <span id="autoTeamLoadBadgeText">Auto-Verteilen: AUS</span>
-          </span>
         </div>
       </div>
     </div>
@@ -304,7 +307,7 @@
       <button id="btnForceCacheReload" class="cache-warn-btn" onclick="window.location.reload(true)" title="Neue Skript-Version verfügbar – Klick zum Neuladen">
         ⚠️ Update laden
       </button>
-      <button id="btnUndoAutoAssignHeader" class="undo-assign-btn" onclick="undoLastAutoAssignment()" title="Letzte automatische Zuweisung komplett rückgängig machen">
+      <button id="btnUndoAutoAssignHeader" class="undo-assign-btn" onclick="undoLastAutoAssignment()" title="Stellt den Zustand vor der letzten automatischen Zuweisung fehlerfrei wieder her">
         ↩️ Zurück korrigieren
       </button>
       <button id="plannerApprovalIndicator" class="planner-approval-indicator" onclick="toggleShiftApprovalState()">
@@ -321,7 +324,7 @@
     <aside class="sidebar">
       <div class="team-filter-box">
         <div class="search-wrapper">
-          <input type="text" id="poolSearchInput" class="search-input" placeholder="🔍 Name, Rolle oder Linie (z.B. 37)..." oninput="updatePoolSearch(this.value)">
+          <input type="text" id="poolSearchInput" class="search-input" placeholder="🔍 Name, Rolle oder Linie (ab 3 Buchst.)..." oninput="updatePoolSearch(this.value)">
           <span id="clearSearchBtn" class="search-clear" onclick="document.getElementById('poolSearchInput').value=''; updatePoolSearch('')">&times;</span>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -339,28 +342,37 @@
 
       <div class="panel panel-pool">
         <h2>
-          <span>Pool <span id="poolCount" style="font-size:0.74rem; color:#64748b;">(0)</span></span>
+          <span>Pool <span id="poolCount" style="font-size:0.72rem; color:#64748b;">(0)</span></span>
           <div id="poolFreiControlWrap" style="display:flex; align-items:center; gap:3px;">
-            <select id="teamSelect_frei" style="font-size:0.68rem; padding:1px 3px; border-radius:4px; border:1px solid #cbd5e1; font-weight:700; color:#334155; cursor:pointer;"></select>
-            <button class="btn btn-outline" style="padding:1px 5px; font-size:0.68rem; color:var(--bayer-blue); border-color:var(--bayer-blue);" onclick="loadTeamToShift('frei')" title="Team als Schichtfrei in den Pool setzen">📥</button>
+            <select id="teamSelect_frei" style="font-size:0.66rem; padding:1px 3px; border-radius:4px; border:1px solid #cbd5e1; font-weight:700; color:#334155; cursor:pointer;"></select>
+            <button class="btn btn-outline" style="padding:1px 5px; font-size:0.66rem; color:var(--bayer-blue); border-color:var(--bayer-blue);" onclick="loadTeamToShift('frei')" title="Team als Schichtfrei in den Pool setzen">📥</button>
           </div>
         </h2>
         <div id="pool" class="card-list drop-zone" data-zone="pool"></div>
       </div>
 
-      <div class="panel">
+      <!-- Punkt 18: Extra-Fenster "Noch zuzuteilen (Manuelle Prüfung)" -->
+      <div class="panel panel-review" id="reviewPanelWrap">
         <h2>
-          <span title="Bringschichtler werden automatisch 1 Stunde vor Schichtbeginn hier bereitgestellt">➕ Bringschichten (1h Vorlauf) <span id="extraCount" style="font-size:0.74rem; color:#166534;">(0)</span></span>
-          <button class="btn btn-outline lvl-2-hide admin-element" style="padding:1px 6px; font-size:0.68rem;" onclick="openInboxModal(null, false, true)">+ Neu</button>
+          <span style="color:#92400e;" title="Mitarbeiter, deren Stammlinie besetzt ist und denen noch eine passende Zweitlinien-Qualifikation fehlt">⚠️ Noch zuzuteilen <span id="reviewCount" style="font-size:0.72rem; color:#b45309;">(0)</span></span>
+          <button class="btn btn-outline" style="padding:1px 5px; font-size:0.64rem; color:#92400e; border-color:#fcd34d;" onclick="moveAllReviewToPool()" title="Alle zurück in den regulären Pool schieben">➔ Pool</button>
         </h2>
-        <div id="extra" class="card-list drop-zone" data-zone="extra" style="background:#f0fdf4; border-color:#86efac;"></div>
-        <div id="approvedExtraList" style="max-height:48px; overflow-y:auto; margin-top:2px; font-size:0.66rem;"></div>
+        <div id="review" class="card-list drop-zone" data-zone="review" style="background:#fffef5; border-color:#fcd34d;"></div>
       </div>
 
       <div class="panel">
         <h2>
-          <span>Abwesend <span id="absentCount" style="font-size:0.74rem; color:#b91c1c;">(0)</span></span>
-          <button class="btn btn-outline lvl-2-hide admin-element" style="padding:1px 6px; font-size:0.68rem;" onclick="openInboxModal(null, true, false)">+ Zeitraum</button>
+          <span title="Bringschichtler werden automatisch 1 Stunde vor Schichtbeginn hier bereitgestellt">➕ Bringschichten <span id="extraCount" style="font-size:0.72rem; color:#166534;">(0)</span></span>
+          <button class="btn btn-outline lvl-2-hide admin-element" style="padding:1px 6px; font-size:0.66rem;" onclick="openInboxModal(null, false, true)">+ Neu</button>
+        </h2>
+        <div id="extra" class="card-list drop-zone" data-zone="extra" style="background:#f0fdf4; border-color:#86efac;"></div>
+        <div id="approvedExtraList" style="max-height:42px; overflow-y:auto; margin-top:2px; font-size:0.64rem;"></div>
+      </div>
+
+      <div class="panel">
+        <h2>
+          <span>Abwesend <span id="absentCount" style="font-size:0.72rem; color:#b91c1c;">(0)</span></span>
+          <button class="btn btn-outline lvl-2-hide admin-element" style="padding:1px 6px; font-size:0.66rem;" onclick="openInboxModal(null, true, false)">+ Zeitraum</button>
         </h2>
         <div id="absent" class="card-list drop-zone" data-zone="absent" style="background: #fff1f2;"></div>
       </div>
@@ -384,8 +396,8 @@
         </div>
         <div id="loginModalError" style="display:none; background:#fee2e2; color:#b91c1c; padding:10px; border-radius:6px; font-size:0.8rem; font-weight:700; margin-bottom:12px; text-align:center;"></div>
         <div class="form-group" id="plannerLoginSearchGroup">
-          <label>Dein Name</label>
-          <input type="text" id="loginPlannerName" class="form-control" placeholder="Namen eintippen..." autocomplete="off" onfocus="onPlannerLoginInput(this.value)" oninput="onPlannerLoginInput(this.value)" onkeydown="if(event.key==='Enter') document.getElementById('pinInput').focus()">
+          <label>Dein Name (ab 3 Buchstaben)</label>
+          <input type="text" id="loginPlannerName" class="form-control" placeholder="Mind. 3 Buchstaben tippen..." autocomplete="off" onfocus="onPlannerLoginInput(this.value)" oninput="onPlannerLoginInput(this.value)" onkeydown="if(event.key==='Enter') document.getElementById('pinInput').focus()">
           <div id="plannerLoginSuggestions" class="suggestions-box"></div>
         </div>
         <div class="form-group">
@@ -403,7 +415,7 @@
   <div id="inboxModal" class="modal-overlay">
     <div class="modal" style="max-width: 680px;">
       <h3 style="display:flex; justify-content:space-between; align-items:center; color:var(--bayer-blue); margin-bottom:8px;">
-        <span>📬 Postfach, Urlaub, Krank & Bringschichten</span>
+        <span>📬 Postfach, Onboarding-Prüfung, Urlaub & Krank</span>
         <button onclick="closeModal('inboxModal')" style="border:none; background:none; font-size:1.5rem; cursor:pointer;">&times;</button>
       </h3>
       <div id="serverSyncInfo" style="font-size:0.74rem; background:#f1f5f9; color:#475569; padding:6px 10px; border-radius:6px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
@@ -424,8 +436,8 @@
         <div id="manualEntryContent" style="display:none; background:#f8fafc; border:1px solid #cbd5e1; border-top:none; border-radius:0 0 8px 8px; padding:14px;">
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
             <div class="form-group" id="manualSickSearchGroup" style="flex:1.2; min-width:180px;">
-              <label>Mitarbeiter</label>
-              <input type="text" id="manualSickEmpInput" class="form-control" placeholder="🔍 Name tippen..." autocomplete="off" onfocus="onManualSickNameInput(this.value)" oninput="onManualSickNameInput(this.value)">
+              <label>Mitarbeiter (ab 3 Buchstaben)</label>
+              <input type="text" id="manualSickEmpInput" class="form-control" placeholder="🔍 Mind. 3 Buchstaben..." autocomplete="off" onfocus="onManualSickNameInput(this.value)" oninput="onManualSickNameInput(this.value)">
               <div id="manualSickSuggestions" class="suggestions-box"></div>
             </div>
             <div class="form-group" style="flex:1.2; min-width:200px;">
@@ -458,8 +470,8 @@
         <div id="manualExtraContent" style="display:none; background:#f0fdf4; border:1px solid #86efac; border-top:none; border-radius:0 0 8px 8px; padding:14px;">
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
             <div class="form-group" id="manualExtraSearchGroup" style="flex:1.4; min-width:180px;">
-              <label>Mitarbeiter</label>
-              <input type="text" id="manualExtraEmpInput" class="form-control" placeholder="🔍 Name tippen..." autocomplete="off" onfocus="onManualExtraNameInput(this.value)" oninput="onManualExtraNameInput(this.value)">
+              <label>Mitarbeiter (ab 3 Buchstaben)</label>
+              <input type="text" id="manualExtraEmpInput" class="form-control" placeholder="🔍 Mind. 3 Buchstaben..." autocomplete="off" onfocus="onManualExtraNameInput(this.value)" oninput="onManualExtraNameInput(this.value)">
               <div id="manualExtraSuggestions" class="suggestions-box"></div>
             </div>
             <div class="form-group" style="flex:1; min-width:140px;"><label>Datum</label><input type="date" id="manualExtraDate" class="form-control"></div>
@@ -479,7 +491,7 @@
 
       <div style="margin-bottom: 16px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
-          <h4 style="font-size:0.92rem; color:#dc2626;">🔔 Neue Krankmeldungen, Offene Anträge & Bringschicht-Auswahl</h4>
+          <h4 style="font-size:0.92rem; color:#dc2626;">🔔 Neue Meldungen, Onboarding-Abschlüsse & Sekundär-Anlagen-Freigaben</h4>
           <button id="btnMarkAllRead" class="btn btn-outline" style="padding:4px 10px; font-size:0.75rem;" onclick="markAllSickLeavesRead()">Alle Infos gelesen</button>
         </div>
         <div id="unreadSickList"></div>
@@ -498,7 +510,7 @@
           <button class="btn btn-outline active" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('ALL')">Alle</button>
           <button class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('URLAUB')">Urlaub</button>
           <button class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('KRANK')">Krank</button>
-          <button class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('EXTRA')">Bringschicht</button>
+          <button class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('EXTRA')">Bringschicht / Info</button>
         </div>
         <div style="margin-bottom:10px;">
           <input type="text" id="inboxActiveSearchInput" class="form-control" placeholder="🔍 Einträge durchsuchen (Name, Grund, Notiz)..." oninput="renderInboxLists()" style="font-size:0.82rem; padding:8px 10px;">
@@ -509,16 +521,16 @@
   </div>
 
   <div id="settingsModal" class="modal-overlay">
-    <div class="modal" style="max-width: 740px;">
+    <div class="modal" style="max-width: 760px;">
       <h3 style="display:flex; justify-content:space-between; color:var(--bayer-blue); margin-bottom:12px;">
-        <span>⚙️ Einstellungen <small style="font-size:0.72rem; color:#94a3b8; font-weight:600;">v4.9.55</small></span>
+        <span>⚙️ Einstellungen <small style="font-size:0.72rem; color:#94a3b8; font-weight:600;">v4.9.60</small></span>
         <button onclick="closeModal('settingsModal')" style="border:none; background:none; font-size:1.5rem; cursor:pointer;">&times;</button>
       </h3>
       <div class="tabs">
         <button id="tabBtnEmployees" class="tab-btn active" onclick="switchTab('tabEmployees', this)">Mitarbeiter</button>
-        <button id="tabRolesBtn" class="tab-btn lvl-3-only" onclick="switchTab('tabRoles', this)">Rollen</button>
+        <button id="tabRolesBtn" class="tab-btn lvl-3-only" onclick="switchTab('tabRoles', this)">Rollen & Onboarding</button>
         <button id="tabLinesBtn" class="tab-btn lvl-3-only" onclick="switchTab('tabLines', this)">Linien & Etagen</button>
-        <button id="tabBtnTeams" class="tab-btn lvl-3-only" onclick="switchTab('tabTeams', this)">Teams & Automatik</button>
+        <button id="tabBtnTeams" class="tab-btn lvl-3-only" onclick="switchTab('tabTeams', this)">Automatik & Stundenzähler</button>
         <button id="tabSecurityBtn" class="tab-btn lvl-3-only" onclick="switchTab('tabSecurity', this)">Sicherheit</button>
         <button id="tabHistoryBtn" class="tab-btn lvl-3-only" onclick="switchTab('tabHistory', this)">Historie</button>
         <button id="tabBackupsBtn" class="tab-btn lvl-3-only" onclick="switchTab('tabBackups', this)">Backups</button>
@@ -566,24 +578,27 @@
         <div id="employeeList" style="max-height: 240px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
       
+      <!-- Punkt 17: Rollen inkl. Haken "Anlagen abfragen für Onboarding" -->
       <div id="tabRoles" class="tab-content">
-        <p style="font-size:0.75rem; color:#64748b; margin-bottom:8px;">Tipp: Du kannst die Rollen per <b>☰ Ziehen</b> oder mit den Pfeilen <b>⬆️ / ⬇️</b> in deine gewünschte Reihenfolge bringen.</p>
+        <p style="font-size:0.75rem; color:#64748b; margin-bottom:8px;">
+          Lege die Reihenfolge per <b>☰ Ziehen</b> oder <b>⬆️ / ⬇️</b> fest. Über den Haken <b>„🏭 Anlagen abfragen für Onboarding“</b> bestimmst du, ob diese Rolle im Onboarding-Assistenten Primär- und Sekundär-Anlagen auswählen muss (z.B. ein Schichtexperte benötigt keine Anlage).
+        </p>
         <div style="display:flex; gap:8px; margin-bottom:12px;">
           <input type="text" id="newRoleName" class="form-control" placeholder="Neue Rolle eingeben (z.B. SF, Springer)..." onkeydown="if(event.key==='Enter') addRole()">
           <button class="btn btn-primary" onclick="addRole()">Hinzufügen</button>
         </div>
-        <div id="roleList" style="max-height: 260px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
+        <div id="roleList" style="max-height: 280px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
 
       <div id="tabLines" class="tab-content">
         <p style="font-size:0.75rem; color:#64748b; margin-bottom:8px;">Tipp: Ziehe eine Linie am Symbol <b>☰</b> oder nutze <b>⬆️ / ⬇️</b>, um ihre Position auf dem Board frei zu verschieben.</p>
         <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
-          <input type="text" id="newLineName" class="form-control" style="flex:1.5; min-width:150px;" placeholder="Neue Linie (z.B. Linie 09)..." onkeydown="if(event.key==='Enter') addLine()">
+          <input type="text" id="newLineName" class="form-control" style="flex:1.5; min-width:150px;" placeholder="Neue Linie (z.B. Linie Sachet)..." onkeydown="if(event.key==='Enter') addLine()">
           <select id="newLineFloor" class="form-control" style="flex:1; min-width:110px;">
-            <option value="1. OG">🏢 1. OG</option>
-            <option value="2. OG">🏢 2. OG</option>
-            <option value="3. OG">🏢 3. OG</option>
-            <option value="EG">🏢 EG</option>
+            <option value="1. OG">1. OG</option>
+            <option value="2. OG">2. OG</option>
+            <option value="3. OG">3. OG</option>
+            <option value="EG">EG</option>
           </select>
           <button class="btn btn-primary" onclick="addLine()">Hinzufügen</button>
         </div>
@@ -591,73 +606,81 @@
       </div>
 
       <div id="tabTeams" class="tab-content">
-        <div class="settings-card" style="border-left: 4px solid #8b5cf6; background: #faf5ff;">
+        <!-- Punkt 5: Zentraler, gestaffelter "Auto Schicht Reset" -->
+        <div class="settings-card" style="border-left: 4px solid #0091df; background: #f0f9ff;">
           <div class="settings-card-title">
-            <span style="color:#5b21b6;">🧠 Intelligente Linien-Zuweisung (Auto-Besetzung & Ringtausch)</span>
+            <span style="color:#0369a1;">🔄 Auto Schicht Reset (Zentraler Zeit-Schalter)</span>
           </div>
-          <p style="font-size:0.74rem; color:#475569; margin-bottom:8px;">
-            Steuert separat von der Schicht-Rotation, ob Mitarbeiter nach Linien-Priorität (PRIO 1–3), Rollen-Bedarf (z.B. 2 LOP, 2 Bediener, 1 TL), Etage (EG / 1. OG / 2. OG / 3. OG) und Bringschicht-Ringtausch automatisch zugewiesen werden.
+          <p style="font-size:0.74rem; color:#334155; margin-bottom:8px;">
+            Führt zum gewählten Zeitpunkt im Hintergrund automatisch und konfliktfrei nacheinander aus: 
+            <b>1. Pool leeren</b> ➔ <b>2. Schicht-Rotation</b> (falls aktiv) ➔ <b>3. Teams laden & Auto-Zuweisung nach Prio 1–10</b>. 
+            (Die Zauberstäbe 🪄 im Board bleiben jederzeit rein manuell nutzbar).
           </p>
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            <label style="display:flex; align-items:center; gap:8px; font-size:0.82rem; font-weight:700; color:#1e293b; cursor:pointer;">
-              <input type="checkbox" id="cfgSmartAssignEnabled" checked onchange="saveShiftModelSettings()">
-              Intelligente Auto-Zuweisung aktivieren (Separat schaltbar)
+          <div style="background:#fff; padding:9px 12px; border-radius:6px; border:1px solid #bae6fd; display:flex; flex-direction:column; gap:8px;">
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.84rem; font-weight:700; color:#0f172a; cursor:pointer;">
+              <input type="checkbox" id="cfgAutoShiftResetEnabled" onchange="saveShiftModelSettings()">
+              Zeitgesteuerten „Auto Schicht Reset“ aktivieren (Globaler Hauptschalter)
             </label>
-            <label style="display:flex; align-items:center; gap:8px; font-size:0.78rem; font-weight:600; color:#334155; cursor:pointer;">
-              <input type="checkbox" id="cfgSmartRespectFloorTL" checked onchange="saveShiftModelSettings()">
-              🏢 Etagen-Logik für Teamleiter (TL kann bei Unterbesetzung mehrere Linien derselben Etage betreuen)
-            </label>
-            <label style="display:flex; align-items:center; gap:8px; font-size:0.78rem; font-weight:600; color:#334155; cursor:pointer;">
-              <input type="checkbox" id="cfgSmartAllowSwap" checked onchange="saveShiftModelSettings()">
-              🔄 Automatischer Ringtausch (Stamm-Mitarbeiter für Bringschichtler verschieben, wenn Fachwissen es erfordert)
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <select id="cfgResetDay" class="form-control" style="flex:1; font-size:0.78rem; padding:5px;" onchange="saveShiftModelSettings()">
+                <option value="-1">Täglich (Jeden Tag)</option>
+                <option value="0">Sonntag</option><option value="1">Montag</option><option value="2">Dienstag</option>
+                <option value="3">Mittwoch</option><option value="4">Donnerstag</option><option value="5">Freitag</option><option value="6">Samstag</option>
+              </select>
+              <select id="cfgResetHour" class="form-control" style="flex:1; font-size:0.78rem; padding:5px;" onchange="saveShiftModelSettings()">
+                <option value="0">00:00 Uhr</option><option value="1">01:00 Uhr</option><option value="2">02:00 Uhr</option><option value="3">03:00 Uhr</option><option value="4">04:00 Uhr</option><option value="5">05:00 Uhr</option><option value="6" selected>06:00 Uhr</option><option value="7">07:00 Uhr</option><option value="8">08:00 Uhr</option><option value="9">09:00 Uhr</option><option value="10">10:00 Uhr</option><option value="11">11:00 Uhr</option><option value="12">12:00 Uhr</option><option value="13">13:00 Uhr</option><option value="14">14:00 Uhr</option><option value="15">15:00 Uhr</option><option value="16">16:00 Uhr</option><option value="17">17:00 Uhr</option><option value="18">18:00 Uhr</option><option value="19">19:00 Uhr</option><option value="20">20:00 Uhr</option><option value="21">21:00 Uhr</option><option value="22">22:00 Uhr</option><option value="23">23:00 Uhr</option>
+              </select>
+            </div>
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.78rem; font-weight:600; color:#334155; cursor:pointer; margin-top:2px;">
+              <input type="checkbox" id="cfgAutoRotate" checked onchange="saveShiftModelSettings()">
+              Schicht-Rotation beim Reset automatisch mit ausführen
             </label>
           </div>
         </div>
 
-        <div class="settings-card">
+        <div class="settings-card" style="border-left: 4px solid #8b5cf6; background: #faf5ff;">
           <div class="settings-card-title">
-            <span>🔄 Schichtmodell & Zeitgesteuerte Automatik</span>
+            <span style="color:#5b21b6;">🧠 Intelligente Linien-Zuweisung (Prio 1–10 & Qualifikations-Check)</span>
           </div>
-          
-          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom: 10px;">
-            <label style="display:flex; align-items:center; gap:8px; font-size:0.84rem; font-weight:700; color:#1e293b; cursor:pointer;">
-              <input type="checkbox" id="cfgAutoRotate" checked onchange="saveShiftModelSettings()"> Automatische Schicht-Rotation aktiv
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.82rem; font-weight:700; color:#1e293b; cursor:pointer;">
+              <input type="checkbox" id="cfgSmartAssignEnabled" checked onchange="saveShiftModelSettings()">
+              Intelligente Auto-Zuweisung aktivieren
             </label>
-            <span id="cfgRotationStatusHint" style="font-size:0.75rem; color:#166534; font-weight:700;"></span>
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.78rem; font-weight:600; color:#334155; cursor:pointer;">
+              <input type="checkbox" id="cfgSmartRespectFloorTL" checked onchange="saveShiftModelSettings()">
+              🏢 Etagen-Logik für Teamleiter (TL kann mehrere Linien derselben Etage betreuen)
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.78rem; font-weight:600; color:#334155; cursor:pointer;">
+              <input type="checkbox" id="cfgSmartAllowSwap" checked onchange="saveShiftModelSettings()">
+              🔄 Automatischer Ringtausch (Stamm-Mitarbeiter verschieben, wenn Fachwissen es erfordert)
+            </label>
           </div>
+        </div>
 
-          <div style="border-top: 1px solid #cbd5e1; padding-top: 8px; display:flex; flex-direction:column; gap:8px;">
-            <div style="background:#fff; padding:8px 10px; border-radius:6px; border:1px solid #e2e8f0;">
-              <div style="display:flex; align-items:center; gap:8px; margin-bottom: 5px;">
-                <input type="checkbox" id="cfgResetEnabled" onchange="saveShiftModelSettings()">
-                <label for="cfgResetEnabled" style="font-size:0.8rem; font-weight:700; color:#1e293b; margin:0; cursor:pointer;">🧹 Mitarbeiter automatisch in den Pool schicken</label>
-              </div>
-              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                <select id="cfgResetDay" class="form-control" style="flex:1; font-size:0.76rem; padding:4px;" onchange="saveShiftModelSettings()">
-                  <option value="0">Sonntag</option><option value="1">Montag</option><option value="2">Dienstag</option>
-                  <option value="3">Mittwoch</option><option value="4">Donnerstag</option><option value="5">Freitag</option><option value="6">Samstag</option>
-                </select>
-                <select id="cfgResetHour" class="form-control" style="flex:1; font-size:0.76rem; padding:4px;" onchange="saveShiftModelSettings()">
-                  <option value="0">00:00 Uhr</option><option value="1">01:00 Uhr</option><option value="2">02:00 Uhr</option><option value="3">03:00 Uhr</option><option value="4">04:00 Uhr</option><option value="5">05:00 Uhr</option><option value="6" selected>06:00 Uhr</option><option value="7">07:00 Uhr</option><option value="8">08:00 Uhr</option><option value="9">09:00 Uhr</option><option value="10">10:00 Uhr</option><option value="11">11:00 Uhr</option><option value="12">12:00 Uhr</option><option value="13">13:00 Uhr</option><option value="14">14:00 Uhr</option><option value="15">15:00 Uhr</option><option value="16">16:00 Uhr</option><option value="17">17:00 Uhr</option><option value="18">18:00 Uhr</option><option value="19">19:00 Uhr</option><option value="20">20:00 Uhr</option><option value="21">21:00 Uhr</option><option value="22">22:00 Uhr</option><option value="23">23:00 Uhr</option>
-                </select>
-              </div>
+        <!-- Punkte 13, 14 & 15: Stundenzähler (6h-Tagesfilter), Schwellenwert & Übersicht -->
+        <div class="settings-card" style="border-left: 4px solid #16a34a; background: #f0fdf4;">
+          <div class="settings-card-title">
+            <span style="color:#166534;">⏱️ Qualifikations-Stundenzähler für Sekundär-Anlagen (6h-Filter)</span>
+          </div>
+          <p style="font-size:0.74rem; color:#334155; margin-bottom:8px;">
+            Wird ein Mitarbeiter manuell an einer fremden Anlage eingesetzt, zählt das System die Stunden nur dann dazu, wenn er an diesem Tag <b>mindestens 6 Stunden</b> dort eingeteilt war. Bei Erreichen des Schwellenwerts wird die Freischaltung als Sekundär-Anlage vorgeschlagen.
+          </p>
+          <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+            <label style="font-size:0.8rem; font-weight:700; color:#0f172a;">
+              Schwellenwert bis zur Freischaltung (Stunden):
+            </label>
+            <input type="number" id="cfgSecondaryUnlockHours" min="6" max="10000" step="1" value="1000" class="form-control" style="width:110px; font-weight:700;" onchange="saveShiftModelSettings()">
+            <label style="font-size:0.78rem; font-weight:600; color:#334155;">
+              Tageseinsatz bei Zuweisung (Std., ≥ 6h zählt):
+              <input type="number" id="cfgDefaultShiftHours" min="1" max="12" step="0.5" value="8" class="form-control" style="width:75px; display:inline-block; margin-left:4px; font-weight:700;" onchange="saveShiftModelSettings()">
+            </label>
+          </div>
+          <div style="background:#fff; border:1px solid #bbf7d0; border-radius:6px; padding:8px 10px;">
+            <div style="font-size:0.76rem; font-weight:700; color:#166534; margin-bottom:4px;">
+              📊 Übersicht: Gesammelte Stunden an noch NICHT freigeschalteten Anlagen
             </div>
-
-            <div style="background:#fff; padding:8px 10px; border-radius:6px; border:1px solid #e2e8f0;">
-              <div style="display:flex; align-items:center; gap:8px; margin-bottom: 5px;">
-                <input type="checkbox" id="cfgLoadEnabled" onchange="saveShiftModelSettings()">
-                <label for="cfgLoadEnabled" style="font-size:0.8rem; font-weight:700; color:#1e293b; margin:0; cursor:pointer;">📥 Teams automatisch auf ihre Positionen verteilen</label>
-              </div>
-              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                <select id="cfgLoadDay" class="form-control" style="flex:1; font-size:0.76rem; padding:4px;" onchange="saveShiftModelSettings()">
-                  <option value="0" selected>Sonntag</option><option value="1">Montag</option><option value="2">Dienstag</option>
-                  <option value="3">Mittwoch</option><option value="4">Donnerstag</option><option value="5">Freitag</option><option value="6">Samstag</option>
-                </select>
-                <select id="cfgLoadHour" class="form-control" style="flex:1; font-size:0.76rem; padding:4px;" onchange="saveShiftModelSettings()">
-                  <option value="0">00:00 Uhr</option><option value="1">01:00 Uhr</option><option value="2">02:00 Uhr</option><option value="3">03:00 Uhr</option><option value="4">04:00 Uhr</option><option value="5" selected>05:00 Uhr</option><option value="6">06:00 Uhr</option><option value="7">07:00 Uhr</option><option value="8">08:00 Uhr</option><option value="9">09:00 Uhr</option><option value="10">10:00 Uhr</option><option value="11">11:00 Uhr</option><option value="12">12:00 Uhr</option><option value="13">13:00 Uhr</option><option value="14">14:00 Uhr</option><option value="15">15:00 Uhr</option><option value="16">16:00 Uhr</option><option value="17">17:00 Uhr</option><option value="18">18:00 Uhr</option><option value="19">19:00 Uhr</option><option value="20">20:00 Uhr</option><option value="21">21:00 Uhr</option><option value="22">22:00 Uhr</option><option value="23">23:00 Uhr</option>
-                </select>
-              </div>
-            </div>
+            <div id="unqualifiedHoursOverviewList" style="max-height:130px; overflow-y:auto; font-size:0.76rem;"></div>
           </div>
         </div>
 
@@ -677,7 +700,7 @@
           </div>
         </div>
 
-        <div id="teamSettingsList" style="max-height: 180px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
+        <div id="teamSettingsList" style="max-height: 160px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
 
       <div id="tabSecurity" class="tab-content">
@@ -749,7 +772,7 @@
     </div>
   </div>
 
-  <!-- Linie bearbeiten Modal (Liegt mit z-index: 150 garantiert vor dem Einstellungs-Fenster) -->
+  <!-- Linie bearbeiten Modal: Prio 1-10 & Zentrale Rollen-Steuerung ohne Früh/Spät/Nacht-Felder unten (Punkte 3 & 12) -->
   <div id="lineEditModal" class="modal-overlay">
     <div class="modal" style="max-width: 500px;">
       <h3 style="display:flex; justify-content:space-between; align-items:center; color: var(--bayer-blue); margin-bottom: 12px;">
@@ -767,7 +790,7 @@
 
       <div style="display:flex; gap:8px;">
         <div class="form-group" style="flex:1;">
-          <label>🏢 Etage / Stockwerk</label>
+          <label>Etage / Stockwerk</label>
           <select id="editLineFloor" class="form-control" onchange="saveLineDetails(true)">
             <option value="1. OG">1. OG</option>
             <option value="2. OG">2. OG</option>
@@ -776,12 +799,19 @@
           </select>
         </div>
         <div class="form-group" style="flex:1;">
-          <label>🔥 Priorität</label>
+          <label>🔥 Priorität (1–10)</label>
           <select id="editLinePrio" class="form-control" onchange="saveLineDetails(true)">
             <option value="">Keine</option>
             <option value="PRIO 1">PRIO 1 (Höchste)</option>
-            <option value="PRIO 2">PRIO 2 (Mittel)</option>
-            <option value="PRIO 3">PRIO 3 (Normal)</option>
+            <option value="PRIO 2">PRIO 2</option>
+            <option value="PRIO 3">PRIO 3</option>
+            <option value="PRIO 4">PRIO 4</option>
+            <option value="PRIO 5">PRIO 5</option>
+            <option value="PRIO 6">PRIO 6</option>
+            <option value="PRIO 7">PRIO 7</option>
+            <option value="PRIO 8">PRIO 8</option>
+            <option value="PRIO 9">PRIO 9</option>
+            <option value="PRIO 10">PRIO 10</option>
           </select>
         </div>
       </div>
@@ -791,31 +821,25 @@
         <div class="form-group" style="flex:1.3;"><label>Kurz-Notiz (für Header)</label><input type="text" id="editLineNote" class="form-control" placeholder="z.B. Noch 120.000 bis FW" onchange="saveLineDetails(true)"></div>
       </div>
 
-      <div style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 6px;">
+      <!-- Punkt 12: Nur noch Rollen-Bedarf oben; Gesamt-Personalbedarf leitet sich automatisch daraus ab -->
+      <div style="border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 6px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <label style="font-size:0.8rem; font-weight:700; color:#1e293b; margin:0;">👥 Rollen-Bedarf an dieser Linie (Soll pro Rolle):</label>
-          <button type="button" class="btn btn-outline" style="padding:2px 7px; font-size:0.68rem; color:var(--bayer-blue); border-color:var(--bayer-blue);" onclick="syncRoleSumToTargetStaff()">∑ Auf Früh/Spät übertragen</button>
+          <label style="font-size:0.82rem; font-weight:700; color:#1e293b; margin:0;">👥 Rollen-Bedarf an dieser Linie (Soll pro Rolle):</label>
+          <span id="editLineAutoTargetBadge" style="font-size:0.72rem; font-weight:700; background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:999px;">Gesamt-Soll: 3</span>
         </div>
-        <p style="font-size:0.7rem; color:#64748b; margin-top:2px;">z.B. Linie 09 benötigt 2 LOP, 2 Bediener und 1 TL:</p>
+        <p style="font-size:0.71rem; color:#64748b; margin-top:3px;">
+          Der Gesamt-Personalbedarf je Schicht (Früh / Spät / Nacht) ergibt sich automatisch und widerspruchsfrei aus der Summe dieser Rollen:
+        </p>
         <div id="editLineRoleTargetsContainer" class="role-target-grid"></div>
-      </div>
-      
-      <div style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 10px;">
-        <label style="font-size:0.8rem; font-weight:700; color:#1e293b; margin-bottom:4px; display:block;">Gesamt-Personalbedarf (Soll-Mitarbeiter je Schicht):</label>
-        <div style="display:flex; gap:8px;">
-          <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.72rem;">Früh</label><input type="number" id="editLineStaffFrueh" min="0" max="20" class="form-control" style="padding:5px;" onchange="saveLineDetails(true)"></div>
-          <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.72rem;">Spät</label><input type="number" id="editLineStaffSpaet" min="0" max="20" class="form-control" style="padding:5px;" onchange="saveLineDetails(true)"></div>
-          <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.72rem;">Nacht</label><input type="number" id="editLineStaffNacht" min="0" max="20" class="form-control" style="padding:5px;" onchange="saveLineDetails(true)"></div>
-        </div>
       </div>
 
       <div class="modal-actions"><button class="btn btn-primary" onclick="saveLineDetails(false)">Fertig</button></div>
     </div>
   </div>
 
-  <!-- Sicherheits-Bootstrap: Verhindert ReferenceErrors selbst bei altem Browser-Cache -->
+  <!-- Sicherheits-Bootstrap -->
   <script>
-    window.EXPECTED_HTML_VERSION = "4.9.55";
+    window.EXPECTED_HTML_VERSION = "4.9.60";
     window.closeModal = function(id) {
       var el = document.getElementById(id);
       if (el) el.style.display = "none";
@@ -857,6 +881,6 @@
       if (arrow) arrow.textContent = shouldOpen ? "▲ Formular schließen" : "▼ Formular öffnen";
     }
   </script>
-  <script src="planer.js?v=4.9.55"></script>
+  <script src="planer.js?v=4.9.60"></script>
 </body>
 </html>
