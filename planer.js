@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Version 4.9.44 (Fixed & Clean Edition)
+   PLANER-BOARD LOGIK (planer.js) - Version 4.9.43 (Fixed & Clean Edition)
    ========================================================================== */
 
 try {
@@ -103,7 +103,7 @@ let toastTimer = null;
 let planerLastActivityTime = Date.now();
 
 /* ==========================================================================
-   HILFSFUNKTIONEN & ZEITLOGIK
+   HILFSFUNKTIONEN & ZEITLOGIK (HIER WAR DER FEHLER BEHOBEN)
    ========================================================================== */
 
 window.resetPlanerActivity = function() {
@@ -195,6 +195,15 @@ function getCalendarWeek(d) {
   target.setMonth(0, 1);
   if (target.getDay() !== 4) target.setMonth(0, 1 + ((4 - target.getDay() + 7) % 7));
   return Math.ceil((firstThursday - target) / 604800000 + 1);
+}
+
+function updateHeaderDateKw() {
+  const el = document.getElementById("headerDateKw");
+  if (!el) return;
+  const now = new Date();
+  const ld = getLogicalDateObj(now);
+  const activeShift = shiftsShortLabel[getCurrentActiveShiftId(now)] || "Früh";
+  el.textContent = now.toLocaleDateString("de-DE", { weekday: "short", year: "numeric", month: "2-digit", day: "2-digit" }) + " · KW " + getCalendarWeek(ld) + " (" + activeShift + " aktiv)";
 }
 
 function getWorkdayBlockIndex(logicalIso) {
@@ -323,6 +332,33 @@ function addHistoryLog(text, category) {
    AUTOMATISCHE HINTERGRUND-SYNCHRONISATION
    ========================================================================== */
 
+function getActiveLeaveForEmpOnDate(empId, isoDate) {
+  return sickLeaves.find(sl => {
+    if (sl.empId !== empId || sl.status === "rejected" || sl.status === "pending") return false;
+    if (sl.blocks && sl.blocks.length) {
+      return sl.blocks.some(b => b.status === "approved" && b.start <= isoDate && b.end >= isoDate);
+    }
+    return sl.status === "approved" && sl.startDate <= isoDate && sl.endDate >= isoDate;
+  });
+}
+
+function isExtraShiftInActiveWindow(es, nowObj) {
+  if (!es || es.status !== "approved" || !es.date || !es.shift) return false;
+  const now = nowObj || new Date();
+  const p = es.date.split("-");
+  if (p.length !== 3) return false;
+  const y = Number(p[0]), m = Number(p[1]) - 1, d = Number(p[2]);
+
+  let startHour = 6, endHour = 14;
+  if (es.shift === "frueh") { startHour = 6; endHour = 14; }
+  else if (es.shift === "spaet") { startHour = 14; endHour = 22; }
+  else if (es.shift === "nacht") { startHour = 22; endHour = 30; }
+
+  const windowStart = new Date(y, m, d, startHour - 1, 0, 0);
+  const windowEnd = new Date(y, m, d, endHour, 0, 0);
+  return now >= windowStart && now < windowEnd;
+}
+
 function syncAbsentAndExtraZones() {
   if (!hasLoadedFromCloud) return false;
   const now = new Date();
@@ -424,7 +460,7 @@ setInterval(() => {
 }, 30000);
 
 /* ==========================================================================
-   INTELLIGENTE AUTO-ZUWEISUNG (MIT RINGTAUSCH & ETAGEN)
+   INTELLIGENTE AUTO-ZUWEISUNG
    ========================================================================== */
 
 function createBoardSnapshotForUndo() {
@@ -522,7 +558,6 @@ window.smartAssignShiftSlot = function(shiftId) {
     return 3;
   }
 
-  // Durchgang 1: Stamm-Mitarbeiter auf Prio-Linien & PIN-Nadel
   sortedLines.forEach(line => {
     const targetSoll = getLineTargetForShift(line, shiftId);
     while (getLineStaffCount(line.id) < targetSoll) {
@@ -540,7 +575,6 @@ window.smartAssignShiftSlot = function(shiftId) {
     }
   });
 
-  // Durchgang 2: Sekundär-Linien auffüllen
   sortedLines.forEach(line => {
     const targetSoll = getLineTargetForShift(line, shiftId);
     while (getLineStaffCount(line.id) < targetSoll) {
@@ -556,7 +590,6 @@ window.smartAssignShiftSlot = function(shiftId) {
     }
   });
 
-  // Durchgang 3: Restliche freie Pool-Mitarbeiter verteilen
   sortedLines.forEach(line => {
     const targetSoll = getLineTargetForShift(line, shiftId);
     while (getLineStaffCount(line.id) < targetSoll) {
@@ -1028,11 +1061,10 @@ window.toggleAllRoleFilters = function(state) {
 };
 
 /* ==========================================================================
-   LINIEN-DETAILS MODAL (FIXED & FULLY FUNCTIONAL)
+   LINIEN-DETAILS MODAL
    ========================================================================== */
 
 window.openLineEditModal = function(lineId) {
-  // WICHTIG: Das Einstellungs-Modal erst im Hintergrund schließen, damit es keine Klicks blockiert!
   closeModal("settingsModal");
 
   const line = lines.find(l => l.id === lineId);
