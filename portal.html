@@ -72,7 +72,7 @@
 <body class="portal-locked">
   <div id="brandGradientBar" class="brand-gradient pending"></div>
 
-  <!-- PUNKT 16: ERZWUNGENE EIGENE PIN-VERGABE NACH START-LOGIN -->
+  <!-- ERZWUNGENE EIGENE PIN-VERGABE NACH START-LOGIN -->
   <div id="forcePinChangeModal" class="modal-overlay" style="display:none; z-index: 2500; background: rgba(15,23,42,0.85);">
     <div class="modal" style="max-width: 380px; background:#fff; padding:24px; border-radius:12px;">
       <h3 style="color:var(--bayer-blue); margin-bottom:8px;">🔐 Eigene PIN vergeben</h3>
@@ -84,7 +84,7 @@
     </div>
   </div>
 
-  <!-- PUNKT 17: ONBOARDING-ASSISTENT (1. ROLLE -> PRÜFUNG ROLLEN-HAKEN -> 2. PRIMÄR-LINIEN -> 3. SEKUNDÄR-LINIEN) -->
+  <!-- ONBOARDING-ASSISTENT (1. ROLLE -> PRÜFUNG ROLLEN-HAKEN -> 2. PRIMÄR-LINIEN -> 3. SEKUNDÄR-LINIEN) -->
   <div id="onboardingModal" class="modal-overlay" style="display:none; z-index: 2000; background: rgba(15,23,42,0.8);">
     <div class="modal" style="max-width: 450px; background:#fff; padding:24px; border-radius:12px;">
       <h3 style="color:var(--bayer-blue); margin-bottom:6px;" id="onboardingTitle">Herzlich Willkommen im Bayer Portal!</h3>
@@ -209,7 +209,7 @@
         </div>
       </div>
 
-      <div style="margin-top: 8px; border-top: 1px solid #f1f5f9; padding-top: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+      <div id="portalLineRequestRow" style="margin-top: 8px; border-top: 1px solid #f1f5f9; padding-top: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
         <select id="portalLineRequestTarget" class="form-control" style="padding: 6px 8px; font-size: 0.8rem; flex: 1; min-width: 120px;"></select>
         <select id="portalLineRequestType" class="form-control" style="padding: 6px 8px; font-size: 0.8rem; width: 130px;">
           <option value="sec">Sek-Linie</option>
@@ -312,7 +312,7 @@
     </div>
   </main>
 
-  <script src="planer.js?v=4.9.60"></script>
+  <script src="planer.js?v=4.9.61"></script>
   <script>
     let loggedInPortalEmpId = null, selectedLoginPortalEmpId = null, initialSessionChecked = false, pendingExtraSubmission = null, pendingForceEmp = null;
     let activeMyRequestsCategory = "ALL";
@@ -342,7 +342,7 @@
       setTimeout(() => { box.style.display = "none"; }, 4500);
     }
 
-    /* Punkt 2: Autocomplete erst ab dem 3. Buchstaben */
+    /* Autocomplete erst ab dem 3. Buchstaben */
     function onPortalLoginNameInput(val) {
       selectedLoginPortalEmpId = null;
       const box = document.getElementById("portalLoginSuggestions"), q = (val || "").trim().toLowerCase();
@@ -364,7 +364,7 @@
       }
     }
 
-    /* Prüft, ob für eine Rolle Anlagen im Onboarding abgefragt werden sollen (Punkt 17) */
+    /* Prüft, ob für eine Rolle Anlagen im Onboarding abgefragt werden sollen */
     function doesRoleRequireLinesForOnboarding(roleName) {
       if (typeof window.doesRoleRequireLines === "function") {
         return window.doesRoleRequireLines(roleName);
@@ -382,9 +382,9 @@
     function needsOnboardingWizard(emp) {
       if (!emp) return false;
       if (emp.onboardingCompleted) return false;
-      const reqLines = doesRoleRequireLinesForOnboarding(emp.role || "Bediener");
-      if (reqLines && (!emp.mainLines || emp.mainLines.length === 0)) return true;
-      return !emp.onboardingCompleted;
+      // Bestands-Mitarbeiter, die bereits Stammlinien haben, müssen nicht nochmal ins Onboarding
+      if (Array.isArray(emp.mainLines) && emp.mainLines.length > 0) return false;
+      return true;
     }
 
     function verifyPortalLogin() {
@@ -417,7 +417,7 @@
         }
       };
 
-      /* Punkt 16: Nach Eingabe des Start-Passworts zwingend eigenes Passwort vergeben */
+      /* Nach Eingabe des Start-Passworts zwingend eigenes Passwort vergeben */
       if (emp.mustChangePw !== false) {
         document.getElementById("portalLoginModal").style.display = "none";
         pendingForceEmp = emp;
@@ -454,11 +454,14 @@
       loggedInPortalEmpId = targetEmp.id; sessionStorage.setItem("portal_logged_emp_id", targetEmp.id);
       document.body.classList.remove("portal-locked");
 
-      /* Nach Bestätigung des eigenen Passworts direkt ins Onboarding starten (Punkt 17) */
-      openOnboardingWizard(targetEmp);
+      if (needsOnboardingWizard(targetEmp)) {
+        openOnboardingWizard(targetEmp);
+      } else {
+        renderPortalView();
+      }
     };
 
-    /* Punkt 17: Onboarding-Assistent startet ZUERST mit der Rollen-Abfrage */
+    /* Onboarding-Assistent startet ZUERST mit der Rollen-Abfrage */
     function openOnboardingWizard(emp) {
       const modal = document.getElementById("onboardingModal"); if (!modal) return;
       document.getElementById("onboardingTitle").textContent = "Herzlich Willkommen " + fullName(emp) + "!";
@@ -546,7 +549,7 @@
       document.getElementById("onboardingStepMain").style.display = "block";
     };
 
-    /* Punkt 17: Abschluss des Onboardings + Benachrichtigung an den Planer inkl. Änderungsabfrage */
+    /* Abschluss des Onboardings + Benachrichtigung an den Planer inkl. Änderungsabfrage */
     window.finishOnboardingProcess = function(fromSecStep) {
       if (!loggedInPortalEmpId) return;
       const emp = employees.find(e => e.id === loggedInPortalEmpId);
@@ -658,13 +661,17 @@
       const roleBox = document.getElementById("portalMyRoleDisplay");
       if (roleBox) roleBox.textContent = emp.role || "Bediener";
 
+      const reqLines = doesRoleRequireLinesForOnboarding(emp.role);
+      const reqRow = document.getElementById("portalLineRequestRow");
+      if (reqRow) reqRow.style.display = reqLines ? "flex" : "none";
+
       const mainBox = document.getElementById("portalMyMainLinesDisplay");
       const secBox = document.getElementById("portalMySecLinesDisplay");
       if (mainBox) {
         mainBox.innerHTML = (emp.mainLines && emp.mainLines.length) ? emp.mainLines.map(id => {
           const l = lines.find(x => x.id === id);
           return (l ? l.name : id);
-        }).join(", ") : "Keine";
+        }).join(", ") : (reqLines ? "Keine" : "Keine Anlage nötig");
       }
       if (secBox) {
         secBox.innerHTML = (emp.secLines && emp.secLines.length) ? emp.secLines.map(id => {
@@ -844,14 +851,49 @@
       finalizePortalExtraShiftSubmission(dateVal, shiftVal, noteVal, false, false, "");
     }
 
+    window.respondToPartialLeave = function(slId, accepted) {
+      const sl = (typeof sickLeaves !== "undefined" ? sickLeaves : []).find(x => x.id === slId); if (!sl) return;
+      sl.status = accepted ? "approved" : "rejected"; sl.empRespondedUnread = true;
+      if (sl.blocks && sl.blocks.length) sl.blocks.forEach(b => { if (b.status === "approved") b.status = accepted ? "approved" : "rejected"; });
+      if (accepted && typeof window.generateCoveragePromptForLeave === "function") window.generateCoveragePromptForLeave(sl);
+      if (typeof syncAbsentAndExtraZones === "function") syncAbsentAndExtraZones();
+      const emp = employees.find(e => e.id === sl.empId);
+      if (typeof addHistoryLog === "function") addHistoryLog((emp ? fullName(emp) : "Mitarbeiter") + " hat den Gegenvorschlag für " + (sl.category || "Urlaub") + " " + (accepted ? "angenommen" : "abgelehnt"), "ABSENCE");
+      if (typeof saveToFirebase === "function") saveToFirebase();
+      renderPortalView(); showPortalInlineMsg(accepted ? "✅ Gegenvorschlag angenommen." : "❌ Gegenvorschlag abgelehnt.", accepted);
+    };
+
+    window.deletePortalLeave = function(slId) {
+      const sl = sickLeaves.find(x => x.id === slId); if (!sl) return;
+      if (sl.status === "approved") { showPortalInlineMsg("⚠️ Bereits aktive Einträge können nur vom Planer storniert werden.", false); return; }
+      if (!confirm("Möchtest du diesen Eintrag wirklich löschen?")) return;
+      sickLeaves = sickLeaves.filter(x => x.id !== slId);
+      if (typeof saveToFirebase === "function") saveToFirebase();
+      renderPortalView(); showPortalInlineMsg("🗑️ Eintrag wurde gelöscht.", true);
+    };
+
+    window.deletePortalExtra = function(esId) {
+      const es = extraShifts.find(x => x.id === esId); if (!es) return;
+      if (es.status === "approved") { showPortalInlineMsg("⚠️ Bereits genehmigte Bringschichten bitte beim Planer abmelden.", false); return; }
+      if (!confirm("Möchtest du diesen Bringschicht-Eintrag entfernen?")) return;
+      if (typeof window.deleteExtraShift === "function") window.deleteExtraShift(esId);
+      renderPortalView(); showPortalInlineMsg("🗑️ Bringschicht-Eintrag entfernt.", true);
+    };
+
     function renderMyRequestsList(empId) {
       const listEl = document.getElementById("myPortalRequestsList");
       if (!listEl) return;
       
+      const q = (document.getElementById("myRequestsSearchInput") ? document.getElementById("myRequestsSearchInput").value : "").trim().toLowerCase();
       const myLeaves = (typeof sickLeaves !== "undefined" ? sickLeaves : []).filter(sl => sl.empId === empId && !sl.isOnboardingNotice);
       const myExtras = (typeof extraShifts !== "undefined" ? extraShifts : []).filter(es => es.empId === empId).map(es => Object.assign({}, es, { category: "Bringschicht (" + (shiftsShortLabel[es.shift] || es.shift) + ")" }));
       
-      const combined = [].concat(myLeaves, myExtras);
+      const combined = [].concat(myLeaves, myExtras).filter(item => {
+        if (!q) return true;
+        const hay = ((item.category || "") + " " + (item.reason || "") + " " + (item.note || "") + " " + (item.startDate || item.date || "")).toLowerCase();
+        return hay.indexOf(q) !== -1;
+      });
+
       if (!combined.length) {
         listEl.innerHTML = '<p style="font-size:0.82rem; color:#64748b;">Keine aktiven Anträge vorhanden.</p>';
         return;
@@ -863,11 +905,13 @@
         if (!isExtra) {
           const sl = item;
           let statusBadge = sl.status === "approved" ? '<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">✅ Genehmigt</span>' : (sl.status === "rejected" ? '<span style="background:#fef2f2; color:#b91c1c; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">❌ Abgelehnt</span>' : '<span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">⏳ In Prüfung</span>');
-          html += '<div class="status-card-item"><b>' + (sl.category || 'Abwesend') + '</b> ' + statusBadge + '<br><small>Von ' + formatDateDe(sl.startDate) + ' bis ' + formatDateDe(sl.endDate) + '</small></div>';
+          const delBtn = sl.status === "pending" ? '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.72rem; color:#dc2626; float:right;" onclick="deletePortalLeave(\'' + sl.id + '\')">🗑️ Stornieren</button>' : '';
+          html += '<div class="status-card-item">' + delBtn + '<b>' + (sl.category || 'Abwesend') + '</b> ' + statusBadge + '<br><small>Von ' + formatDateDe(sl.startDate) + ' bis ' + formatDateDe(sl.endDate) + (sl.reason ? ' · ' + sl.reason : '') + '</small></div>';
         } else {
           const es = item;
           let stBadge = es.status === "pending" ? '<span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">⏳ Wartet auf Planer</span>' : '<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">✅ Eingetragen</span>';
-          html += '<div class="status-card-item"><b>➕ Bringschicht</b> ' + stBadge + '<br><small>Am ' + formatDateDe(es.date) + '</small></div>';
+          const delBtn = es.status === "pending" ? '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.72rem; color:#dc2626; float:right;" onclick="deletePortalExtra(\'' + es.id + '\')">🗑️ Entfernen</button>' : '';
+          html += '<div class="status-card-item">' + delBtn + '<b>➕ Bringschicht</b> ' + stBadge + '<br><small>Am ' + formatDateDe(es.date) + (es.note ? ' · ' + es.note : '') + '</small></div>';
         }
       });
       listEl.innerHTML = html;
