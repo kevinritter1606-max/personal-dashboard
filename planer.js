@@ -1,8 +1,8 @@
 /* ==========================================================================
-   PLANER-BOARD MASTER-LOGIK (planer.js) - Version 4.9.60 (Complete & Verified)
+   PLANER-BOARD MASTER-LOGIK (planer.js) - Version 4.9.61 (Complete & Verified)
    ========================================================================== */
 
-window.PLANER_JS_VERSION = "4.9.60";
+window.PLANER_JS_VERSION = "4.9.61";
 
 try {
   firebase.initializeApp({
@@ -73,9 +73,9 @@ let shiftModelConfig = {
   loadHour: 5,
   lastResetRunKey: "",
   lastLoadRunKey: "",
-  // Punkt 13, 14, 17:
   secondaryUnlockThresholdHours: 1000,
   minDailyHoursForCounting: 6,
+  defaultShiftHours: 8,
   roleRequiresLines: {
     "Bediener": true,
     "LOP": true,
@@ -287,7 +287,6 @@ window.sanitizeTeamReferences = function() {
       emp.password = "1234";
       if (typeof emp.mustChangePw === "undefined") emp.mustChangePw = true;
     }
-    if (!emp.manualReviewQueue) emp.manualReviewQueue = [];
     if (!emp.trainingHoursByLine) emp.trainingHoursByLine = {};
   });
   Object.keys(activeTeamFilters).forEach(k => {
@@ -378,7 +377,74 @@ window.toggleShiftApprovalState = function() {
 };
 
 /* ==========================================================================
-   2. HISTORIE, ABWESENHEITS- & BRINGSCHICHT-PRÜFUNG
+   2. HEADER-SCHALTER (AUTO-ROTATION, AUTO-ZUWEISUNG, KOMB. ZEIT-SCHALTER)
+   ========================================================================== */
+
+window.updateAutoRotationUI = function() {
+  const isAuto = shiftModelConfig.autoRotate !== false;
+  const badge = document.getElementById("autoRotationBadge");
+  const badgeText = document.getElementById("autoRotationText");
+  if (badge && badgeText) {
+    badge.className = "auto-toggle-pill lvl-2-hide" + (isAuto ? " active-blue" : "");
+    badgeText.textContent = isAuto ? "Auto-Rotation: AN" : "Auto-Rotation: AUS";
+  }
+  const cfgChk = document.getElementById("cfgAutoRotate");
+  if (cfgChk) cfgChk.checked = isAuto;
+
+  const smartActive = shiftModelConfig.smartAssignEnabled !== false;
+  const smartBadge = document.getElementById("smartAssignToggleBadge");
+  const smartTxt = document.getElementById("smartAssignBadgeText");
+  if (smartBadge && smartTxt) {
+    smartBadge.className = "auto-toggle-pill lvl-2-hide" + (smartActive ? " active-purple" : "");
+    smartTxt.textContent = smartActive ? "Auto-Zuweisung: AN" : "Auto-Zuweisung: AUS";
+  }
+  const smartChk = document.getElementById("cfgSmartAssignEnabled");
+  if (smartChk) smartChk.checked = smartActive;
+
+  // Kombinierter Zeit-Schalter im Header (schaltet Reset und Team-Load gemeinsam AN/AUS)
+  const combinedActive = !!(shiftModelConfig.resetEnabled || shiftModelConfig.loadEnabled);
+  const combBadge = document.getElementById("autoTimedCombinedBadge");
+  const combTxt = document.getElementById("autoTimedCombinedBadgeText");
+  if (combBadge && combTxt) {
+    combBadge.className = "auto-toggle-pill lvl-2-hide" + (combinedActive ? " active-teal" : "");
+    combTxt.textContent = combinedActive ? "Auto-Reset/Verteilen: AN" : "Auto-Reset/Verteilen: AUS";
+  }
+};
+
+window.toggleAutoRotateQuick = function() {
+  if (plannerLevel <= 2) return;
+  shiftModelConfig.autoRotate = !(shiftModelConfig.autoRotate !== false);
+  saveToFirebase();
+  window.updateAutoRotationUI();
+  if (typeof window.syncShiftModelSettingsUI === "function") window.syncShiftModelSettingsUI();
+  addHistoryLog("Automatische Schicht-Rotation auf " + (shiftModelConfig.autoRotate ? "AN" : "AUS") + " gestellt", "SHIFT");
+  showToast("🔄 Auto-Rotation: " + (shiftModelConfig.autoRotate ? "AN" : "AUS"));
+};
+
+window.toggleSmartAssignQuick = function() {
+  if (plannerLevel <= 2) return;
+  shiftModelConfig.smartAssignEnabled = !(shiftModelConfig.smartAssignEnabled !== false);
+  saveToFirebase();
+  window.updateAutoRotationUI();
+  if (typeof window.syncShiftModelSettingsUI === "function") window.syncShiftModelSettingsUI();
+  addHistoryLog("Intelligente Auto-Zuweisung auf " + (shiftModelConfig.smartAssignEnabled ? "AN" : "AUS") + " gestellt", "AUTO");
+  showToast("🧠 Auto-Zuweisung: " + (shiftModelConfig.smartAssignEnabled ? "AN" : "AUS"));
+};
+
+window.toggleAutoTimedCombinedQuick = function() {
+  if (plannerLevel <= 2) return;
+  const nextState = !(shiftModelConfig.resetEnabled || shiftModelConfig.loadEnabled);
+  shiftModelConfig.resetEnabled = nextState;
+  shiftModelConfig.loadEnabled = nextState;
+  saveToFirebase();
+  window.updateAutoRotationUI();
+  if (typeof window.syncShiftModelSettingsUI === "function") window.syncShiftModelSettingsUI();
+  addHistoryLog("Auto-Reset/Verteilen im Header auf " + (nextState ? "AN" : "AUS") + " gestellt", "SHIFT");
+  showToast("⏱️ Auto-Reset/Verteilen: " + (nextState ? "AN (Aktiv)" : "AUS"));
+};
+
+/* ==========================================================================
+   3. HISTORIE, ABWESENHEITS- & BRINGSCHICHT-PRÜFUNG
    ========================================================================== */
 
 function addHistoryLog(text, category) {
@@ -506,7 +572,7 @@ window.syncAbsentAndExtraZones = function() {
 };
 
 /* ==========================================================================
-   3. PUNKTE 13, 14 & 15: QUALIFIKATIONS-STUNDENZÄHLER & SEKUNDÄR-ANLAGEN
+   4. QUALIFIKATIONS-STUNDENZÄHLER MIT 6H-TAGESFILTER (PUNKT 13)
    ========================================================================== */
 
 window.doesRoleRequireLines = function(roleName) {
@@ -524,16 +590,14 @@ window.recordManualAssignmentHours = function(empId, lineId, plannedHours) {
   const emp = employees.find(e => e.id === empId);
   if (!emp) return;
 
-  // Wenn die Rolle überhaupt keine Anlagen benötigt (z.B. Schichtexperte), kein Tracking
   if (!doesRoleRequireLines(emp.role)) return;
 
-  // Wenn bereits Primär- oder freigeschaltete Sekundärlinie, kein Stundenzähler nötig
   const isMain = Array.isArray(emp.mainLines) && emp.mainLines.indexOf(lineId) !== -1;
   const isSec = Array.isArray(emp.secLines) && emp.secLines.indexOf(lineId) !== -1;
   if (isMain || isSec) return;
 
-  // Punkt 13: Zähler akzeptiert Stunden ERST, wenn an diesem Tag >= 6 Stunden eingeplant
-  const hours = parseFloat(plannedHours) || 8;
+  // Punkt 13: Zähler akzeptiert Stunden ERST ab mindestens 6 Stunden Tageseinsatz
+  const hours = parseFloat(plannedHours) || (shiftModelConfig && shiftModelConfig.defaultShiftHours) || 8;
   const minRequired = (shiftModelConfig && typeof shiftModelConfig.minDailyHoursForCounting === "number") ? shiftModelConfig.minDailyHoursForCounting : 6;
   if (hours < minRequired) return;
 
@@ -577,7 +641,7 @@ window.confirmSecondaryLineUnlock = function() {
   }
 };
 
-// Punkt 15: Übersicht zeigt NUR noch nicht freigeschaltete Anlagen im Lernprozess
+// Korrigierte Übersicht: Blendet freigeschaltete Anlagen sauber aus
 function renderUnqualifiedHoursOverview() {
   const container = document.getElementById("unqualifiedHoursOverviewList");
   if (!container) return;
@@ -589,8 +653,7 @@ function renderUnqualifiedHoursOverview() {
     if (!emp.trainingHoursByLine) return;
     Object.entries(emp.trainingHoursByLine).forEach(([lineId, hours]) => {
       const isMain = Array.isArray(emp.mainLines) && emp.mainLines.indexOf(lineId) !== -1;
-      const isSec = Array.isArray(emp.secLines) && emp.secLines.indexOf(lineId !== -1) !== -1;
-      // Bereits freigeschaltete Anlagen interessieren hier nicht -> ausblenden
+      const isSec = Array.isArray(emp.secLines) && emp.secLines.indexOf(lineId) !== -1;
       if (!isMain && !isSec && hours > 0) {
         const remaining = Math.max(0, threshold - hours);
         rows.push(
@@ -609,7 +672,7 @@ function renderUnqualifiedHoursOverview() {
 }
 
 /* ==========================================================================
-   4. PUNKTE 3, 10, 11 & 18: STRIKTE PRIO 1–10 ZUWEISUNG & "NOCH ZUZUTEILEN"
+   5. STRIKTE PRIO 1-10 ZUWEISUNG & GLOBALER SNAPSHOT-UNDO (PUNKTE 3, 10, 11)
    ========================================================================== */
 
 function createBoardSnapshotForUndo() {
@@ -660,14 +723,16 @@ window.smartAssignShiftSlot = function(shiftId) {
     return;
   }
 
-  lastBoardSnapshotForUndo = createBoardSnapshotForUndo();
+  // Globaler Snapshot wird nur angelegt, wenn nicht bereits von "Alle Auto" geschehen
+  if (!lastBoardSnapshotForUndo) {
+    lastBoardSnapshotForUndo = createBoardSnapshotForUndo();
+  }
   activateUndoButtons(shiftId);
 
   const teamKey = shiftRotation[shiftId];
   const activeLines = lines.filter(l => !l.ausgeplant);
   const todayIso = getTodayIso();
 
-  // Nicht-fixierte Mitarbeiter dieser Schicht zuerst in den Pool holen
   employees.forEach(emp => {
     if (extractShiftIdFromZone(emp.zone) === shiftId && !isEmpAnchorActiveToday(emp, todayIso)) {
       emp.zone = "pool";
@@ -682,7 +747,7 @@ window.smartAssignShiftSlot = function(shiftId) {
     return isTeamMember || hasExtra;
   });
 
-  // Punkt 3: Strikte Sortierung von Prio 1 bis 10 (Höchste Priorität zuerst)
+  // Strikte Sortierung von Prio 1 bis 10
   const sortedLines = activeLines.slice().sort((a, b) => {
     const parsePrio = (pStr) => {
       const match = String(pStr || "").match(/\d+/);
@@ -715,7 +780,6 @@ window.smartAssignShiftSlot = function(shiftId) {
     assignedCount++;
   }
 
-  // Durchgang 1: Höher priorisierte Linien lückenlos nach geforderten Rollen besetzen
   sortedLines.forEach(line => {
     const totalSoll = getLineTotalTarget(line);
     roles.forEach(rName => {
@@ -726,14 +790,12 @@ window.smartAssignShiftSlot = function(shiftId) {
         const currentRoleCount = getLineEmps(line.id).filter(e => (e.role || "Bediener") === rName).length;
         if (currentRoleCount >= roleSoll) break;
 
-        // 1. Zuerst passende Stammlinie (Primär-Linie)
         let cand = slotCandidates.find(e => {
           if (e.zone !== "pool" && e.zone !== "review" && e.zone !== "extra") return false;
           if ((e.role || "Bediener") !== rName) return false;
           return Array.isArray(e.mainLines) && e.mainLines.indexOf(line.id) !== -1;
         });
 
-        // 2. Danach freigeschaltete Sekundärlinie
         if (!cand) {
           cand = slotCandidates.find(e => {
             if (e.zone !== "pool" && e.zone !== "review" && e.zone !== "extra") return false;
@@ -748,7 +810,6 @@ window.smartAssignShiftSlot = function(shiftId) {
     });
   });
 
-  // Durchgang 2: Restliche Plätze mit Stammlinien-Mitarbeitern auffüllen
   sortedLines.forEach(line => {
     const totalSoll = getLineTotalTarget(line);
     while (getLineEmps(line.id).length < totalSoll) {
@@ -761,7 +822,6 @@ window.smartAssignShiftSlot = function(shiftId) {
     }
   });
 
-  // Durchgang 3: Sekundär-Linien auffüllen
   sortedLines.forEach(line => {
     const totalSoll = getLineTotalTarget(line);
     while (getLineEmps(line.id).length < totalSoll) {
@@ -774,7 +834,6 @@ window.smartAssignShiftSlot = function(shiftId) {
     }
   });
 
-  // Durchgang 4: Automatischer Ringtausch für Spezialisten/Bringschichtler
   if (shiftModelConfig.smartAllowSwap !== false) {
     const unplaced = slotCandidates.filter(e => e.zone === "pool" || e.zone === "review" || e.zone === "extra");
     unplaced.forEach(cand => {
@@ -792,27 +851,33 @@ window.smartAssignShiftSlot = function(shiftId) {
     });
   }
 
-  // Durchgang 5: Punkt 18 - Übrig gebliebene Mitarbeiter (deren Stammlinie besetzt ist
-  // und die keine passende Zweitlinien-Qualifikation haben) wandern ins "Noch zuzuteilen"-Fenster
   slotCandidates.forEach(cand => {
     if (cand.zone === "pool" || cand.zone === "review" || cand.zone === "extra") {
       cand.zone = "review";
     }
   });
 
-  const swapInfo = swapCount > 0 ? (" · " + swapCount + " Ringtausch") : "";
-  addHistoryLog("Auto-Zuweisung für " + (shiftsLabel[shiftId] || shiftId) + " (" + assignedCount + " zugewiesen" + swapInfo + ")", "AUTO");
+  addHistoryLog("Auto-Zuweisung für " + (shiftsLabel[shiftId] || shiftId) + " (" + assignedCount + " zugewiesen)", "AUTO");
   saveToFirebase();
   window.initBoard();
   showToast("🪄 Auto-Zuweisung " + (shiftsLabel[shiftId] || shiftId) + " fertig (" + assignedCount + " MA)!");
 };
 
+/* Wrapper für "Alle Auto" mit einem einzigen gemeinsamen Undo-Snapshot */
+window.runAllShiftsAutoAssignment = function() {
+  lastBoardSnapshotForUndo = createBoardSnapshotForUndo();
+  activateUndoButtons();
+  shifts.forEach(s => {
+    smartAssignShiftSlot(s.id);
+  });
+  showToast("🪄 Alle Schichten automatisch zugewiesen!");
+};
+
 /* ==========================================================================
-   5. PUNKTE 4 & 5: GESTAFFELTER "AUTO SCHICHT RESET"
+   6. GESTAFFELTER "AUTO SCHICHT RESET" (PUNKT 5)
    ========================================================================== */
 
 async function executeStaggeredAutoShiftReset() {
-  // Schritt 1: Pool leeren / Board bereinigen
   const todayIso = getTodayIso();
   employees.forEach(e => {
     if (e.zone && ["pool", "review", "absent", "extra"].indexOf(e.zone) === -1 && !isEmpAnchorActiveToday(e, todayIso)) {
@@ -822,17 +887,16 @@ async function executeStaggeredAutoShiftReset() {
   window.initBoard();
   await new Promise(r => setTimeout(r, 350));
 
-  // Schritt 2: Schicht-Rotation ausführen (falls aktiv)
   if (shiftModelConfig.autoRotate !== false) {
     window.performShiftRotationLogic(true);
   }
   await new Promise(r => setTimeout(r, 350));
 
-  // Schritt 3: Auto-Zuweisung für alle Schichten konfliktfrei nacheinander ausführen
-  for (const s of shifts) {
+  lastBoardSnapshotForUndo = createBoardSnapshotForUndo();
+  activateUndoButtons();
+  shifts.forEach(s => {
     smartAssignShiftSlot(s.id);
-    await new Promise(r => setTimeout(r, 200));
-  }
+  });
 
   addHistoryLog("Zentraler 'Auto Schicht Reset' erfolgreich ausgeführt", "SHIFT");
   saveToFirebase();
@@ -849,7 +913,6 @@ function checkScheduledAutomations() {
   const targetDay = Number(shiftModelConfig.resetDay ?? 0);
   const targetHour = Number(shiftModelConfig.resetHour ?? 6);
 
-  // targetDay === -1 bedeutet "Täglich"
   const dayMatches = (targetDay === -1 || targetDay === day);
   if (dayMatches && targetHour === hour) {
     const runKey = todayIso + "_" + hour;
@@ -880,7 +943,7 @@ setInterval(() => {
 }, 30000);
 
 /* ==========================================================================
-   6. INIT BOARD & KARTEN RENDERING (MIT MOUSE-FIX & ROLLEN-SUMMEN)
+   7. INIT BOARD & KARTEN RENDERING (DYNAMISCHES REVIEW-FENSTER)
    ========================================================================== */
 
 function getLineTotalTarget(line) {
@@ -920,7 +983,7 @@ window.initBoard = function() {
       '<div>Schicht</div>' +
       '<div class="shift-controls">' +
         '<button class="shift-rotate-btn" onclick="rotateAllShifts()"><span>🔄 Rotieren</span></button>' +
-        '<button class="shift-auto-btn" onclick="smartAssignShiftSlot(\'frueh\'); smartAssignShiftSlot(\'spaet\'); smartAssignShiftSlot(\'nacht\')"><span>🪄 Alle Auto</span></button>' +
+        '<button class="shift-auto-btn" onclick="runAllShiftsAutoAssignment()"><span>🪄 Alle Auto</span></button>' +
         '<button class="shift-clear-btn" onclick="clearEntireBoard()">🧹 Alle leeren</button>' +
       '</div>' +
     '</th>';
@@ -1129,7 +1192,7 @@ function renderEmployees() {
     if (targetZone) targetZone.appendChild(card);
   });
 
-  // Zellen-Balken (Ist/Soll + Rollen-Lücken) aktualisieren
+  // Zellen-Balken aktualisieren
   lines.forEach(line => {
     const totalSoll = getLineTotalTarget(line);
     shifts.forEach(shift => {
@@ -1155,7 +1218,7 @@ function renderEmployees() {
               tlSharedViaFloor = true;
             } else {
               const shortR = r === "Bediener" ? "Bed." : (r === "Schichtexperte" ? "SE" : (r === "Waschraumoperator" ? "WRO" : r));
-              missingRolesList.push((req - have) + " " + shortR);
+              missingRolesList.push("-" + (req - have) + " " + shortR);
             }
           }
         }
@@ -1169,7 +1232,7 @@ function renderEmployees() {
       const countTxt = st.count + "/" + totalSoll + (st.count >= totalSoll && missingRolesList.length === 0 ? " ✓" : "");
       let rightRoleTxt = "";
       if (missingRolesList.length > 0) {
-        rightRoleTxt = "Fehlt: " + missingRolesList.join(", ");
+        rightRoleTxt = missingRolesList.join(", ");
       } else if (tlSharedViaFloor) {
         rightRoleTxt = "🔗 TL " + (line.floor || "1. OG");
       }
@@ -1178,7 +1241,6 @@ function renderEmployees() {
     });
   });
 
-  // Schicht-KPIs aktualisieren
   shifts.forEach(shift => {
     const kpiEl = document.getElementById("kpiRow_" + shift.id);
     if (!kpiEl) return;
@@ -1192,10 +1254,18 @@ function renderEmployees() {
 
   const pEl = document.getElementById("pool");
   const revEl = document.getElementById("review");
+  const revWrap = document.getElementById("reviewPanelWrap");
   const eEl = document.getElementById("extra");
   const aEl = document.getElementById("absent");
+
+  const revCount = revEl ? revEl.children.length : 0;
+  if (document.getElementById("reviewCount")) document.getElementById("reviewCount").textContent = "(" + revCount + ")";
+  if (revWrap) {
+    if (revCount === 0) revWrap.classList.add("empty-review");
+    else revWrap.classList.remove("empty-review");
+  }
+
   if (document.getElementById("poolCount")) document.getElementById("poolCount").textContent = "(" + (pEl ? pEl.children.length : 0) + ")";
-  if (document.getElementById("reviewCount")) document.getElementById("reviewCount").textContent = "(" + (revEl ? revEl.children.length : 0) + ")";
   if (document.getElementById("extraCount")) document.getElementById("extraCount").textContent = "(" + (eEl ? eEl.children.length : 0) + ")";
   if (document.getElementById("absentCount")) document.getElementById("absentCount").textContent = "(" + (aEl ? aEl.children.length : 0) + ")";
 
@@ -1267,7 +1337,6 @@ function initDragAndDrop() {
             emp.pinnedZone = newZone;
             emp.lastShiftId = extractShiftIdFromZone(newZone) || emp.lastShiftId;
 
-            // Punkt 13: Stundenzähler greift beim manuellen Zuweisen an fremde Anlagen (ab >= 6h)
             const targetLineId = extractLineIdFromZone(newZone);
             if (targetLineId) {
               const defaultShiftHours = (shiftModelConfig && typeof shiftModelConfig.defaultShiftHours === "number") ? shiftModelConfig.defaultShiftHours : 8;
@@ -1283,7 +1352,7 @@ function initDragAndDrop() {
 }
 
 /* ==========================================================================
-   7. SCHICHTEN LEEREN, LADEN & ROTIEREN
+   8. SCHICHTEN LEEREN, LADEN & ROTIEREN
    ========================================================================== */
 
 window.clearEntireBoard = function() {
@@ -1390,7 +1459,7 @@ window.rotateAllShifts = function() {
 };
 
 /* ==========================================================================
-   8. FILTER & SUCHE IM POOL
+   9. FILTER & SUCHE IM POOL
    ========================================================================== */
 
 function applyTeamStyles() {
@@ -1424,7 +1493,6 @@ window.onShiftTeamDropdownChange = function(shiftId, selEl) {
   window.initBoard();
 };
 
-/* Punkt 2: Namenssuche im Pool erst ab 3 Buchstaben */
 window.updatePoolSearch = function(val) {
   const rawVal = (val || "").trim();
   if (rawVal.length > 0 && rawVal.length < 3) {
@@ -1468,7 +1536,7 @@ window.toggleAllRoleFilters = function(state) {
 };
 
 /* ==========================================================================
-   9. LINIEN-DETAILS MODAL (PRIO 1-10 & ROLLEN-BEDARF)
+   10. LINIEN-DETAILS MODAL
    ========================================================================== */
 
 window.openLineEditModal = function(lineId) {
@@ -1530,7 +1598,7 @@ window.saveLineDetails = function(isAuto) {
 };
 
 /* ==========================================================================
-   10. EINSTELLUNGEN, ROLLEN-HAKEN & SICHERHEIT
+   11. EINSTELLUNGEN & SICHERHEIT
    ========================================================================== */
 
 window.openSettingsModal = function() {
@@ -1693,7 +1761,6 @@ function renderSettingsLists() {
     if (roles.indexOf(curRole) !== -1) roleSel.value = curRole;
   }
 
-  // Punkt 17: Rollenliste mit Haken "Anlagen abfragen für Onboarding"
   const roleListEl = document.getElementById("roleList");
   if (roleListEl) {
     if (!shiftModelConfig.roleRequiresLines) shiftModelConfig.roleRequiresLines = {};
@@ -1777,12 +1844,19 @@ window.syncShiftModelSettingsUI = function() {
   const swapChk = document.getElementById("cfgSmartAllowSwap");
   if (swapChk) swapChk.checked = shiftModelConfig.smartAllowSwap !== false;
 
-  const resetChk = document.getElementById("cfgAutoShiftResetEnabled");
+  const resetChk = document.getElementById("cfgResetEnabled");
   if (resetChk) resetChk.checked = !!shiftModelConfig.resetEnabled;
   const resetDay = document.getElementById("cfgResetDay");
   if (resetDay) resetDay.value = String(shiftModelConfig.resetDay ?? 0);
   const resetHour = document.getElementById("cfgResetHour");
   if (resetHour) resetHour.value = String(shiftModelConfig.resetHour ?? 6);
+
+  const loadChk = document.getElementById("cfgLoadEnabled");
+  if (loadChk) loadChk.checked = !!shiftModelConfig.loadEnabled;
+  const loadDay = document.getElementById("cfgLoadDay");
+  if (loadDay) loadDay.value = String(shiftModelConfig.loadDay ?? 0);
+  const loadHour = document.getElementById("cfgLoadHour");
+  if (loadHour) loadHour.value = String(shiftModelConfig.loadHour ?? 5);
 
   const threshInp = document.getElementById("cfgSecondaryUnlockHours");
   if (threshInp) threshInp.value = shiftModelConfig.secondaryUnlockThresholdHours ?? 1000;
@@ -1804,12 +1878,19 @@ window.saveShiftModelSettings = function() {
   const swapChk = document.getElementById("cfgSmartAllowSwap");
   if (swapChk) shiftModelConfig.smartAllowSwap = swapChk.checked;
 
-  const resetChk = document.getElementById("cfgAutoShiftResetEnabled");
+  const resetChk = document.getElementById("cfgResetEnabled");
   if (resetChk) shiftModelConfig.resetEnabled = resetChk.checked;
   const resetDay = document.getElementById("cfgResetDay");
   if (resetDay) shiftModelConfig.resetDay = parseInt(resetDay.value, 10) ?? 0;
   const resetHour = document.getElementById("cfgResetHour");
   if (resetHour) shiftModelConfig.resetHour = parseInt(resetHour.value, 10) ?? 6;
+
+  const loadChk = document.getElementById("cfgLoadEnabled");
+  if (loadChk) shiftModelConfig.loadEnabled = loadChk.checked;
+  const loadDay = document.getElementById("cfgLoadDay");
+  if (loadDay) shiftModelConfig.loadDay = parseInt(loadDay.value, 10) ?? 0;
+  const loadHour = document.getElementById("cfgLoadHour");
+  if (loadHour) shiftModelConfig.loadHour = parseInt(loadHour.value, 10) ?? 5;
 
   const threshInp = document.getElementById("cfgSecondaryUnlockHours");
   if (threshInp) shiftModelConfig.secondaryUnlockThresholdHours = Math.max(6, parseInt(threshInp.value, 10) || 1000);
@@ -1854,7 +1935,7 @@ window.autoSaveSecurityConfig = function() {
 };
 
 /* ==========================================================================
-   11. HISTORIE, BACKUPS & PROFIL
+   12. HISTORIE, BACKUPS & PROFIL
    ========================================================================== */
 
 window.setHistoryCatFilter = function(cat, btnEl) {
@@ -2332,7 +2413,6 @@ window.filterSettingsEmployees = function(q) {
    12. AUTOCOMPLETE & POSTFACH
    ========================================================================== */
 
-/* Punkt 2: Namenssuche erst ab 3 Buchstaben */
 window.onPlannerLoginInput = function(val) {
   selectedLoginPlannerId = null;
   const box = document.getElementById("plannerLoginSuggestions");
@@ -2368,7 +2448,6 @@ window.selectLoginPlannerEmp = function(id) {
   }
 };
 
-/* Punkt 2: Namenssuche erst ab 3 Buchstaben */
 window.onManualSickNameInput = function(val) {
   selectedManualSickEmpId = null;
   const box = document.getElementById("manualSickSuggestions");
@@ -2401,7 +2480,6 @@ window.selectManualSickEmp = function(id) {
   }
 };
 
-/* Punkt 2: Namenssuche erst ab 3 Buchstaben */
 window.onManualExtraNameInput = function(val) {
   selectedManualExtraEmpId = null;
   const box = document.getElementById("manualExtraSuggestions");
@@ -2569,11 +2647,14 @@ window.renderInboxLists = function() {
       const eName = emp ? fullName(emp) : "Unbekannt";
       
       if (sl.isOnboardingNotice) {
+        const empIdStr = sl.onboardingData ? sl.onboardingData.empId : (emp ? emp.id : "");
+        const editBtn = empIdStr ? '<button class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem; color:var(--bayer-blue); border-color:var(--bayer-blue);" onclick="closeModal(\'inboxModal\'); editEmployee(\'' + empIdStr + '\'); openSettingsModal();">✏️ Angaben ändern</button>' : '';
         return '<div style="background:#fff; border:1px solid #bae6fd; border-left:4px solid var(--bayer-blue); padding:10px; border-radius:6px; margin-bottom:8px; font-size:0.82rem;">' +
           '<div style="display:flex; justify-content:space-between; align-items:center;"><b>' + eName + '</b><span style="color:var(--bayer-blue); font-weight:700;">' + sl.category + '</span></div>' +
           '<div style="color:#1e293b; margin:4px 0;">' + sl.reason + '</div>' +
           '<div style="display:flex; gap:6px; margin-top:6px;">' +
             '<button class="btn btn-primary" style="padding:3px 10px; font-size:0.74rem; background:#16a34a;" onclick="approveSickLeave(\'' + sl.id + '\')">✅ Zur Kenntnis / Gelesen</button>' +
+            editBtn +
           '</div>' +
         '</div>';
       }
@@ -2875,7 +2956,6 @@ window.verifyPin = function() {
     window.initBoard();
   };
 
-  /* Punkt 16: Wenn Planer sich mit Start-PIN anmeldet, zwingend eigene PIN vergeben */
   if (emp.mustChangePw !== false) {
     window.closeModal("pinModal");
     window._pendingPlannerForceEmp = emp;
