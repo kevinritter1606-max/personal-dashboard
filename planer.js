@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Version 4.9.44 (Final Fix Edition)
+   PLANER-BOARD LOGIK (planer.js) - Version 4.9.44 (Sanitize & Final Fix)
    ========================================================================== */
 
 try {
@@ -103,7 +103,7 @@ let toastTimer = null;
 let planerLastActivityTime = Date.now();
 
 /* ==========================================================================
-   HILFSFUNKTIONEN, SANITIZE & UI-STATUS (JETZT VOLLSTÄNDIG DEFINIERT)
+   HILFSFUNKTIONEN, SANITIZE & UI-STATUS (VOLLSTÄNDIG)
    ========================================================================== */
 
 window.resetPlanerActivity = function() {
@@ -326,6 +326,7 @@ function isEmpAnchorActiveToday(emp, dateIso) {
   return fixDays.indexOf(jsDay) !== -1;
 }
 
+/* WICHTIG: HIER IST DIE FUNKTION SANITIZETEAMREFERENCES FEST EINGEBAUT */
 function sanitizeTeamReferences() {
   const validKeys = Object.keys(teamsConfig);
   if (!validKeys.length) {
@@ -1058,7 +1059,7 @@ window.saveShiftModelSettings = function() {
   if (smartChk) shiftModelConfig.smartAssignEnabled = smartChk.checked;
 
   const floorChk = document.getElementById("cfgSmartRespectFloorTL");
-  if (floorChk) floorChk.checked = floorChk.checked;
+  if (floorChk) shiftModelConfig.smartRespectFloorTL = floorChk.checked;
 
   const swapChk = document.getElementById("cfgSmartAllowSwap");
   if (swapChk) shiftModelConfig.smartAllowSwap = swapChk.checked;
