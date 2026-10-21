@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Version 4.9.44 (Clean & Complete Fix)
+   PLANER-BOARD LOGIK (planer.js) - Version 4.9.44 (Final Fix Edition)
    ========================================================================== */
 
 try {
@@ -103,7 +103,7 @@ let toastTimer = null;
 let planerLastActivityTime = Date.now();
 
 /* ==========================================================================
-   HILFSFUNKTIONEN & ZEITLOGIK (GLOBAL DEFINIERT - BEHOBEN)
+   HILFSFUNKTIONEN, SANITIZE & UI-STATUS (JETZT VOLLSTÄNDIG DEFINIERT)
    ========================================================================== */
 
 window.resetPlanerActivity = function() {
@@ -186,6 +186,68 @@ function getCurrentShiftApprovalKey() {
 function isCurrentShiftApproved() {
   return approvedShiftKey === getCurrentShiftApprovalKey();
 }
+
+function updateShiftApprovalUI() {
+  const approved = isCurrentShiftApproved();
+  const bar = document.getElementById("brandGradientBar");
+  if (bar) bar.className = approved ? "brand-gradient approved" : "brand-gradient pending";
+
+  const dot = document.getElementById("indicatorDot");
+  const text = document.getElementById("indicatorText");
+  const btn = document.getElementById("plannerApprovalIndicator");
+  if (dot && text && btn) {
+    dot.style.background = approved ? "#16a34a" : "#dc2626";
+    text.textContent = approved ? "Freigegeben" : "Freigeben";
+    btn.style.borderColor = approved ? "#86efac" : "#fecaca";
+    btn.style.background = approved ? "#f0fdf4" : "#fef2f2";
+    btn.style.color = approved ? "#166534" : "#b91c1c";
+  }
+}
+
+window.toggleShiftApprovalState = function() {
+  if (plannerLevel <= 2) return;
+  const currentKey = getCurrentShiftApprovalKey();
+  if (approvedShiftKey === currentKey) {
+    approvedShiftKey = "";
+    addHistoryLog("Schicht-Freigabe zurückgenommen", "SHIFT");
+    showToast("Freigabe zurückgenommen");
+  } else {
+    approvedShiftKey = currentKey;
+    addHistoryLog("Schicht freigegeben", "SHIFT");
+    showToast("Aktuelle Schicht freigegeben!");
+  }
+  updateShiftApprovalUI();
+  saveToFirebase();
+};
+
+function updateAutoRotationUI() {
+  const isAuto = shiftModelConfig.autoRotate !== false;
+  const badge = document.getElementById("autoRotationBadge");
+  const badgeText = document.getElementById("autoRotationText");
+  if (badge && badgeText) {
+    badge.className = isAuto ? "auto-rotation-badge active" : "auto-rotation-badge";
+    badgeText.textContent = isAuto ? "Auto: Vollkonti" : "Manuell";
+  }
+}
+
+function updateSmartAssignUI() {
+  const active = shiftModelConfig.smartAssignEnabled !== false;
+  const badge = document.getElementById("smartAssignToggleBadge");
+  const txt = document.getElementById("smartAssignBadgeText");
+  if (badge && txt) {
+    badge.className = active ? "smart-assign-badge active" : "smart-assign-badge";
+    txt.textContent = active ? "Auto-Zuweisung: AN" : "Auto-Zuweisung: AUS";
+  }
+  const cfgChk = document.getElementById("cfgSmartAssignEnabled");
+  if (cfgChk) cfgChk.checked = active;
+}
+
+window.toggleSmartAssignQuick = function() {
+  shiftModelConfig.smartAssignEnabled = !(shiftModelConfig.smartAssignEnabled !== false);
+  saveToFirebase();
+  updateSmartAssignUI();
+  showToast("Auto-Zuweisung: " + (shiftModelConfig.smartAssignEnabled !== false ? "AN" : "AUS"));
+};
 
 function getCalendarWeek(d) {
   const target = new Date(d.valueOf());
@@ -996,7 +1058,7 @@ window.saveShiftModelSettings = function() {
   if (smartChk) shiftModelConfig.smartAssignEnabled = smartChk.checked;
 
   const floorChk = document.getElementById("cfgSmartRespectFloorTL");
-  if (floorChk) shiftModelConfig.smartRespectFloorTL = floorChk.checked;
+  if (floorChk) floorChk.checked = floorChk.checked;
 
   const swapChk = document.getElementById("cfgSmartAllowSwap");
   if (swapChk) shiftModelConfig.smartAllowSwap = swapChk.checked;
