@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Version 4.9.43 (Fixed & Clean Edition)
+   PLANER-BOARD LOGIK (planer.js) - Version 4.9.44 (Clean & Complete Fix)
    ========================================================================== */
 
 try {
@@ -103,7 +103,7 @@ let toastTimer = null;
 let planerLastActivityTime = Date.now();
 
 /* ==========================================================================
-   HILFSFUNKTIONEN & ZEITLOGIK (HIER WAR DER FEHLER BEHOBEN)
+   HILFSFUNKTIONEN & ZEITLOGIK (GLOBAL DEFINIERT - BEHOBEN)
    ========================================================================== */
 
 window.resetPlanerActivity = function() {
@@ -264,47 +264,22 @@ function isEmpAnchorActiveToday(emp, dateIso) {
   return fixDays.indexOf(jsDay) !== -1;
 }
 
-function getRotationForDate(targetIso) {
-  const diff = getWorkdayBlockIndex(targetIso) - getWorkdayBlockIndex(getLogicalDateIso());
-  const slotOrder = (shiftModelConfig && shiftModelConfig.model === "dreierschicht") ? ["frueh", "spaet", "nacht"] : ["frueh", "spaet", "nacht", "frei"];
-  const activeSlots = slotOrder.filter(s => shiftRotation[s] && isTeamRotating(shiftRotation[s]));
-  const res = Object.assign({}, shiftRotation);
-  if (activeSlots.length >= 2 && shiftModelConfig.autoRotate !== false) {
-    const len = activeSlots.length;
-    activeSlots.forEach((fromSlot, idx) => {
-      res[activeSlots[((idx + diff) % len + len) % len]] = shiftRotation[fromSlot];
-    });
+function sanitizeTeamReferences() {
+  const validKeys = Object.keys(teamsConfig);
+  if (!validKeys.length) {
+    teamsConfig["team-1"] = { name: "Team 1", color: "#0091df", rotates: true };
+    validKeys.push("team-1");
   }
-  return res;
-}
-
-window.getEmpRegularShiftOnDate = function(emp, dateIso) {
-  if (!emp || !dateIso || isIsoDateSunday(dateIso)) return null;
-  const rot = getRotationForDate(dateIso);
-  let empShift = ["frueh", "spaet", "nacht"].find(s => rot[s] === emp.team) || null;
-  if (!empShift && isEmpAnchorActiveToday(emp, dateIso)) {
-    empShift = extractShiftIdFromZone(emp.zone) || emp.lastShiftId || null;
-  }
-  return empShift;
-};
-
-window.didEmpWorkNightBefore = function(emp, dateIso) {
-  if (!emp || !dateIso) return false;
-  const prevIso = getPrevDateIso(dateIso);
-  if (window.getEmpRegularShiftOnDate(emp, prevIso) === "nacht") return true;
-  return extraShifts.some(es => es.empId === emp.id && es.date === prevIso && es.shift === "nacht" && (es.status === "approved" || es.status === "pending"));
-};
-
-function checkExtraShiftConflict(emp, dateIso, shiftId) {
-  if (!emp || !dateIso || !shiftId) return null;
-  const activeLeave = getActiveLeaveForEmpOnDate(emp.id, dateIso);
-  if (activeLeave) return "Konflikt: Mitarbeiter ist am " + formatDateDe(dateIso) + " abwesend!";
-  const regShift = window.getEmpRegularShiftOnDate(emp, dateIso);
-  if (regShift === shiftId) return "Hinweis: Mitarbeiter hat am " + formatDateDe(dateIso) + " bereits regulär " + (shiftsLabel[shiftId] || shiftId) + ".";
-  if ((shiftId === "frueh" || shiftId === "spaet") && window.didEmpWorkNightBefore(emp, dateIso)) {
-    return "Ruhezeit-Warnung: Nachtschicht am Vortag!";
-  }
-  return null;
+  const fallbackKey = validKeys[0];
+  ["frueh", "spaet", "nacht", "frei"].forEach(slot => {
+    if (!shiftRotation[slot] || !teamsConfig[shiftRotation[slot]]) shiftRotation[slot] = fallbackKey;
+  });
+  employees.forEach(emp => {
+    if (!emp.team || !teamsConfig[emp.team]) emp.team = fallbackKey;
+  });
+  Object.keys(activeTeamFilters).forEach(k => {
+    if (!teamsConfig[k]) delete activeTeamFilters[k];
+  });
 }
 
 /* ==========================================================================
@@ -327,286 +302,6 @@ function addHistoryLog(text, category) {
   });
   if (historyLogs.length > 500) historyLogs = historyLogs.slice(0, 500);
 }
-
-/* ==========================================================================
-   AUTOMATISCHE HINTERGRUND-SYNCHRONISATION
-   ========================================================================== */
-
-function getActiveLeaveForEmpOnDate(empId, isoDate) {
-  return sickLeaves.find(sl => {
-    if (sl.empId !== empId || sl.status === "rejected" || sl.status === "pending") return false;
-    if (sl.blocks && sl.blocks.length) {
-      return sl.blocks.some(b => b.status === "approved" && b.start <= isoDate && b.end >= isoDate);
-    }
-    return sl.status === "approved" && sl.startDate <= isoDate && sl.endDate >= isoDate;
-  });
-}
-
-function isExtraShiftInActiveWindow(es, nowObj) {
-  if (!es || es.status !== "approved" || !es.date || !es.shift) return false;
-  const now = nowObj || new Date();
-  const p = es.date.split("-");
-  if (p.length !== 3) return false;
-  const y = Number(p[0]), m = Number(p[1]) - 1, d = Number(p[2]);
-
-  let startHour = 6, endHour = 14;
-  if (es.shift === "frueh") { startHour = 6; endHour = 14; }
-  else if (es.shift === "spaet") { startHour = 14; endHour = 22; }
-  else if (es.shift === "nacht") { startHour = 22; endHour = 30; }
-
-  const windowStart = new Date(y, m, d, startHour - 1, 0, 0);
-  const windowEnd = new Date(y, m, d, endHour, 0, 0);
-  return now >= windowStart && now < windowEnd;
-}
-
-function syncAbsentAndExtraZones() {
-  if (!hasLoadedFromCloud) return false;
-  const now = new Date();
-  const calToday = getTodayIso(now);
-  const logToday = getLogicalDateIso(now);
-  let changed = false;
-
-  employees.forEach(emp => {
-    let activeLeave = getActiveLeaveForEmpOnDate(emp.id, calToday);
-    if (!activeLeave && logToday !== calToday && !isSundayRestPeriod(now)) {
-      if (shiftRotation.nacht === emp.team) activeLeave = getActiveLeaveForEmpOnDate(emp.id, logToday);
-    }
-
-    if (activeLeave) {
-      if (emp.zone !== "absent") {
-        emp.zone = "absent";
-        changed = true;
-      }
-      return;
-    } else if (emp.zone === "absent") {
-      emp.zone = "pool";
-      changed = true;
-    }
-
-    const activeExtra = extraShifts.find(es => es.empId === emp.id && isExtraShiftInActiveWindow(es, now));
-    if (activeExtra && emp.zone === "pool") {
-      emp.zone = "extra";
-      changed = true;
-    } else if (!activeExtra && emp.zone === "extra") {
-      emp.zone = "pool";
-      changed = true;
-    }
-  });
-
-  return changed;
-}
-
-function checkScheduledAutomations() {
-  if (!hasLoadedFromCloud || isDraggingCard) return;
-  const now = new Date();
-  const day = now.getDay();
-  const hour = now.getHours();
-  const todayIso = getTodayIso(now);
-  let didChange = false;
-
-  if (shiftModelConfig.resetEnabled && Number(shiftModelConfig.resetDay) === day && Number(shiftModelConfig.resetHour) === hour) {
-    const runKey = todayIso + "_" + hour;
-    if (shiftModelConfig.lastResetRunKey !== runKey) {
-      shiftModelConfig.lastResetRunKey = runKey;
-      employees.forEach(e => {
-        if (e.zone && ["pool", "absent", "extra"].indexOf(e.zone) === -1 && !isEmpAnchorActiveToday(e, todayIso)) {
-          e.zone = "pool";
-        }
-      });
-      addHistoryLog("Automatischer Schicht-Reset in den Pool ausgeführt", "SYSTEM");
-      didChange = true;
-    }
-  }
-
-  if (shiftModelConfig.loadEnabled && Number(shiftModelConfig.loadDay) === day && Number(shiftModelConfig.loadHour) === hour) {
-    const loadKey = todayIso + "_" + hour;
-    if (shiftModelConfig.lastLoadRunKey !== loadKey) {
-      shiftModelConfig.lastLoadRunKey = loadKey;
-      if (shiftModelConfig.autoRotate !== false) {
-        performShiftRotationLogic(true);
-      }
-      ["frueh", "spaet", "nacht", "frei"].forEach(slot => {
-        const tKey = shiftRotation[slot];
-        if (tKey) distributeTeamToSlotInternal(tKey, slot);
-      });
-      addHistoryLog("Teams automatisch auf ihre Linien-Positionen verteilt", "SYSTEM");
-      didChange = true;
-    }
-  }
-
-  if (didChange) {
-    saveToFirebase();
-    initBoard();
-  }
-}
-
-setInterval(() => {
-  if (!hasLoadedFromCloud || isDraggingCard) return;
-  updateHeaderDateKw();
-  const zChanged = syncAbsentAndExtraZones();
-  if (zChanged) {
-    saveToFirebase();
-    renderEmployees();
-  }
-  checkScheduledAutomations();
-
-  if (isPlanner) {
-    const maxMs = (Number(securityConfig.plannerTimeoutMin) || 180) * 60000;
-    if (Date.now() - planerLastActivityTime > maxMs) {
-      window.logoutPlanner();
-      showToast("Automatisch abgemeldet (Zeitüberschreitung)", true);
-    }
-  }
-}, 30000);
-
-/* ==========================================================================
-   INTELLIGENTE AUTO-ZUWEISUNG
-   ========================================================================== */
-
-function createBoardSnapshotForUndo() {
-  return employees.map(e => ({ id: e.id, zone: e.zone, pinnedZone: e.pinnedZone }));
-}
-
-window.undoLastAutoAssignment = function() {
-  if (!lastBoardSnapshotForUndo) {
-    showToast("Kein vorheriger Zustand zum Zurückkorrigieren vorhanden", true);
-    return;
-  }
-  lastBoardSnapshotForUndo.forEach(snap => {
-    const emp = employees.find(e => e.id === snap.id);
-    if (emp) {
-      emp.zone = snap.zone;
-      emp.pinnedZone = snap.pinnedZone;
-    }
-  });
-  lastBoardSnapshotForUndo = null;
-  const undoBtn = document.getElementById("btnUndoAutoAssignHeader");
-  if (undoBtn) undoBtn.classList.remove("has-undo");
-  document.querySelectorAll(".shift-undo-mini-btn").forEach(b => b.classList.remove("has-undo"));
-
-  saveToFirebase();
-  initBoard();
-  addHistoryLog("Letzte Schicht-Zuweisung per 'Zurück korrigieren' widerrufen", "AUTO");
-  showToast("Änderungen erfolgreich zurückkorrigiert!");
-};
-
-window.toggleSmartAssignQuick = function() {
-  shiftModelConfig.smartAssignEnabled = !(shiftModelConfig.smartAssignEnabled !== false);
-  saveToFirebase();
-  updateSmartAssignUI();
-  showToast("Auto-Zuweisung: " + (shiftModelConfig.smartAssignEnabled !== false ? "AN" : "AUS"));
-};
-
-function updateSmartAssignUI() {
-  const active = shiftModelConfig.smartAssignEnabled !== false;
-  const badge = document.getElementById("smartAssignToggleBadge");
-  const txt = document.getElementById("smartAssignBadgeText");
-  if (badge && txt) {
-    badge.className = active ? "smart-assign-badge active" : "smart-assign-badge";
-    txt.textContent = active ? "Auto-Zuweisung: AN" : "Auto-Zuweisung: AUS";
-  }
-  const cfgChk = document.getElementById("cfgSmartAssignEnabled");
-  if (cfgChk) cfgChk.checked = active;
-}
-
-window.smartAssignShiftSlot = function(shiftId) {
-  if (shiftModelConfig.smartAssignEnabled === false) {
-    showToast("Auto-Zuweisung ist aktuell deaktiviert!", true);
-    return;
-  }
-
-  lastBoardSnapshotForUndo = createBoardSnapshotForUndo();
-  const undoBtn = document.getElementById("btnUndoAutoAssignHeader");
-  if (undoBtn) undoBtn.classList.add("has-undo");
-  const miniUndo = document.getElementById("undoBtn_" + shiftId);
-  if (miniUndo) miniUndo.classList.add("has-undo");
-
-  const teamKey = shiftRotation[shiftId];
-  const activeLines = lines.filter(l => !l.ausgeplant);
-  const todayIso = getTodayIso();
-
-  employees.forEach(emp => {
-    if (extractShiftIdFromZone(emp.zone) === shiftId && !isEmpAnchorActiveToday(emp, todayIso)) {
-      emp.zone = "pool";
-    }
-  });
-
-  const slotCandidates = employees.filter(emp => {
-    if (emp.zone === "absent") return false;
-    if (emp.noRotation && isEmpAnchorActiveToday(emp, todayIso)) return false;
-    const isTeamMember = (emp.team === teamKey);
-    const hasExtra = extraShifts.some(es => es.empId === emp.id && es.date === todayIso && es.shift === shiftId && es.status === "approved");
-    return isTeamMember || hasExtra;
-  });
-
-  const sortedLines = activeLines.slice().sort((a, b) => {
-    const pA = a.prio ? (a.prio.indexOf("1") !== -1 ? 1 : (a.prio.indexOf("2") !== -1 ? 2 : 3)) : 4;
-    const pB = b.prio ? (b.prio.indexOf("1") !== -1 ? 1 : (b.prio.indexOf("2") !== -1 ? 2 : 3)) : 4;
-    return pA - pB;
-  });
-
-  let assignedCount = 0;
-
-  function getLineStaffCount(lineId) {
-    return employees.filter(e => extractLineIdFromZone(e.zone) === lineId && extractShiftIdFromZone(e.zone) === shiftId).length;
-  }
-
-  function getLineTargetForShift(line, sId) {
-    if (line.targetStaff && typeof line.targetStaff[sId] === "number") {
-      return line.targetStaff[sId];
-    }
-    return 3;
-  }
-
-  sortedLines.forEach(line => {
-    const targetSoll = getLineTargetForShift(line, shiftId);
-    while (getLineStaffCount(line.id) < targetSoll) {
-      let cand = slotCandidates.find(e => {
-        if (e.zone !== "pool" && e.zone !== "extra") return false;
-        const pinnedLineId = extractLineIdFromZone(e.pinnedZone);
-        if (pinnedLineId === line.id) return true;
-        return Array.isArray(e.mainLines) && e.mainLines.indexOf(line.id) !== -1;
-      });
-      if (!cand) break;
-      cand.zone = line.id + "_" + shiftId;
-      cand.pinnedZone = cand.zone;
-      cand.lastShiftId = shiftId;
-      assignedCount++;
-    }
-  });
-
-  sortedLines.forEach(line => {
-    const targetSoll = getLineTargetForShift(line, shiftId);
-    while (getLineStaffCount(line.id) < targetSoll) {
-      let cand = slotCandidates.find(e => {
-        if (e.zone !== "pool" && e.zone !== "extra") return false;
-        return Array.isArray(e.secLines) && e.secLines.indexOf(line.id) !== -1;
-      });
-      if (!cand) break;
-      cand.zone = line.id + "_" + shiftId;
-      cand.pinnedZone = cand.zone;
-      cand.lastShiftId = shiftId;
-      assignedCount++;
-    }
-  });
-
-  sortedLines.forEach(line => {
-    const targetSoll = getLineTargetForShift(line, shiftId);
-    while (getLineStaffCount(line.id) < targetSoll) {
-      let cand = slotCandidates.find(e => e.zone === "pool" || e.zone === "extra");
-      if (!cand) break;
-      cand.zone = line.id + "_" + shiftId;
-      cand.pinnedZone = cand.zone;
-      cand.lastShiftId = shiftId;
-      assignedCount++;
-    }
-  });
-
-  addHistoryLog("Auto-Zuweisung für " + (shiftsLabel[shiftId] || shiftId) + " durchgeführt (" + assignedCount + " zugewiesen)", "AUTO");
-  saveToFirebase();
-  initBoard();
-  showToast("🪄 Auto-Zuweisung " + (shiftsLabel[shiftId] || shiftId) + " erfolgreich!");
-};
 
 /* ==========================================================================
    INIT BOARD & KARTEN RENDERING
@@ -1065,7 +760,7 @@ window.toggleAllRoleFilters = function(state) {
    ========================================================================== */
 
 window.openLineEditModal = function(lineId) {
-  closeModal("settingsModal");
+  if (typeof closeModal === "function") closeModal("settingsModal");
 
   const line = lines.find(l => l.id === lineId);
   if (!line) return;
@@ -1132,7 +827,7 @@ window.saveLineDetails = function(isAuto) {
   saveToFirebase();
   initBoard();
   if (!isAuto) {
-    closeModal("lineEditModal");
+    if (typeof closeModal === "function") closeModal("lineEditModal");
     showToast("Linie gespeichert!");
   }
 };
@@ -1291,20 +986,6 @@ window.syncShiftModelSettingsUI = function() {
 
   const swapChk = document.getElementById("cfgSmartAllowSwap");
   if (swapChk) swapChk.checked = shiftModelConfig.smartAllowSwap !== false;
-
-  const resetChk = document.getElementById("cfgResetEnabled");
-  if (resetChk) resetChk.checked = !!shiftModelConfig.resetEnabled;
-  const resetDay = document.getElementById("cfgResetDay");
-  if (resetDay) resetDay.value = String(shiftModelConfig.resetDay ?? 0);
-  const resetHour = document.getElementById("cfgResetHour");
-  if (resetHour) resetHour.value = String(shiftModelConfig.resetHour ?? 6);
-
-  const loadChk = document.getElementById("cfgLoadEnabled");
-  if (loadChk) loadChk.checked = !!shiftModelConfig.loadEnabled;
-  const loadDay = document.getElementById("cfgLoadDay");
-  if (loadDay) loadDay.value = String(shiftModelConfig.loadDay ?? 0);
-  const loadHour = document.getElementById("cfgLoadHour");
-  if (loadHour) loadHour.value = String(shiftModelConfig.loadHour ?? 5);
 };
 
 window.saveShiftModelSettings = function() {
@@ -1319,20 +1000,6 @@ window.saveShiftModelSettings = function() {
 
   const swapChk = document.getElementById("cfgSmartAllowSwap");
   if (swapChk) shiftModelConfig.smartAllowSwap = swapChk.checked;
-
-  const resetChk = document.getElementById("cfgResetEnabled");
-  if (resetChk) shiftModelConfig.resetEnabled = resetChk.checked;
-  const resetDay = document.getElementById("cfgResetDay");
-  if (resetDay) shiftModelConfig.resetDay = parseInt(resetDay.value, 10) || 0;
-  const resetHour = document.getElementById("cfgResetHour");
-  if (resetHour) shiftModelConfig.resetHour = parseInt(resetHour.value, 10) || 0;
-
-  const loadChk = document.getElementById("cfgLoadEnabled");
-  if (loadChk) shiftModelConfig.loadEnabled = loadChk.checked;
-  const loadDay = document.getElementById("cfgLoadDay");
-  if (loadDay) shiftModelConfig.loadDay = parseInt(loadDay.value, 10) || 0;
-  const loadHour = document.getElementById("cfgLoadHour");
-  if (loadHour) shiftModelConfig.loadHour = parseInt(loadHour.value, 10) || 0;
 
   saveToFirebase();
   updateAutoRotationUI();
@@ -1419,29 +1086,8 @@ function renderHistoryList() {
   if (!listEl) return;
 
   const searchVal = (document.getElementById("historyUnifiedInput") ? document.getElementById("historyUnifiedInput").value : "").trim().toLowerCase();
-  const timeVal = document.getElementById("historyTimeFilter") ? document.getElementById("historyTimeFilter").value : "ALL";
-  const actorVal = document.getElementById("historyActorFilter") ? document.getElementById("historyActorFilter").value : "ALL";
-
-  const actorSelect = document.getElementById("historyActorFilter");
-  if (actorSelect) {
-    const currentActorSelection = actorSelect.value;
-    const actors = Array.from(new Set((historyLogs || []).map(item => item.actor).filter(Boolean))).sort();
-    actorSelect.innerHTML = '<option value="ALL">👤 Alle Planer / System</option>' + actors.map(a => '<option value="' + a + '" ' + (a === currentActorSelection ? 'selected' : '') + '>' + a + '</option>').join("");
-  }
-
-  const nowMs = Date.now();
-  let timeCutoff = 0;
-  if (timeVal === "TODAY") timeCutoff = nowMs - 86400000;
-  else if (timeVal === "7D") timeCutoff = nowMs - 7 * 86400000;
-  else if (timeVal === "30D") timeCutoff = nowMs - 30 * 86400000;
-
   const items = (Array.isArray(historyLogs) ? historyLogs : []).filter(item => {
     if (activeHistoryCategory !== "ALL" && item.category !== activeHistoryCategory) return false;
-    if (actorVal !== "ALL" && item.actor !== actorVal) return false;
-    if (timeCutoff > 0) {
-      const ts = item.timestamp ? new Date(item.timestamp).getTime() : nowMs;
-      if (ts < timeCutoff) return false;
-    }
     if (searchVal) {
       const hay = ((item.text || "") + " " + (item.actor || "") + " " + (item.category || "")).toLowerCase();
       if (hay.indexOf(searchVal) === -1) return false;
@@ -1930,7 +1576,7 @@ window.addManualSickLeave = function() {
     if (found) selectedManualSickEmpId = found.id;
   }
   if (!selectedManualSickEmpId) {
-    showToast("Bitte Mitarbeiter aus der Liste auswählen", true);
+    showToast("Bitte Mitarbeiter auswählen", true);
     return;
   }
   const start = document.getElementById("manualSickStart").value;
