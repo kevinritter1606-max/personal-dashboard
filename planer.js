@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Version 4.9.47 (Absolute Sync Edition)
+   PLANER-BOARD LOGIK (planer.js) - Version 4.9.50 (Stable & Clean Base)
    ========================================================================== */
 
 try {
@@ -103,7 +103,7 @@ let toastTimer = null;
 let planerLastActivityTime = Date.now();
 
 /* ==========================================================================
-   ZENTRALE BASIS-FUNKTIONEN (HIER SIND ALLE HELFER GANZ OBEN DEFINIERT)
+   GLOBAL GESICHERTE HILFSFUNKTIONEN (HIER SIND ALLE FUNKTIONEN GARANTIERT VORHANDEN)
    ========================================================================== */
 
 window.sanitizeTeamReferences = function() {
@@ -122,6 +122,37 @@ window.sanitizeTeamReferences = function() {
   Object.keys(activeTeamFilters).forEach(k => {
     if (!teamsConfig[k]) delete activeTeamFilters[k];
   });
+};
+
+window.checkBoardLockState = function() {
+  const modal = document.getElementById("boardLockModal");
+  if (!modal) return;
+  if (securityConfig && securityConfig.boardPwEnabled && !isPlanner) {
+    modal.style.display = (sessionStorage.getItem("board_unlocked") === "true") ? "none" : "flex";
+  } else {
+    modal.style.display = "none";
+  }
+};
+
+window.unlockBoardView = function() {
+  const inp = document.getElementById("boardLockInput");
+  const val = inp ? inp.value.trim() : "";
+  const targetPw = (securityConfig && securityConfig.boardPw) ? String(securityConfig.boardPw).trim() : "0110";
+  if (val === targetPw) {
+    sessionStorage.setItem("board_unlocked", "true");
+    if (inp) inp.value = "";
+    const errEl = document.getElementById("boardLockError");
+    if (errEl) errEl.style.display = "none";
+    window.checkBoardLockState();
+  } else {
+    showTimedBoxMsg("boardLockError", "❌ Falsches Zugangs-Passwort!", false);
+  }
+};
+
+window.openPlannerLoginFromLock = function() {
+  const lockModal = document.getElementById("boardLockModal");
+  if (lockModal) lockModal.style.display = "none";
+  window.handleLogoClick();
 };
 
 function getActiveLeaveForEmpOnDate(empId, isoDate) {
@@ -435,12 +466,13 @@ function addHistoryLog(text, category) {
 
 window.initBoard = function() {
   if (isDraggingCard) return;
-  sanitizeTeamReferences();
-  syncAbsentAndExtraZones();
+  window.sanitizeTeamReferences();
+  window.syncAbsentAndExtraZones();
   updateHeaderDateKw();
   updateShiftApprovalUI();
   updateAutoRotationUI();
   updateSmartAssignUI();
+  window.checkBoardLockState();
 
   const headerRow = document.getElementById("headerRow");
   if (!headerRow) return;
@@ -530,7 +562,6 @@ window.initBoard = function() {
   initDragAndDrop();
   renderSettingsLists();
   updateInboxBadge();
-  checkBoardLockState();
   if (typeof syncShiftModelSettingsUI === "function") syncShiftModelSettingsUI();
   if (typeof syncSecurityConfigUI === "function") syncSecurityConfigUI();
 };
@@ -1729,7 +1760,7 @@ window.addManualSickLeave = function() {
 
   addHistoryLog("Abwesenheit (" + cat + ") für " + (emp ? fullName(emp) : "") + " eingetragen", "ABSENCE");
   saveToFirebase();
-  syncAbsentAndExtraZones();
+  window.syncAbsentAndExtraZones();
   renderEmployees();
   window.renderInboxLists();
   showToast("Abwesenheit eingetragen & genehmigt!");
@@ -1773,7 +1804,7 @@ window.addManualExtraShift = function() {
 
   addHistoryLog("Bringschicht für " + (emp ? fullName(emp) : "") + " am " + formatDateDe(dateVal) + " (" + (shiftsShortLabel[shiftVal] || shiftVal) + ")", "ABSENCE");
   saveToFirebase();
-  syncAbsentAndExtraZones();
+  window.syncAbsentAndExtraZones();
   renderEmployees();
   window.renderInboxLists();
 
@@ -1795,7 +1826,7 @@ window.markAllSickLeavesRead = function() {
     sl.plannerUnreadInfo = false;
   });
   saveToFirebase();
-  syncAbsentAndExtraZones();
+  window.syncAbsentAndExtraZones();
   renderEmployees();
   window.renderInboxLists();
   updateInboxBadge();
@@ -1900,7 +1931,7 @@ window.approveSickLeave = function(id) {
     sl.reviewedBy = currentPlannerName || "Planer";
     sl.reviewedAt = new Date().toISOString();
     saveToFirebase();
-    syncAbsentAndExtraZones();
+    window.syncAbsentAndExtraZones();
     renderEmployees();
     window.renderInboxLists();
     updateInboxBadge();
@@ -1914,7 +1945,7 @@ window.rejectSickLeave = function(id) {
     sl.status = "rejected";
     sl.plannerUnreadInfo = false;
     saveToFirebase();
-    syncAbsentAndExtraZones();
+    window.syncAbsentAndExtraZones();
     renderEmployees();
     window.renderInboxLists();
     updateInboxBadge();
@@ -1925,7 +1956,7 @@ window.rejectSickLeave = function(id) {
 window.deleteSickLeave = function(id) {
   sickLeaves = sickLeaves.filter(x => x.id !== id);
   saveToFirebase();
-  syncAbsentAndExtraZones();
+  window.syncAbsentAndExtraZones();
   renderEmployees();
   window.renderInboxLists();
   updateInboxBadge();
@@ -1935,7 +1966,7 @@ window.deleteSickLeave = function(id) {
 window.deleteExtraShift = function(id) {
   extraShifts = extraShifts.filter(x => x.id !== id);
   saveToFirebase();
-  syncAbsentAndExtraZones();
+  window.syncAbsentAndExtraZones();
   renderEmployees();
   window.renderInboxLists();
   showToast("Bringschicht entfernt");
@@ -2004,8 +2035,8 @@ function applyIncomingDocData(d) {
     if (typeof d.approvedShiftKey === "string") approvedShiftKey = d.approvedShiftKey;
     if (Array.isArray(d.employees)) employees = d.employees;
 
-    sanitizeTeamReferences();
-    syncAbsentAndExtraZones();
+    window.sanitizeTeamReferences();
+    window.syncAbsentAndExtraZones();
     window.initBoard();
   } catch (err) {
     console.error("Fehler beim Verarbeiten der Cloud-Daten:", err);
@@ -2032,7 +2063,7 @@ window.forceRefreshFromServer = function() {
 
 function saveToFirebase() {
   if (!hasLoadedFromCloud) return;
-  sanitizeTeamReferences();
+  window.sanitizeTeamReferences();
   const payload = {
     lines: lines,
     roles: roles,
@@ -2066,7 +2097,7 @@ function applyPlannerLoginState(name, lvl, empId) {
   const badge = document.getElementById("plannerStatusBadge");
   if (badge) badge.textContent = "👤 " + name + " (Stufe " + lvl + ")";
   window.resetPlanerActivity();
-  checkBoardLockState();
+  window.checkBoardLockState();
 }
 
 window.logoutPlanner = function() {
