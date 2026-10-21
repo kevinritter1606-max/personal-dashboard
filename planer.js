@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PLANER-BOARD LOGIK (planer.js) - Version 4.9.44 (Sanitize & Final Fix)
+   PLANER-BOARD LOGIK (planer.js) - Version 4.9.46 (All Helpers Fixed)
    ========================================================================== */
 
 try {
@@ -103,8 +103,90 @@ let toastTimer = null;
 let planerLastActivityTime = Date.now();
 
 /* ==========================================================================
-   HILFSFUNKTIONEN, SANITIZE & UI-STATUS (VOLLSTÄNDIG)
+   ZENTRALE BASIS-FUNKTIONEN (HIER SIND ALLE HELFER FEST DEKLARIERT)
    ========================================================================== */
+
+window.sanitizeTeamReferences = function() {
+  const validKeys = Object.keys(teamsConfig);
+  if (!validKeys.length) {
+    teamsConfig["team-1"] = { name: "Team 1", color: "#0091df", rotates: true };
+    validKeys.push("team-1");
+  }
+  const fallbackKey = validKeys[0];
+  ["frueh", "spaet", "nacht", "frei"].forEach(slot => {
+    if (!shiftRotation[slot] || !teamsConfig[shiftRotation[slot]]) shiftRotation[slot] = fallbackKey;
+  });
+  employees.forEach(emp => {
+    if (!emp.team || !teamsConfig[emp.team]) emp.team = fallbackKey;
+  });
+  Object.keys(activeTeamFilters).forEach(k => {
+    if (!teamsConfig[k]) delete activeTeamFilters[k];
+  });
+};
+
+function getActiveLeaveForEmpOnDate(empId, isoDate) {
+  return sickLeaves.find(sl => {
+    if (sl.empId !== empId || sl.status === "rejected" || sl.status === "pending") return false;
+    if (sl.blocks && sl.blocks.length) {
+      return sl.blocks.some(b => b.status === "approved" && b.start <= isoDate && b.end >= isoDate);
+    }
+    return sl.status === "approved" && sl.startDate <= isoDate && sl.endDate >= isoDate;
+  });
+}
+
+function isExtraShiftInActiveWindow(es, nowObj) {
+  if (!es || es.status !== "approved" || !es.date || !es.shift) return false;
+  const now = nowObj || new Date();
+  const p = es.date.split("-");
+  if (p.length !== 3) return false;
+  const y = Number(p[0]), m = Number(p[1]) - 1, d = Number(p[2]);
+
+  let startHour = 6, endHour = 14;
+  if (es.shift === "frueh") { startHour = 6; endHour = 14; }
+  else if (es.shift === "spaet") { startHour = 14; endHour = 22; }
+  else if (es.shift === "nacht") { startHour = 22; endHour = 30; }
+
+  const windowStart = new Date(y, m, d, startHour - 1, 0, 0);
+  const windowEnd = new Date(y, m, d, endHour, 0, 0);
+  return now >= windowStart && now < windowEnd;
+}
+
+window.syncAbsentAndExtraZones = function() {
+  if (!hasLoadedFromCloud) return false;
+  const now = new Date();
+  const calToday = getTodayIso(now);
+  const logToday = getLogicalDateIso(now);
+  let changed = false;
+
+  employees.forEach(emp => {
+    let activeLeave = getActiveLeaveForEmpOnDate(emp.id, calToday);
+    if (!activeLeave && logToday !== calToday && !isSundayRestPeriod(now)) {
+      if (shiftRotation.nacht === emp.team) activeLeave = getActiveLeaveForEmpOnDate(emp.id, logToday);
+    }
+
+    if (activeLeave) {
+      if (emp.zone !== "absent") {
+        emp.zone = "absent";
+        changed = true;
+      }
+      return;
+    } else if (emp.zone === "absent") {
+      emp.zone = "pool";
+      changed = true;
+    }
+
+    const activeExtra = extraShifts.find(es => es.empId === emp.id && isExtraShiftInActiveWindow(es, now));
+    if (activeExtra && emp.zone === "pool") {
+      emp.zone = "extra";
+      changed = true;
+    } else if (!activeExtra && emp.zone === "extra") {
+      emp.zone = "pool";
+      changed = true;
+    }
+  });
+
+  return changed;
+};
 
 window.resetPlanerActivity = function() {
   planerLastActivityTime = Date.now();
@@ -324,25 +406,6 @@ function isEmpAnchorActiveToday(emp, dateIso) {
   const jsDay = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay();
   const fixDays = Array.isArray(emp.fixDays) ? emp.fixDays : [1, 2, 3, 4, 5];
   return fixDays.indexOf(jsDay) !== -1;
-}
-
-/* WICHTIG: HIER IST DIE FUNKTION SANITIZETEAMREFERENCES FEST EINGEBAUT */
-function sanitizeTeamReferences() {
-  const validKeys = Object.keys(teamsConfig);
-  if (!validKeys.length) {
-    teamsConfig["team-1"] = { name: "Team 1", color: "#0091df", rotates: true };
-    validKeys.push("team-1");
-  }
-  const fallbackKey = validKeys[0];
-  ["frueh", "spaet", "nacht", "frei"].forEach(slot => {
-    if (!shiftRotation[slot] || !teamsConfig[shiftRotation[slot]]) shiftRotation[slot] = fallbackKey;
-  });
-  employees.forEach(emp => {
-    if (!emp.team || !teamsConfig[emp.team]) emp.team = fallbackKey;
-  });
-  Object.keys(activeTeamFilters).forEach(k => {
-    if (!teamsConfig[k]) delete activeTeamFilters[k];
-  });
 }
 
 /* ==========================================================================
