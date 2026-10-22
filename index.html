@@ -185,6 +185,7 @@
 
     .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.45); display: none; align-items: center; justify-content: center; z-index: 100; padding: 12px; }
     #lineEditModal { z-index: 150; }
+    #coverageReleaseModal { z-index: 2300; background: rgba(15, 23, 42, 0.65); }
     .modal { background: #fff; padding: 20px; border-radius: 10px; width: 100%; max-width: 520px; box-shadow: 0 10px 25px rgba(0,0,0,0.18); max-height: 90vh; overflow-y: auto; color: #0f172a; }
     .form-group { margin-bottom: 10px; position: relative; }
     .form-group label { display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 3px; color: #475569; }
@@ -218,7 +219,6 @@
     .recent-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: #e0f2fe; color: #0369a1; cursor: pointer; border: 1px solid #bae6fd; }
     .recent-chip:hover { background: #bae6fd; }
 
-    /* Korrigiertes Grid für Linien-Bearbeiten Modal (verhindert das Rausrutschen der Zahl) */
     .role-target-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; margin-top: 6px; }
     .role-target-item { display: flex; align-items: center; justify-content: space-between; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; font-size: 0.78rem; font-weight: 600; gap: 8px; }
     .role-target-item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -251,6 +251,25 @@
 <body>
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
+
+  <!-- MODAL: PLANER BRINGSCHICHT-EINZELFREIGABE NACH URLAUB/KRANK-GENEHMIGUNG -->
+  <div id="coverageReleaseModal" class="modal-overlay" style="display:none;">
+    <div class="modal" style="max-width: 560px;">
+      <h3 style="display:flex; justify-content:space-between; align-items:center; color:var(--bayer-blue); margin-bottom:8px;">
+        <span>📢 Bringschichten für Portal freigeben?</span>
+        <button onclick="closeModal('coverageReleaseModal')" style="border:none; background:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+      </h3>
+      <p id="coverageReleaseSubtitle" style="font-size:0.82rem; color:#475569; margin-bottom:10px; line-height:1.4;"></p>
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
+        <button type="button" class="btn btn-primary" style="background:#16a34a; font-size:0.76rem; padding:5px 10px;" onclick="setAllModalCoverageDaysStatus('open')">✅ Alle Tage fürs Portal freigeben</button>
+        <button type="button" class="btn btn-outline" style="color:#b91c1c; border-color:#fca5a5; font-size:0.76rem; padding:5px 10px;" onclick="setAllModalCoverageDaysStatus('closed')">🔒 Keine freigeben (Alle sperren)</button>
+      </div>
+      <div id="coverageReleaseDaysList" style="max-height:310px; overflow-y:auto; border:1px solid #cbd5e1; border-radius:8px; padding:8px; background:#f8fafc;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="closeModal('coverageReleaseModal')">Fertig & Speichern</button>
+      </div>
+    </div>
+  </div>
 
   <div id="plannerForcePinModal" class="modal-overlay" style="display:none; z-index: 2500; background: rgba(15,23,42,0.85);">
     <div class="modal" style="max-width: 380px; background:#fff; padding:24px; border-radius:12px;">
@@ -475,7 +494,7 @@
             <div class="form-group" style="flex:1;"><label>Bis</label><input type="date" id="manualSickEnd" class="form-control"></div>
           </div>
           <div class="form-group"><label>Notiz / Grund (optional)</label><input type="text" id="manualSickReason" class="form-control" placeholder="z.B. Uhrzeit bei Dienstgang / Kommentar..."></div>
-          <button class="btn btn-primary" style="width:100%;" onclick="addManualSickLeave()">Abwesenheit eintragen & genehmigen</button>
+          <button class="btn btn-primary" style="width:100%;" onclick="addManualSickLeave()">Abwesenheit eintragen & Bringschichten prüfen</button>
         </div>
       </div>
 
@@ -512,6 +531,15 @@
           <button id="btnMarkAllRead" class="btn btn-outline" style="padding:4px 10px; font-size:0.75rem;" onclick="markAllSickLeavesRead()">Alle Infos gelesen</button>
         </div>
         <div id="unreadSickList"></div>
+      </div>
+
+      <!-- PLANER-STEUERUNG: GESUCHTE BRINGSCHICHTEN EINZELN FÜR DAS PORTAL FREIGEBEN ODER SPERREN -->
+      <div style="border-top: 2px solid #e2e8f0; padding-top: 12px; margin-bottom: 16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px; flex-wrap:wrap; gap:6px;">
+          <h4 style="font-size:0.92rem; color:#0369a1; margin:0;">📢 Gesuchte Bringschichten (Einzel-Freigabe fürs Mitarbeiter-Portal)</h4>
+          <span style="font-size:0.72rem; color:#64748b;">Nur freigegebene Tage sind im Portal sichtbar</span>
+        </div>
+        <div id="inboxCoverageControlList"></div>
       </div>
 
       <div style="border-top: 2px solid #e2e8f0; padding-top: 12px; margin-bottom: 16px;">
