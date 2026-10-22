@@ -65,7 +65,6 @@
     
     .panel { background: #fff; border-radius: 8px; padding: 5px 7px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; display: flex; flex-direction: column; flex: 1; min-height: 0; }
     .panel-pool { flex: 1.8; }
-    /* Wenn "Noch zuzuteilen" leer ist, bleibt es ganz schmal, damit der Pool maximalen Platz hat */
     .panel-review { flex: 0.95; background: #fffbeb; border-color: #fde68a; transition: all 0.15s ease; }
     .panel-review.empty-review { flex: 0 0 auto; }
     .panel-review.empty-review .card-list { min-height: 22px; max-height: 24px; padding: 2px; overflow: hidden; }
@@ -86,12 +85,10 @@
     body.planner-active .employee-card { cursor: pointer; }
     body.planner-active .employee-card:hover { border-color: #94a3b8; box-shadow: 0 2px 4px rgba(15,23,42,0.08); }
     
-    /* Verhindert, dass eine gezogene Karte den Mauszeiger/Namen verdeckt */
     .sortable-ghost { opacity: 0.35 !important; background: #e0f2fe !important; border: 1px dashed #0284c7 !important; }
     .sortable-drag, .sortable-fallback { opacity: 0.75 !important; pointer-events: none !important; cursor: move !important; box-shadow: 0 6px 14px rgba(15,23,42,0.16) !important; transform: translate(8px, 8px) scale(0.96) !important; }
 
     .card-name { font-size: 0.71rem; font-weight: 700; color: #0f172a; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 12px; }
-    /* Im Board selbst dürfen Namen sauber umbrechen, damit niemals "Te..." oder "Da..." entsteht */
     .board-table .employee-card { padding: 2px 4px; }
     .board-table .card-name { white-space: normal; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.12; font-size: 0.67rem; padding-right: 9px; }
 
@@ -114,7 +111,7 @@
     .card-prio-hint { display: none; }
     body.planner-active .sidebar .card-prio-hint { display: inline-block; font-size: 0.56rem; color: #64748b; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
 
-    /* Schicht-Matrix (Board) - Kompakt ohne horizontales Scrollen */
+    /* Schicht-Matrix (Board) */
     .board-container { flex: 1; min-width: 0; height: 100%; min-height: 0; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.04); display: flex; flex-direction: column; overflow-x: hidden; overflow-y: hidden; }
     .board-table { width: 100%; height: 100%; border-collapse: collapse; table-layout: fixed; min-width: 0; }
     .board-table th.shift-header { position: sticky; left: 0; z-index: 15; box-shadow: 1px 0 3px rgba(0,0,0,0.03); }
@@ -123,7 +120,6 @@
     .board-table tbody tr { height: 33.33%; }
     .board-table tbody td { height: 33.33%; padding: 0; position: relative; }
     
-    /* Dezente Stockwerk-Anzeige in der Ecke & niemals abgeschnittene Liniennamen */
     .line-header { background: #f8fafc; padding: 12px 2px 3px 2px; text-align: center; position: relative; min-width: 0; }
     body.planner-active .line-header { cursor: pointer; }
     body.planner-active .line-header:hover { background: #f1f5f9; }
@@ -171,7 +167,7 @@
     .shift-clear-btn { width: 100%; font-size: 0.58rem; font-weight: 600; padding: 2px; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff; color: #64748b; cursor: pointer; }
     .shift-clear-btn:hover { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
 
-    /* Ruhigere, dezente Ist/Soll-Balken in den Zellen (ohne Abschneiden der fehlenden Rollen) */
+    /* Ist/Soll-Balken in den Zellen */
     .cell-wrapper { display: flex; flex-direction: column; height: 100%; width: 100%; }
     .zone-staff-bar { display: none; justify-content: space-between; align-items: center; padding: 1px 3px; font-size: 0.51rem; font-weight: 600; border-bottom: 1px solid #f1f5f9; background: #f8fafc; color: #64748b; gap: 2px; flex-shrink: 0; flex-wrap: wrap; line-height: 1.1; }
     body.planner-active .zone-staff-bar { display: flex; }
@@ -312,7 +308,7 @@
       <div class="header-title">
         <div class="header-title-text">
           <h1>Schicht und Linienübersicht</h1>
-          <div id="headerDateKw" class="header-meta">Lade Datum... · v4.9.61</div>
+          <div id="headerDateKw" class="header-meta">Lade Datum... · v4.9.62</div>
         </div>
         <div class="header-badges-row">
           <span id="plannerStatusBadge" class="status-badge">Planer-Modus aktiv</span>
@@ -324,7 +320,6 @@
             <span>🧠</span>
             <span id="smartAssignBadgeText">Auto-Zuweisung: AN</span>
           </span>
-          <!-- Die letzten beiden Automatik-Punkte zusammengeführt als reiner AN/AUS Schalter im Header -->
           <span id="autoTimedCombinedBadge" class="auto-toggle-pill lvl-2-hide" onclick="toggleAutoTimedCombinedQuick()" title="Zeitgesteuertes Pool-Leeren & Team-Verteilen gemeinsam an-/ausschalten (Details in den Einstellungen getrennt einstellbar)">
             <span>⏱️</span>
             <span id="autoTimedCombinedBadgeText">Auto-Reset/Verteilen: AUS</span>
@@ -353,7 +348,7 @@
     <aside class="sidebar">
       <div class="team-filter-box">
         <div class="search-wrapper">
-          <input type="text" id="poolSearchInput" class="search-input" placeholder="🔍 Name, Rolle oder Linie (ab 3 Buchst.)..." oninput="updatePoolSearch(this.value)">
+          <input type="text" id="poolSearchInput" class="search-input" placeholder="🔍 Name, Rolle oder Linie suchen..." oninput="updatePoolSearch(this.value)">
           <span id="clearSearchBtn" class="search-clear" onclick="document.getElementById('poolSearchInput').value=''; updatePoolSearch('')">&times;</span>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -425,8 +420,8 @@
         </div>
         <div id="loginModalError" style="display:none; background:#fee2e2; color:#b91c1c; padding:10px; border-radius:6px; font-size:0.8rem; font-weight:700; margin-bottom:12px; text-align:center;"></div>
         <div class="form-group" id="plannerLoginSearchGroup">
-          <label>Dein Name (ab 3 Buchstaben)</label>
-          <input type="text" id="loginPlannerName" class="form-control" placeholder="Mind. 3 Buchstaben tippen..." autocomplete="off" onfocus="onPlannerLoginInput(this.value)" oninput="onPlannerLoginInput(this.value)" onkeydown="if(event.key==='Enter') document.getElementById('pinInput').focus()">
+          <label>Dein Name</label>
+          <input type="text" id="loginPlannerName" class="form-control" placeholder="Name eingeben..." autocomplete="off" onfocus="onPlannerLoginInput(this.value)" oninput="onPlannerLoginInput(this.value)" onkeydown="if(event.key==='Enter') document.getElementById('pinInput').focus()">
           <div id="plannerLoginSuggestions" class="suggestions-box"></div>
         </div>
         <div class="form-group">
@@ -444,7 +439,7 @@
   <div id="inboxModal" class="modal-overlay">
     <div class="modal" style="max-width: 680px;">
       <h3 style="display:flex; justify-content:space-between; align-items:center; color:var(--bayer-blue); margin-bottom:8px;">
-        <span>📬 Postfach, Onboarding-Prüfung, Urlaub & Krank</span>
+        <span>📬 Postfach, Onboarding-Prüfung, Urlaub & Bringschichten</span>
         <button onclick="closeModal('inboxModal')" style="border:none; background:none; font-size:1.5rem; cursor:pointer;">&times;</button>
       </h3>
       <div id="serverSyncInfo" style="font-size:0.74rem; background:#f1f5f9; color:#475569; padding:6px 10px; border-radius:6px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
@@ -465,8 +460,8 @@
         <div id="manualEntryContent" style="display:none; background:#f8fafc; border:1px solid #cbd5e1; border-top:none; border-radius:0 0 8px 8px; padding:14px;">
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
             <div class="form-group" id="manualSickSearchGroup" style="flex:1.2; min-width:180px;">
-              <label>Mitarbeiter (ab 3 Buchstaben)</label>
-              <input type="text" id="manualSickEmpInput" class="form-control" placeholder="🔍 Mind. 3 Buchstaben..." autocomplete="off" onfocus="onManualSickNameInput(this.value)" oninput="onManualSickNameInput(this.value)">
+              <label>Mitarbeiter</label>
+              <input type="text" id="manualSickEmpInput" class="form-control" placeholder="🔍 Name eingeben..." autocomplete="off" onfocus="onManualSickNameInput(this.value)" oninput="onManualSickNameInput(this.value)">
               <div id="manualSickSuggestions" class="suggestions-box"></div>
             </div>
             <div class="form-group" style="flex:1.2; min-width:200px;">
@@ -499,8 +494,8 @@
         <div id="manualExtraContent" style="display:none; background:#f0fdf4; border:1px solid #86efac; border-top:none; border-radius:0 0 8px 8px; padding:14px;">
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
             <div class="form-group" id="manualExtraSearchGroup" style="flex:1.4; min-width:180px;">
-              <label>Mitarbeiter (ab 3 Buchstaben)</label>
-              <input type="text" id="manualExtraEmpInput" class="form-control" placeholder="🔍 Mind. 3 Buchstaben..." autocomplete="off" onfocus="onManualExtraNameInput(this.value)" oninput="onManualExtraNameInput(this.value)">
+              <label>Mitarbeiter</label>
+              <input type="text" id="manualExtraEmpInput" class="form-control" placeholder="🔍 Name eingeben..." autocomplete="off" onfocus="onManualExtraNameInput(this.value)" oninput="onManualExtraNameInput(this.value)">
               <div id="manualExtraSuggestions" class="suggestions-box"></div>
             </div>
             <div class="form-group" style="flex:1; min-width:140px;"><label>Datum</label><input type="date" id="manualExtraDate" class="form-control"></div>
@@ -520,7 +515,7 @@
 
       <div style="margin-bottom: 16px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
-          <h4 style="font-size:0.92rem; color:#dc2626;">🔔 Neue Meldungen, Onboarding-Abschlüsse & Anträge</h4>
+          <h4 style="font-size:0.92rem; color:#dc2626;">🔔 Neue Meldungen, Bringschicht-Angebote & Anträge</h4>
           <button id="btnMarkAllRead" class="btn btn-outline" style="padding:4px 10px; font-size:0.75rem;" onclick="markAllSickLeavesRead()">Alle Infos gelesen</button>
         </div>
         <div id="unreadSickList"></div>
@@ -552,7 +547,7 @@
   <div id="settingsModal" class="modal-overlay">
     <div class="modal" style="max-width: 760px;">
       <h3 style="display:flex; justify-content:space-between; color:var(--bayer-blue); margin-bottom:12px;">
-        <span>⚙️ Einstellungen <small style="font-size:0.72rem; color:#94a3b8; font-weight:600;">v4.9.61</small></span>
+        <span>⚙️ Einstellungen <small style="font-size:0.72rem; color:#94a3b8; font-weight:600;">v4.9.62</small></span>
         <button onclick="closeModal('settingsModal')" style="border:none; background:none; font-size:1.5rem; cursor:pointer;">&times;</button>
       </h3>
       <div class="tabs">
@@ -607,10 +602,10 @@
         <div id="employeeList" style="max-height: 240px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
       
-      <!-- Rollen inkl. Haken "Anlagen abfragen für Onboarding" -->
+      <!-- Rollen inkl. Haken "Darf auf Linien verteilt werden" & "Anlagen abfragen für Onboarding" -->
       <div id="tabRoles" class="tab-content">
         <p style="font-size:0.75rem; color:#64748b; margin-bottom:8px;">
-          Lege die Reihenfolge per <b>☰ Ziehen</b> oder <b>⬆️ / ⬇️</b> fest. Über den Haken <b>„🏭 Anlagen abfragen für Onboarding“</b> bestimmst du, ob diese Rolle im Onboarding-Assistenten Primär- und Sekundär-Anlagen auswählen muss (ein Schichtexperte benötigt z.B. keine Anlage).
+          Lege die Reihenfolge per <b>☰ Ziehen</b> oder <b>⬆️ / ⬇️</b> fest. Über <b>„🎯 Darf auf Linien verteilt werden“</b> steuerst du, ob diese Rolle automatisch an Linien eingeteilt werden darf (deaktiviert schützt z.B. Schichtexperten davor, als Lückenfüller auf Linien gezogen zu werden). Über <b>„🏭 Anlagen abfragen für Onboarding“</b> bestimmst du, ob beim Onboarding Linien abgefragt werden.
         </p>
         <div style="display:flex; gap:8px; margin-bottom:12px;">
           <input type="text" id="newRoleName" class="form-control" placeholder="Neue Rolle eingeben (z.B. SF, Springer)..." onkeydown="if(event.key==='Enter') addRole()">
@@ -634,14 +629,14 @@
         <div id="lineSettingsList" style="max-height: 280px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
 
-      <!-- Automatik im Menü wieder getrennt steuerbar + Qualifikations-Stundenzähler -->
+      <!-- Automatik im Menü getrennt steuerbar + Qualifikations-Stundenzähler (Standard 120h) -->
       <div id="tabTeams" class="tab-content">
         <div class="settings-card" style="border-left: 4px solid #8b5cf6; background: #faf5ff;">
           <div class="settings-card-title">
             <span style="color:#5b21b6;">🧠 Intelligente Linien-Zuweisung (Prio 1–10 & Qualifikations-Check)</span>
           </div>
           <p style="font-size:0.74rem; color:#475569; margin-bottom:8px;">
-            Steuert separat von der Schicht-Rotation, ob Mitarbeiter nach Linien-Priorität (PRIO 1–10), Rollen-Bedarf, Etage und Ringtausch automatisch zugewiesen werden.
+            Steuert separat von der Schicht-Rotation, ob Mitarbeiter nach Linien-Priorität (PRIO 1–10), Rollen-Freigabe, Etage und Ringtausch automatisch zugewiesen werden.
           </p>
           <div style="display:flex; flex-direction:column; gap:6px;">
             <label style="display:flex; align-items:center; gap:8px; font-size:0.82rem; font-weight:700; color:#1e293b; cursor:pointer;">
@@ -666,7 +661,7 @@
           
           <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom: 10px;">
             <label style="display:flex; align-items:center; gap:8px; font-size:0.84rem; font-weight:700; color:#1e293b; cursor:pointer;">
-              <input type="checkbox" id="cfgAutoRotate" checked onchange="saveShiftModelSettings()"> Automatische Schicht-Rotation aktiv
+              <input type="checkbox" id="cfgAutoRotate" checked onchange="saveShiftModelSettings()"> Automatische Schicht-Rotation aktiv (2-2-2 Vollkonti mit Sonntag frei)
             </label>
           </div>
 
@@ -709,19 +704,19 @@
           </div>
         </div>
 
-        <!-- Stundenzähler (6h-Tagesfilter), Schwellenwert & Übersicht -->
+        <!-- Stundenzähler (6h-Tagesfilter), Schwellenwert (Standard 120h) & Übersicht -->
         <div class="settings-card" style="border-left: 4px solid #16a34a; background: #f0fdf4;">
           <div class="settings-card-title">
             <span style="color:#166534;">⏱️ Qualifikations-Stundenzähler für Sekundär-Anlagen (6h-Filter)</span>
           </div>
           <p style="font-size:0.74rem; color:#334155; margin-bottom:8px;">
-            Wird ein Mitarbeiter manuell an einer fremden Anlage eingesetzt, zählt das System die Stunden nur dann dazu, wenn er an diesem Tag <b>mindestens 6 Stunden</b> dort eingeteilt war (max. 1 Gutschrift pro Tag/Schicht). Bei Erreichen des Schwellenwerts wird die Freischaltung als Sekundär-Anlage vorgeschlagen.
+            Wird ein Mitarbeiter manuell an einer fremden Anlage eingesetzt, zählt das System die Stunden nur dann dazu, wenn er an diesem Tag <b>mindestens 6 Stunden</b> dort eingeteilt war (max. 1 Gutschrift pro Tag). Bei Erreichen des Schwellenwerts (Standard: 120 Std. = 15 Schichten) wird die Freischaltung als Sekundär-Anlage vorgeschlagen.
           </p>
           <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
             <label style="font-size:0.8rem; font-weight:700; color:#0f172a;">
               Schwellenwert bis zur Freischaltung (Stunden):
             </label>
-            <input type="number" id="cfgSecondaryUnlockHours" min="6" max="10000" step="1" value="1000" class="form-control" style="width:110px; font-weight:700;" onchange="saveShiftModelSettings()">
+            <input type="number" id="cfgSecondaryUnlockHours" min="6" max="10000" step="1" value="120" class="form-control" style="width:110px; font-weight:700;" onchange="saveShiftModelSettings()">
             <label style="font-size:0.78rem; font-weight:600; color:#334155;">
               Geplante Schichtdauer (Std., ≥ 6h zählt):
               <input type="number" id="cfgDefaultShiftHours" min="1" max="12" step="0.5" value="8" class="form-control" style="width:75px; display:inline-block; margin-left:4px; font-weight:700;" onchange="saveShiftModelSettings()">
@@ -823,7 +818,7 @@
     </div>
   </div>
 
-  <!-- Linie bearbeiten Modal: Prio 1-10 & Zentrale Rollen-Steuerung ohne Früh/Spät/Nacht-Felder unten -->
+  <!-- Linie bearbeiten Modal: Prio 1-10 & Zentrale Rollen-Steuerung -->
   <div id="lineEditModal" class="modal-overlay">
     <div class="modal" style="max-width: 500px;">
       <h3 style="display:flex; justify-content:space-between; align-items:center; color: var(--bayer-blue); margin-bottom: 12px;">
@@ -872,7 +867,6 @@
         <div class="form-group" style="flex:1.3;"><label>Kurz-Notiz (für Header)</label><input type="text" id="editLineNote" class="form-control" placeholder="z.B. Noch 120.000 bis FW" onchange="saveLineDetails(true)"></div>
       </div>
 
-      <!-- Nur noch Rollen-Bedarf oben; Gesamt-Personalbedarf leitet sich automatisch daraus ab -->
       <div style="border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 6px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <label style="font-size:0.82rem; font-weight:700; color:#1e293b; margin:0;">👥 Rollen-Bedarf an dieser Linie (Soll pro Rolle):</label>
@@ -890,7 +884,7 @@
 
   <!-- Sicherheits-Bootstrap -->
   <script>
-    window.EXPECTED_HTML_VERSION = "4.9.61";
+    window.EXPECTED_HTML_VERSION = "4.9.62";
     window.closeModal = function(id) {
       var el = document.getElementById(id);
       if (el) el.style.display = "none";
@@ -932,6 +926,6 @@
       if (arrow) arrow.textContent = shouldOpen ? "▲ Formular schließen" : "▼ Formular öffnen";
     }
   </script>
-  <script src="planer.js?v=4.9.61"></script>
+  <script src="planer.js?v=4.9.62"></script>
 </body>
 </html>
