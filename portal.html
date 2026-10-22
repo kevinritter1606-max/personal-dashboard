@@ -127,11 +127,11 @@
           <img src="logo.png" alt="Bayer Logo" style="width: 52px; height: 52px; object-fit: contain; margin-bottom: 6px;" onerror="this.style.display='none'">
           <h3 style="color: var(--bayer-blue); font-size: 1.2rem; margin: 0;">👤 Mitarbeiter-Portal Login</h3>
         </div>
-        <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 14px; text-align:center;">Bitte gib deinen Namen und deine persönliche PIN ein.</p>
+        <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 14px; text-align:center;">Bitte wähle deinen Namen aus und gib deine PIN ein.</p>
         <div id="portalLoginError" style="display:none; background:#fee2e2; color:#b91c1c; padding:8px; border-radius:6px; font-size:0.8rem; font-weight:700; margin-bottom:10px; text-align:center;"></div>
         <div class="form-group" style="position:relative;">
           <label>Dein Name</label>
-          <input type="text" id="portalLoginNameInput" class="form-control" placeholder="Name eingeben..." autocomplete="off" onfocus="onPortalLoginNameInput(this.value)" oninput="onPortalLoginNameInput(this.value)" onkeydown="if(event.key==='Enter') document.getElementById('portalLoginPinInput').focus()">
+          <input type="text" id="portalLoginNameInput" class="form-control" placeholder="Vor- und Nachname eingeben..." autocomplete="off" onfocus="onPortalLoginNameInput(this.value)" oninput="onPortalLoginNameInput(this.value)">
           <div id="portalLoginSuggestions" class="suggestions-box"></div>
         </div>
         <div class="form-group">
@@ -146,13 +146,13 @@
     </div>
   </div>
 
-  <!-- WARNUNG & WEITERLEITUNG AN DEN PLANER BEI SCHICHT-/SONNTAGS-/RUHEZEIT-KONFLIKT -->
-  <div id="plausibilityConfirmModal" class="modal-overlay" style="z-index: 170; background: rgba(15, 23, 42, 0.55);">
+  <!-- WARN- & WEITERLEITUNGS-DIALOG BEI BRINGSCHICHT-KONFLIKTEN (SONNTAG, RUHEZEIT, REGULÄRE SCHICHT) -->
+  <div id="plausibilityConfirmModal" class="modal-overlay" style="z-index: 170; background: rgba(15,23,42,0.6);">
     <div class="modal" style="max-width: 440px;">
-      <h3 style="color:#b91c1c; margin-bottom:8px;">⚠️ Schicht- & Ruhezeit-Warnung</h3>
+      <h3 style="color:#b91c1c; margin-bottom:8px;">⚠️ Hinweis / Schicht-Warnung</h3>
       <p id="plausibilityConfirmText" style="font-size:0.86rem; color:#1e293b; line-height:1.45; margin-bottom:12px;"></p>
       <div style="background:#fef2f2; border:1px solid #fecaca; padding:10px; border-radius:6px; font-size:0.78rem; color:#991b1b; margin-bottom:16px;">
-        ⚠️ Wenn du diese Bringschicht trotzdem anfragst, wird sie <b>mit einem deutlichen Warnhinweis an den Planer weitergeleitet</b> und muss dort explizit geprüft werden.
+        ❗ Wenn du diese Bringschicht absendest, wird sie zusammen mit diesem Warnhinweis direkt zur Prüfung an den Planer weitergeleitet.
       </div>
       <div style="display:flex; gap:10px; justify-content:flex-end;">
         <button class="btn btn-outline" onclick="closePlausibilityModal()">Abbrechen</button>
@@ -274,7 +274,7 @@
       <div id="tabExtra" class="portal-tab-section">
         <div id="openCoverageSection" style="margin-bottom:16px; display:none;">
           <h3 style="font-size:0.9rem; color:#0369a1; margin-bottom:4px;">📢 Gesuchte Bringschichten (Passend zu deiner Freischicht)</h3>
-          <p style="font-size:0.75rem; color:#64748b; margin-bottom:8px;">Hier siehst du nur Schichten, die du laut deiner Rolle, Freischicht und Ruhezeit regulär übernehmen kannst.</p>
+          <p style="font-size:0.75rem; color:#64748b; margin-bottom:8px;">Hier siehst du nur Schichten, die du laut deiner Rolle, Freischicht und Ruhezeit direkt übernehmen kannst.</p>
           <div id="openCoverageList"></div>
         </div>
 
@@ -291,7 +291,7 @@
               </select>
             </div>
           </div>
-          <div id="extraShiftPlausibilityHint" style="display:none; padding:9px 11px; border-radius:6px; font-size:0.79rem; font-weight:700; margin-bottom:10px; line-height:1.35;"></div>
+          <div id="extraShiftPlausibilityHint" style="display:none; padding:8px 10px; border-radius:6px; font-size:0.78rem; font-weight:700; margin-bottom:10px; line-height:1.4;"></div>
           <div class="form-group"><label>Bemerkung / Linie (optional)</label><input type="text" id="portalExtraNote" class="form-control" placeholder="z.B. bevorzugte Linie oder Zeitfenster..."></div>
           <button class="btn btn-primary" style="width:100%;" onclick="submitPortalExtraShift()">Bringschicht eintragen</button>
         </div>
@@ -791,11 +791,11 @@
       const res = window.checkExtraShiftPlausibility(loggedInPortalEmpId, dateVal, shiftVal);
       if (res.ok) {
         hintEl.style.background = "#f0fdf4"; hintEl.style.color = "#166534"; hintEl.style.border = "1px solid #86efac";
-        hintEl.textContent = "✅ Du hast am " + formatDateDe(dateVal) + " regulär Freischicht und die Ruhezeiten passen.";
+        hintEl.textContent = "✅ Du hast am " + formatDateDe(dateVal) + " regulär Freischicht (keine Ruhezeit- oder Schichtkonflikte).";
         hintEl.style.display = "block";
       } else if (res.isWorkingConflict) {
-        hintEl.style.background = "#fffbeb"; hintEl.style.color = "#b45309"; hintEl.style.border = "1px solid #fcd34d";
-        hintEl.textContent = "⚠️ Warnung: " + res.reason + " (Beim Absenden wird dieser Antrag mit einem Warnhinweis an den Planer weitergeleitet)";
+        hintEl.style.background = "#fef2f2"; hintEl.style.color = "#b91c1c"; hintEl.style.border = "1px solid #fecaca";
+        hintEl.textContent = "⚠️ Warnung: " + res.reason + " (Wird bei Abgabe mit Warnhinweis an den Planer weitergeleitet)";
         hintEl.style.display = "block";
       } else {
         hintEl.style.background = "#fee2e2"; hintEl.style.color = "#991b1b"; hintEl.style.border = "1px solid #f87171";
@@ -814,16 +814,25 @@
 
     function finalizePortalExtraShiftSubmission(dateVal, shiftVal, noteVal, hasWarning, isNightConflict, conflictReason) {
       extraShifts.push({
-        id: "es_" + Date.now(), empId: loggedInPortalEmpId, date: dateVal, shift: shiftVal, note: noteVal,
-        plausibilityWarning: !!hasWarning, isNightShiftConflict: !!isNightConflict, conflictDetails: conflictReason || "",
-        autoPlacedInBox: false, autoCleanedAfterShift: false, status: "pending", plannerUnreadInfo: true
+        id: "es_" + Date.now(),
+        empId: loggedInPortalEmpId,
+        date: dateVal,
+        shift: shiftVal,
+        note: noteVal,
+        plausibilityWarning: !!hasWarning,
+        isNightShiftConflict: !!isNightConflict,
+        conflictDetails: conflictReason || "",
+        plannerUnreadInfo: true,
+        autoPlacedInBox: false,
+        autoCleanedAfterShift: false,
+        status: "pending"
       });
       if (typeof addHistoryLog === "function") {
         const emp = employees.find(x => x.id === loggedInPortalEmpId);
         addHistoryLog((emp ? fullName(emp) : "") + " bietet Bringschicht am " + formatDateDe(dateVal) + " (" + shiftsShortLabel[shiftVal] + ") an" + (hasWarning ? " [⚠️ Warnung: " + conflictReason + "]" : ""), "ABSENCE");
       }
       saveToFirebase(); document.getElementById("portalExtraNote").value = "";
-      showPortalInlineMsg(hasWarning ? "⚠️ Dein Bringschicht-Angebot wurde inklusive Warnhinweis zur Prüfung an den Planer weitergeleitet." : "✅ Dein Bringschicht-Angebot wurde an den Planer gesendet.", true);
+      showPortalInlineMsg(hasWarning ? "⚠️ Dein Bringschicht-Angebot wurde zusammen mit dem Warnhinweis zur Prüfung an den Planer weitergeleitet." : "✅ Dein Bringschicht-Angebot wurde an den Planer gesendet.", true);
       renderPortalView();
     }
 
@@ -838,8 +847,8 @@
       if (plaus.isWorkingConflict) {
         pendingExtraSubmission = { dateVal: dateVal, shiftVal: shiftVal, noteVal: noteVal, isNightConflict: !!plaus.isNightShiftConflict, conflictReason: plaus.reason };
         document.getElementById("plausibilityConfirmText").innerHTML =
-          "Du möchtest am <b>" + formatDateDe(dateVal) + "</b> eine Bringschicht für die <b>" + (shiftsLabel[shiftVal] || shiftVal) + "</b> anfragen.<br><br>" +
-          "⚠️ <b>" + plaus.reason + "</b><br><br>Möchtest du diese Anfrage trotzdem mit Warnhinweis an den Planer weiterleiten?";
+          "Du möchtest am <b>" + formatDateDe(dateVal) + "</b> eine Bringschicht für die <b>" + (shiftsLabel[shiftVal] || shiftVal) + "</b> eintragen.<br><br>" +
+          "⚠️ <b>" + plaus.reason + "</b><br><br>Möchtest du diese Anfrage mit Warnhinweis an den Planer weiterleiten?";
         document.getElementById("plausibilityConfirmModal").style.display = "flex";
         return;
       }
@@ -904,12 +913,8 @@
           html += '<div class="status-card-item">' + delBtn + '<b>' + (sl.category || 'Abwesend') + '</b> ' + statusBadge + '<br><small>Von ' + formatDateDe(sl.startDate) + ' bis ' + formatDateDe(sl.endDate) + (sl.reason ? ' · ' + sl.reason : '') + '</small></div>';
         } else {
           const es = item;
-          let stBadge = es.status === "pending"
-            ? '<span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">⏳ Wartet auf Planer</span>'
-            : (es.status === "rejected"
-              ? '<span style="background:#fef2f2; color:#b91c1c; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">❌ Abgelehnt</span>'
-              : '<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">✅ Genehmigt</span>');
-          const warnInfo = es.plausibilityWarning && es.conflictDetails ? '<div style="color:#b45309; font-size:0.74rem; font-weight:700; margin-top:3px;">⚠️ Hinweis an Planer: ' + es.conflictDetails + '</div>' : '';
+          let stBadge = es.status === "pending" ? '<span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">⏳ Wartet auf Planer</span>' : (es.status === "rejected" ? '<span style="background:#fef2f2; color:#b91c1c; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">❌ Abgelehnt</span>' : '<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">✅ Genehmigt</span>');
+          const warnInfo = es.plausibilityWarning && es.conflictDetails ? '<div style="color:#b91c1c; font-size:0.74rem; font-weight:700; margin-top:3px;">⚠️ ' + es.conflictDetails + '</div>' : '';
           const delBtn = es.status === "pending" ? '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.72rem; color:#dc2626; float:right;" onclick="deletePortalExtra(\'' + es.id + '\')">🗑️ Entfernen</button>' : '';
           html += '<div class="status-card-item">' + delBtn + '<b>➕ Bringschicht (' + (shiftsLabel[es.shift] || es.shift) + ')</b> ' + stBadge + '<br><small>Am ' + formatDateDe(es.date) + (es.note ? ' · ' + es.note : '') + '</small>' + warnInfo + '</div>';
         }
