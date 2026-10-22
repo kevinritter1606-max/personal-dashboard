@@ -127,11 +127,11 @@
           <img src="logo.png" alt="Bayer Logo" style="width: 52px; height: 52px; object-fit: contain; margin-bottom: 6px;" onerror="this.style.display='none'">
           <h3 style="color: var(--bayer-blue); font-size: 1.2rem; margin: 0;">👤 Mitarbeiter-Portal Login</h3>
         </div>
-        <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 14px; text-align:center;">Bitte tippe mindestens 3 Buchstaben deines Namens und gib deine PIN ein.</p>
+        <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 14px; text-align:center;">Bitte gib deinen Namen und deine persönliche PIN ein.</p>
         <div id="portalLoginError" style="display:none; background:#fee2e2; color:#b91c1c; padding:8px; border-radius:6px; font-size:0.8rem; font-weight:700; margin-bottom:10px; text-align:center;"></div>
         <div class="form-group" style="position:relative;">
-          <label>Dein Name (erst ab 3 Buchstaben)</label>
-          <input type="text" id="portalLoginNameInput" class="form-control" placeholder="Mind. 3 Buchstaben tippen..." autocomplete="off" onfocus="onPortalLoginNameInput(this.value)" oninput="onPortalLoginNameInput(this.value)">
+          <label>Dein Name</label>
+          <input type="text" id="portalLoginNameInput" class="form-control" placeholder="Name eingeben..." autocomplete="off" onfocus="onPortalLoginNameInput(this.value)" oninput="onPortalLoginNameInput(this.value)" onkeydown="if(event.key==='Enter') document.getElementById('portalLoginPinInput').focus()">
           <div id="portalLoginSuggestions" class="suggestions-box"></div>
         </div>
         <div class="form-group">
@@ -146,16 +146,17 @@
     </div>
   </div>
 
-  <div id="plausibilityConfirmModal" class="modal-overlay" style="z-index: 170;">
-    <div class="modal" style="max-width: 430px;">
-      <h3 style="color:#b91c1c; margin-bottom:8px;">❗ Konflikt-Warnung</h3>
+  <!-- WARNUNG & WEITERLEITUNG AN DEN PLANER BEI SCHICHT-/SONNTAGS-/RUHEZEIT-KONFLIKT -->
+  <div id="plausibilityConfirmModal" class="modal-overlay" style="z-index: 170; background: rgba(15, 23, 42, 0.55);">
+    <div class="modal" style="max-width: 440px;">
+      <h3 style="color:#b91c1c; margin-bottom:8px;">⚠️ Schicht- & Ruhezeit-Warnung</h3>
       <p id="plausibilityConfirmText" style="font-size:0.86rem; color:#1e293b; line-height:1.45; margin-bottom:12px;"></p>
       <div style="background:#fef2f2; border:1px solid #fecaca; padding:10px; border-radius:6px; font-size:0.78rem; color:#991b1b; margin-bottom:16px;">
-        ❗ Wenn du diese Bringschicht trotzdem absendest, erhält der Planer einen Warnhinweis mit rotem Ausrufezeichen.
+        ⚠️ Wenn du diese Bringschicht trotzdem anfragst, wird sie <b>mit einem deutlichen Warnhinweis an den Planer weitergeleitet</b> und muss dort explizit geprüft werden.
       </div>
       <div style="display:flex; gap:10px; justify-content:flex-end;">
         <button class="btn btn-outline" onclick="closePlausibilityModal()">Abbrechen</button>
-        <button class="btn btn-primary" style="background:#dc2626;" onclick="confirmPlausibilityExtraSubmit()">Trotzdem absenden</button>
+        <button class="btn btn-primary" style="background:#dc2626;" onclick="confirmPlausibilityExtraSubmit()">Mit Warnung an Planer senden</button>
       </div>
     </div>
   </div>
@@ -273,7 +274,7 @@
       <div id="tabExtra" class="portal-tab-section">
         <div id="openCoverageSection" style="margin-bottom:16px; display:none;">
           <h3 style="font-size:0.9rem; color:#0369a1; margin-bottom:4px;">📢 Gesuchte Bringschichten (Passend zu deiner Freischicht)</h3>
-          <p style="font-size:0.75rem; color:#64748b; margin-bottom:8px;">Hier siehst du nur Schichten, die du laut deiner Rolle, Freischicht und Ruhezeit tatsächlich übernehmen kannst.</p>
+          <p style="font-size:0.75rem; color:#64748b; margin-bottom:8px;">Hier siehst du nur Schichten, die du laut deiner Rolle, Freischicht und Ruhezeit regulär übernehmen kannst.</p>
           <div id="openCoverageList"></div>
         </div>
 
@@ -290,7 +291,7 @@
               </select>
             </div>
           </div>
-          <div id="extraShiftPlausibilityHint" style="display:none; padding:8px 10px; border-radius:6px; font-size:0.78rem; font-weight:700; margin-bottom:10px;"></div>
+          <div id="extraShiftPlausibilityHint" style="display:none; padding:9px 11px; border-radius:6px; font-size:0.79rem; font-weight:700; margin-bottom:10px; line-height:1.35;"></div>
           <div class="form-group"><label>Bemerkung / Linie (optional)</label><input type="text" id="portalExtraNote" class="form-control" placeholder="z.B. bevorzugte Linie oder Zeitfenster..."></div>
           <button class="btn btn-primary" style="width:100%;" onclick="submitPortalExtraShift()">Bringschicht eintragen</button>
         </div>
@@ -312,7 +313,7 @@
     </div>
   </main>
 
-  <script src="planer.js?v=4.9.61"></script>
+  <script src="planer.js?v=4.9.62"></script>
   <script>
     let loggedInPortalEmpId = null, selectedLoginPortalEmpId = null, initialSessionChecked = false, pendingExtraSubmission = null, pendingForceEmp = null;
     let activeMyRequestsCategory = "ALL";
@@ -339,10 +340,9 @@
       const box = document.getElementById("portalFeedbackBox"); if (!box) return;
       box.style.background = isSuccess ? "#dcfce7" : "#fee2e2"; box.style.color = isSuccess ? "#166534" : "#b91c1c";
       box.textContent = text; box.style.display = "block";
-      setTimeout(() => { box.style.display = "none"; }, 4500);
+      setTimeout(() => { box.style.display = "none"; }, 5000);
     }
 
-    /* Autocomplete erst ab dem 3. Buchstaben */
     function onPortalLoginNameInput(val) {
       selectedLoginPortalEmpId = null;
       const box = document.getElementById("portalLoginSuggestions"), q = (val || "").trim().toLowerCase();
@@ -364,7 +364,6 @@
       }
     }
 
-    /* Prüft, ob für eine Rolle Anlagen im Onboarding abgefragt werden sollen */
     function doesRoleRequireLinesForOnboarding(roleName) {
       if (typeof window.doesRoleRequireLines === "function") {
         return window.doesRoleRequireLines(roleName);
@@ -382,18 +381,21 @@
     function needsOnboardingWizard(emp) {
       if (!emp) return false;
       if (emp.onboardingCompleted) return false;
-      // Bestands-Mitarbeiter, die bereits Stammlinien haben, müssen nicht nochmal ins Onboarding
       if (Array.isArray(emp.mainLines) && emp.mainLines.length > 0) return false;
       return true;
     }
 
     function verifyPortalLogin() {
       const pinVal = document.getElementById("portalLoginPinInput").value.trim();
+      const typedName = (document.getElementById("portalLoginNameInput").value || "").trim().toLowerCase();
       let emp = selectedLoginPortalEmpId ? employees.find(e => e.id === selectedLoginPortalEmpId) : null;
+      if (!emp && typedName) {
+        emp = employees.find(e => fullName(e).toLowerCase() === typedName);
+      }
       
       if (!emp) {
         const err = document.getElementById("portalLoginError"); 
-        err.textContent = "❌ Bitte tippe mind. 3 Buchstaben und wähle deinen Namen aus der Liste aus!"; 
+        err.textContent = "❌ Bitte wähle deinen Namen aus der Vorschlagsliste aus!"; 
         err.style.display = "block"; 
         return;
       }
@@ -417,7 +419,6 @@
         }
       };
 
-      /* Nach Eingabe des Start-Passworts zwingend eigenes Passwort vergeben */
       if (emp.mustChangePw !== false) {
         document.getElementById("portalLoginModal").style.display = "none";
         pendingForceEmp = emp;
@@ -461,7 +462,6 @@
       }
     };
 
-    /* Onboarding-Assistent startet ZUERST mit der Rollen-Abfrage */
     function openOnboardingWizard(emp) {
       const modal = document.getElementById("onboardingModal"); if (!modal) return;
       document.getElementById("onboardingTitle").textContent = "Herzlich Willkommen " + fullName(emp) + "!";
@@ -503,10 +503,8 @@
       const chosenRole = checkedRadio.value;
       window._tempOnboardingRole = chosenRole;
 
-      /* Prüfen, ob für diese Rolle der Haken "Anlagen abfragen für Onboarding" gesetzt ist */
       const requiresLines = doesRoleRequireLinesForOnboarding(chosenRole);
       if (!requiresLines) {
-        /* Z.B. Schichtexperte braucht keine Anlage -> direkt Onboarding abschließen */
         window._tempOnboardingMain = [];
         finishOnboardingProcess(false);
         return;
@@ -549,7 +547,6 @@
       document.getElementById("onboardingStepMain").style.display = "block";
     };
 
-    /* Abschluss des Onboardings + Benachrichtigung an den Planer inkl. Änderungsabfrage */
     window.finishOnboardingProcess = function(fromSecStep) {
       if (!loggedInPortalEmpId) return;
       const emp = employees.find(e => e.id === loggedInPortalEmpId);
@@ -578,7 +575,6 @@
         ? emp.secLines.map(id => { const l = lines.find(x => x.id === id); return l ? l.name : id; }).join(", ")
         : "Keine";
 
-      /* Planer-Benachrichtigung mit allen Onboarding-Daten und Änderungsabfrage senden */
       if (typeof sickLeaves !== "undefined") {
         sickLeaves.unshift({
           id: "onb_" + Date.now(),
@@ -737,12 +733,11 @@
         const probLinesTxt = cov.probableLines || (absentEmp && typeof window.getEmpProbableLinesText === "function" ? window.getEmpProbableLinesText(absentEmp) : "");
 
         const availDays = (cov.days || []).filter(d => {
-          if (d.date < today || d.takenBy || d.dayStatus !== "open" || isIsoDateSunday(d.date)) return false;
-          if (typeof hasLeaveOverlap === "function" && hasLeaveOverlap(emp.id, d.date, d.date, null)) return false;
-          const regShift = typeof window.getEmpRegularShiftOnDate === "function" ? window.getEmpRegularShiftOnDate(emp, d.date) : null;
-          if (regShift) return false;
-          const nightBefore = typeof window.didEmpWorkNightBefore === "function" ? window.didEmpWorkNightBefore(emp, d.date) : false;
-          if (nightBefore && (d.shift === "frueh" || d.shift === "spaet")) return false;
+          if (d.date < today || d.takenBy || d.dayStatus !== "open") return false;
+          if (typeof window.checkExtraShiftPlausibility === "function") {
+            const check = window.checkExtraShiftPlausibility(emp.id, d.date, d.shift);
+            if (!check.ok) return false;
+          }
           return true;
         });
 
@@ -796,15 +791,15 @@
       const res = window.checkExtraShiftPlausibility(loggedInPortalEmpId, dateVal, shiftVal);
       if (res.ok) {
         hintEl.style.background = "#f0fdf4"; hintEl.style.color = "#166534"; hintEl.style.border = "1px solid #86efac";
-        hintEl.textContent = "✅ Du hast am " + formatDateDe(dateVal) + " regulär Freischicht.";
+        hintEl.textContent = "✅ Du hast am " + formatDateDe(dateVal) + " regulär Freischicht und die Ruhezeiten passen.";
         hintEl.style.display = "block";
       } else if (res.isWorkingConflict) {
-        hintEl.style.background = "#fef2f2"; hintEl.style.color = "#b91c1c"; hintEl.style.border = "1px solid #fecaca";
-        hintEl.textContent = "❗ Achtung: " + res.reason + "! (Bei Abgabe wird eine Bestätigung abgefragt und der Planer informiert)";
+        hintEl.style.background = "#fffbeb"; hintEl.style.color = "#b45309"; hintEl.style.border = "1px solid #fcd34d";
+        hintEl.textContent = "⚠️ Warnung: " + res.reason + " (Beim Absenden wird dieser Antrag mit einem Warnhinweis an den Planer weitergeleitet)";
         hintEl.style.display = "block";
       } else {
         hintEl.style.background = "#fee2e2"; hintEl.style.color = "#991b1b"; hintEl.style.border = "1px solid #f87171";
-        hintEl.textContent = "⛔ Nicht möglich: " + res.reason;
+        hintEl.textContent = "⛔ " + res.reason;
         hintEl.style.display = "block";
       }
     };
@@ -821,14 +816,14 @@
       extraShifts.push({
         id: "es_" + Date.now(), empId: loggedInPortalEmpId, date: dateVal, shift: shiftVal, note: noteVal,
         plausibilityWarning: !!hasWarning, isNightShiftConflict: !!isNightConflict, conflictDetails: conflictReason || "",
-        autoPlacedInBox: false, autoCleanedAfterShift: false, status: "pending"
+        autoPlacedInBox: false, autoCleanedAfterShift: false, status: "pending", plannerUnreadInfo: true
       });
       if (typeof addHistoryLog === "function") {
         const emp = employees.find(x => x.id === loggedInPortalEmpId);
-        addHistoryLog((emp ? fullName(emp) : "") + " bietet Bringschicht am " + formatDateDe(dateVal) + " (" + shiftsShortLabel[shiftVal] + ") an" + (hasWarning ? " [❗ Konflikt-Hinweis]" : ""), "ABSENCE");
+        addHistoryLog((emp ? fullName(emp) : "") + " bietet Bringschicht am " + formatDateDe(dateVal) + " (" + shiftsShortLabel[shiftVal] + ") an" + (hasWarning ? " [⚠️ Warnung: " + conflictReason + "]" : ""), "ABSENCE");
       }
       saveToFirebase(); document.getElementById("portalExtraNote").value = "";
-      showPortalInlineMsg(hasWarning ? "❗ Dein Bringschicht-Angebot wurde mit Warnhinweis zur Prüfung an den Planer gesendet." : "✅ Dein Bringschicht-Angebot wurde an den Planer gesendet.", true);
+      showPortalInlineMsg(hasWarning ? "⚠️ Dein Bringschicht-Angebot wurde inklusive Warnhinweis zur Prüfung an den Planer weitergeleitet." : "✅ Dein Bringschicht-Angebot wurde an den Planer gesendet.", true);
       renderPortalView();
     }
 
@@ -838,13 +833,13 @@
       if (!dateVal) { showPortalInlineMsg("Bitte ein Datum für die Bringschicht auswählen.", false); return; }
 
       const plaus = typeof window.checkExtraShiftPlausibility === "function" ? window.checkExtraShiftPlausibility(loggedInPortalEmpId, dateVal, shiftVal) : { ok: true };
-      if (!plaus.ok && !plaus.isWorkingConflict) { showPortalInlineMsg("⛔ " + plaus.reason + "!", false); return; }
+      if (!plaus.ok && !plaus.isWorkingConflict) { showPortalInlineMsg("⛔ " + plaus.reason, false); return; }
 
       if (plaus.isWorkingConflict) {
         pendingExtraSubmission = { dateVal: dateVal, shiftVal: shiftVal, noteVal: noteVal, isNightConflict: !!plaus.isNightShiftConflict, conflictReason: plaus.reason };
         document.getElementById("plausibilityConfirmText").innerHTML =
-          "Du möchtest am <b>" + formatDateDe(dateVal) + "</b> eine Bringschicht für die <b>" + (shiftsLabel[shiftVal] || shiftVal) + "</b> abgeben.<br><br>" +
-          "❗ <b>" + plaus.reason + "</b>!<br><br>Möchtest du diese Bringschicht trotzdem an den Planer absenden?";
+          "Du möchtest am <b>" + formatDateDe(dateVal) + "</b> eine Bringschicht für die <b>" + (shiftsLabel[shiftVal] || shiftVal) + "</b> anfragen.<br><br>" +
+          "⚠️ <b>" + plaus.reason + "</b><br><br>Möchtest du diese Anfrage trotzdem mit Warnhinweis an den Planer weiterleiten?";
         document.getElementById("plausibilityConfirmModal").style.display = "flex";
         return;
       }
@@ -890,7 +885,7 @@
       
       const combined = [].concat(myLeaves, myExtras).filter(item => {
         if (!q) return true;
-        const hay = ((item.category || "") + " " + (item.reason || "") + " " + (item.note || "") + " " + (item.startDate || item.date || "")).toLowerCase();
+        const hay = ((item.category || "") + " " + (item.reason || "") + " " + (item.note || "") + " " + (item.conflictDetails || "") + " " + (item.startDate || item.date || "")).toLowerCase();
         return hay.indexOf(q) !== -1;
       });
 
@@ -909,9 +904,14 @@
           html += '<div class="status-card-item">' + delBtn + '<b>' + (sl.category || 'Abwesend') + '</b> ' + statusBadge + '<br><small>Von ' + formatDateDe(sl.startDate) + ' bis ' + formatDateDe(sl.endDate) + (sl.reason ? ' · ' + sl.reason : '') + '</small></div>';
         } else {
           const es = item;
-          let stBadge = es.status === "pending" ? '<span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">⏳ Wartet auf Planer</span>' : '<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">✅ Eingetragen</span>';
+          let stBadge = es.status === "pending"
+            ? '<span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">⏳ Wartet auf Planer</span>'
+            : (es.status === "rejected"
+              ? '<span style="background:#fef2f2; color:#b91c1c; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">❌ Abgelehnt</span>'
+              : '<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">✅ Genehmigt</span>');
+          const warnInfo = es.plausibilityWarning && es.conflictDetails ? '<div style="color:#b45309; font-size:0.74rem; font-weight:700; margin-top:3px;">⚠️ Hinweis an Planer: ' + es.conflictDetails + '</div>' : '';
           const delBtn = es.status === "pending" ? '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.72rem; color:#dc2626; float:right;" onclick="deletePortalExtra(\'' + es.id + '\')">🗑️ Entfernen</button>' : '';
-          html += '<div class="status-card-item">' + delBtn + '<b>➕ Bringschicht</b> ' + stBadge + '<br><small>Am ' + formatDateDe(es.date) + (es.note ? ' · ' + es.note : '') + '</small></div>';
+          html += '<div class="status-card-item">' + delBtn + '<b>➕ Bringschicht (' + (shiftsLabel[es.shift] || es.shift) + ')</b> ' + stBadge + '<br><small>Am ' + formatDateDe(es.date) + (es.note ? ' · ' + es.note : '') + '</small>' + warnInfo + '</div>';
         }
       });
       listEl.innerHTML = html;
