@@ -1,8 +1,8 @@
 /* ==========================================================================
-   PLANER-BOARD MASTER-LOGIK (planer.js) - Version 4.9.61 (Complete & Verified)
+   PLANER-BOARD MASTER-LOGIK (planer.js) - Version 4.9.62 (TEIL 1 VON 2)
    ========================================================================== */
 
-window.PLANER_JS_VERSION = "4.9.61";
+window.PLANER_JS_VERSION = "4.9.62";
 
 try {
   firebase.initializeApp({
@@ -73,10 +73,18 @@ let shiftModelConfig = {
   loadHour: 5,
   lastResetRunKey: "",
   lastLoadRunKey: "",
-  secondaryUnlockThresholdHours: 1000,
+  secondaryUnlockThresholdHours: 120,
+  thresholdMigrated120: true,
   minDailyHoursForCounting: 6,
   defaultShiftHours: 8,
   roleRequiresLines: {
+    "Bediener": true,
+    "LOP": true,
+    "TL": false,
+    "Schichtexperte": false,
+    "Waschraumoperator": false
+  },
+  roleAllowLineAssign: {
     "Bediener": true,
     "LOP": true,
     "TL": false,
@@ -116,7 +124,7 @@ let toastTimer = null;
 let planerLastActivityTime = Date.now();
 
 /* ==========================================================================
-   1. GLOBALE BASIS- & HILFSFUNKTIONEN (CRASH-PROOF)
+   1. GLOBALE BASIS- & HILFSFUNKTIONEN
    ========================================================================== */
 
 window.closeModal = function(id) {
@@ -215,8 +223,9 @@ function getCalendarWeek(d) {
   return Math.ceil((firstThursday - target) / 604800000 + 1);
 }
 
-function getWorkdayBlockIndex(logicalIso) {
-  const p = logicalIso.split("-");
+/* Exakte 2-2-2 Werktags-Blockberechnung (Mo-Sa = 6 Werktage, Sonntag übersprungen) */
+function getWorkdayBlockIndex(isoDateStr) {
+  const p = String(isoDateStr || getTodayIso()).split("-");
   const diffDays = Math.floor((Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2])) - Date.UTC(2026, 0, 12)) / 86400000);
   const weeks = Math.floor(diffDays / 7);
   const dayInWeek = ((diffDays % 7) + 7) % 7;
@@ -227,6 +236,13 @@ function getPrevDateIso(isoDate) {
   const p = isoDate.split("-");
   const d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
   d.setDate(d.getDate() - 1);
+  return getTodayIso(d);
+}
+
+function getNextDateIso(isoDate) {
+  const p = isoDate.split("-");
+  const d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  d.setDate(d.getDate() + 1);
   return getTodayIso(d);
 }
 
@@ -288,6 +304,7 @@ window.sanitizeTeamReferences = function() {
       if (typeof emp.mustChangePw === "undefined") emp.mustChangePw = true;
     }
     if (!emp.trainingHoursByLine) emp.trainingHoursByLine = {};
+    if (!emp.trainingCreditedDates) emp.trainingCreditedDates = {};
   });
   Object.keys(activeTeamFilters).forEach(k => {
     if (!teamsConfig[k]) delete activeTeamFilters[k];
@@ -401,7 +418,6 @@ window.updateAutoRotationUI = function() {
   const smartChk = document.getElementById("cfgSmartAssignEnabled");
   if (smartChk) smartChk.checked = smartActive;
 
-  // Kombinierter Zeit-Schalter im Header (schaltet Reset und Team-Load gemeinsam AN/AUS)
   const combinedActive = !!(shiftModelConfig.resetEnabled || shiftModelConfig.loadEnabled);
   const combBadge = document.getElementById("autoTimedCombinedBadge");
   const combTxt = document.getElementById("autoTimedCombinedBadgeText");
@@ -444,7 +460,7 @@ window.toggleAutoTimedCombinedQuick = function() {
 };
 
 /* ==========================================================================
-   3. HISTORIE, ABWESENHEITS- & BRINGSCHICHT-PRÜFUNG
+   3. HISTORIE, ABWESENHEITS- & 2-2-2 BRINGSCHICHT-PLAUSIBILITÄT
    ========================================================================== */
 
 function addHistoryLog(text, category) {
@@ -463,9 +479,10 @@ function addHistoryLog(text, category) {
   });
   if (historyLogs.length > 500) historyLogs = historyLogs.slice(0, 500);
 }
+window.logHistory = function(cat, text) { addHistoryLog(text, cat); };
 
 function getRotationForDate(targetIso) {
-  const diff = getWorkdayBlockIndex(targetIso) - getWorkdayBlockIndex(getLogicalDateIso());
+  const diff = getWorkdayBlockIndex(targetIso) - getWorkdayBlockIndex(getTodayIso());
   const slotOrder = (shiftModelConfig && shiftModelConfig.model === "dreierschicht") ? ["frueh", "spaet", "nacht"] : ["frueh", "spaet", "nacht", "frei"];
   const activeSlots = slotOrder.filter(s => shiftRotation[s] && isTeamRotating(shiftRotation[s]));
   const res = Object.assign({}, shiftRotation);
@@ -480,24 +497,37 @@ function getRotationForDate(targetIso) {
 
 window.getEmpRegularShiftOnDate = function(emp, dateIso) {
   if (!emp || !dateIso || isIsoDateSunday(dateIso)) return null;
-  const rot = getRotationForDate(dateIso);
-  let empShift = ["frueh", "spaet", "nacht"].find(s => rot[s] === emp.team) || null;
-  if (!empShift && isEmpAnchorActiveToday(emp, dateIso)) {
-    empShift = extractShiftIdFromZone(emp.zone) || emp.lastShiftId || null;
+  if (emp.noRotation) {
+    if (!isEmpAnchorActiveToday(emp, dateIso)) return null;
+    return extractShiftIdFromZone(emp.zone) || emp.lastShiftId || "frueh";
   }
-  return empShift;
+  if (!isTeamRotating(emp.team)) {
+    const p = dateIso.split("-");
+    const dayNum = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay();
+    if (dayNum === 0 || dayNum === 6) return null;
+    return ["frueh", "spaet", "nacht"].find(s => shiftRotation[s] === emp.team) || "frueh";
+  }
+  const rot = getRotationForDate(dateIso);
+  return ["frueh", "spaet", "nacht"].find(s => rot[s] === emp.team) || null;
 };
+
+function getEmpAnyShiftOnDate(emp, dateIso) {
+  if (!emp || !dateIso) return null;
+  const reg = window.getEmpRegularShiftOnDate(emp, dateIso);
+  if (reg) return reg;
+  const extra = extraShifts.find(es => es.empId === emp.id && es.date === dateIso && (es.status === "approved" || es.status === "pending"));
+  return extra ? extra.shift : null;
+}
 
 window.didEmpWorkNightBefore = function(emp, dateIso) {
   if (!emp || !dateIso) return false;
   const prevIso = getPrevDateIso(dateIso);
-  if (window.getEmpRegularShiftOnDate(emp, prevIso) === "nacht") return true;
-  return extraShifts.some(es => es.empId === emp.id && es.date === prevIso && es.shift === "nacht" && (es.status === "approved" || es.status === "pending"));
+  return getEmpAnyShiftOnDate(emp, prevIso) === "nacht";
 };
 
 function getActiveLeaveForEmpOnDate(empId, isoDate) {
   return sickLeaves.find(sl => {
-    if (sl.empId !== empId || sl.status === "rejected" || sl.status === "pending") return false;
+    if (sl.empId !== empId || sl.status === "rejected" || sl.status === "pending" || sl.isOnboardingNotice) return false;
     if (sl.blocks && sl.blocks.length) {
       return sl.blocks.some(b => b.status === "approved" && b.start <= isoDate && b.end >= isoDate);
     }
@@ -505,17 +535,137 @@ function getActiveLeaveForEmpOnDate(empId, isoDate) {
   });
 }
 
+window.hasLeaveOverlap = function(empId, startIso, endIso) {
+  return sickLeaves.some(sl => {
+    if (sl.empId !== empId || sl.status === "rejected" || sl.isOnboardingNotice) return false;
+    return !(sl.endDate < startIso || sl.startDate > endIso);
+  });
+};
+
+/* Tiefenprüfung für Bringschichten im Portal (2-2-2, Sonntag, Ruhezeiten Vor-/Folgetag) */
+window.checkExtraShiftPlausibility = function(empId, dateIso, shiftId) {
+  const emp = employees.find(e => e.id === empId);
+  if (!emp || !dateIso || !shiftId) {
+    return { ok: false, isWorkingConflict: false, reason: "Ungültige Eingabe." };
+  }
+
+  // Bereits identische Bringschicht an diesem Tag angefragt?
+  const existingExtra = extraShifts.find(es => es.empId === emp.id && es.date === dateIso && es.status !== "rejected");
+  if (existingExtra) {
+    return {
+      ok: false,
+      isWorkingConflict: false,
+      reason: "Du hast für den " + formatDateDe(dateIso) + " bereits eine Bringschicht (" + (shiftsLabel[existingExtra.shift] || existingExtra.shift) + ") eingetragen."
+    };
+  }
+
+  const warnings = [];
+  let isNightConflict = false;
+
+  // 1. Abwesenheit / Urlaub am selben Tag?
+  const activeLeave = getActiveLeaveForEmpOnDate(emp.id, dateIso);
+  if (activeLeave) {
+    warnings.push("Du bist am " + formatDateDe(dateIso) + " als abwesend eingetragen (" + (activeLeave.category || "Urlaub/Krank") + ").");
+  }
+
+  // 2. Sonntag (im 2-2-2 Modell Früh/Spät frei; in den Sonntag reinarbeiten = Sa-Nacht; nicht aus Sonntag rausarbeiten)
+  if (isIsoDateSunday(dateIso)) {
+    if (shiftId === "nacht") isNightConflict = true;
+    warnings.push("Der " + formatDateDe(dateIso) + " ist ein Sonntag (regulär schichtfrei; in den Sonntag reinarbeiten zählt als Samstags-Nachtschicht, aus dem Sonntag rausarbeiten ist regulär nicht vorgesehen).");
+  }
+
+  // 3. Arbeitet der Mitarbeiter an diesem Tag bereits regulär?
+  const regShift = window.getEmpRegularShiftOnDate(emp, dateIso);
+  if (regShift) {
+    if (regShift === "nacht" || shiftId === "nacht") isNightConflict = true;
+    warnings.push("Du arbeitest am " + formatDateDe(dateIso) + " laut Schichtplan bereits regulär in der " + (shiftsLabel[regShift] || regShift) + ".");
+  }
+
+  // 4. Vortag prüfen (Nach Nachtschicht keine Früh oder Spät; nach Spätschicht keine Früh)
+  const prevIso = getPrevDateIso(dateIso);
+  const prevShift = getEmpAnyShiftOnDate(emp, prevIso);
+  if (prevShift === "nacht" && (shiftId === "frueh" || shiftId === "spaet")) {
+    isNightConflict = true;
+    warnings.push("Ruhezeit-Konflikt: Du hast am Vortag (" + formatDateDe(prevIso) + ") Nachtschicht (bis 06:00 Uhr morgens) – direkt danach ist keine " + (shiftsLabel[shiftId] || shiftId) + " möglich.");
+  } else if (prevShift === "spaet" && shiftId === "frueh") {
+    warnings.push("Ruhezeit-Konflikt: Nach deiner Spätschicht am Vortag (" + formatDateDe(prevIso) + ", bis 22:00 Uhr) ist die Ruhezeit bis zur Frühschicht (06:00 Uhr) zu kurz.");
+  }
+
+  // 5. Folgetag prüfen (Vor der 1. Frühschicht keine Nacht- oder Spätschicht; vor Spätschicht keine Nachtschicht)
+  const nextIso = getNextDateIso(dateIso);
+  const nextShift = getEmpAnyShiftOnDate(emp, nextIso);
+  if (shiftId === "nacht" && (nextShift === "frueh" || nextShift === "spaet")) {
+    isNightConflict = true;
+    warnings.push("Ruhezeit-Konflikt: Diese Nachtschicht (bis 06:00 Uhr morgens) läuft direkt in deine " + (shiftsLabel[nextShift] || nextShift) + " am Folgetag (" + formatDateDe(nextIso) + ") hinein.");
+  } else if (shiftId === "spaet" && nextShift === "frueh") {
+    warnings.push("Ruhezeit-Konflikt: Zwischen dieser Spätschicht (bis 22:00 Uhr) und deiner Frühschicht am Folgetag (" + formatDateDe(nextIso) + ", ab 06:00 Uhr) liegen nur 8 Stunden Pause.");
+  }
+
+  if (warnings.length > 0) {
+    return {
+      ok: false,
+      isWorkingConflict: true,
+      isNightShiftConflict: isNightConflict,
+      reason: warnings.join(" ")
+    };
+  }
+
+  return { ok: true, isWorkingConflict: false, isNightShiftConflict: false, reason: "" };
+};
+
 function checkExtraShiftConflict(emp, dateIso, shiftId) {
   if (!emp || !dateIso || !shiftId) return null;
-  const activeLeave = getActiveLeaveForEmpOnDate(emp.id, dateIso);
-  if (activeLeave) return "Konflikt: Mitarbeiter ist am " + formatDateDe(dateIso) + " abwesend!";
-  const regShift = window.getEmpRegularShiftOnDate(emp, dateIso);
-  if (regShift === shiftId) return "Hinweis: Mitarbeiter hat am " + formatDateDe(dateIso) + " bereits regulär " + (shiftsLabel[shiftId] || shiftId) + ".";
-  if ((shiftId === "frueh" || shiftId === "spaet") && window.didEmpWorkNightBefore(emp, dateIso)) {
-    return "Ruhezeit-Warnung: Nachtschicht am Vortag!";
-  }
+  const res = window.checkExtraShiftPlausibility(emp.id, dateIso, shiftId);
+  if (!res.ok && res.reason) return res.reason;
   return null;
 }
+
+window.addPortalLeaveRequest = function(empId, startIso, endIso, category, reason) {
+  const emp = employees.find(e => e.id === empId);
+  if (!emp || !startIso || !endIso || startIso > endIso) return false;
+  const isSick = String(category || "").toLowerCase().indexOf("arbeitsunfähig") !== -1 || String(category || "").toLowerCase().indexOf("krank") !== -1;
+  sickLeaves.unshift({
+    id: "sl_" + Date.now(),
+    empId: emp.id,
+    startDate: startIso,
+    endDate: endIso,
+    category: category || "Urlaub - bezahlt",
+    reason: reason || "",
+    status: isSick ? "approved" : "pending",
+    plannerUnreadInfo: true,
+    reviewedBy: "",
+    reviewedAt: ""
+  });
+  addHistoryLog((emp ? fullName(emp) : "Mitarbeiter") + " hat " + (category || "Antrag") + " (" + formatDateDe(startIso) + " - " + formatDateDe(endIso) + ") eingereicht", "ABSENCE");
+  saveToFirebase();
+  window.syncAbsentAndExtraZones();
+  return true;
+};
+
+window.applyForCoverageDay = function(covId, dateIso, empId) {
+  const cov = (leaveRequests || []).find(r => r.id === covId);
+  const emp = employees.find(e => e.id === empId);
+  if (!cov || !emp) return false;
+  const dayObj = (cov.days || []).find(d => d.date === dateIso && !d.takenBy && d.dayStatus === "open");
+  if (!dayObj) return false;
+
+  const check = window.checkExtraShiftPlausibility(emp.id, dateIso, dayObj.shift);
+  extraShifts.push({
+    id: "es_" + Date.now(),
+    empId: emp.id,
+    date: dateIso,
+    shift: dayObj.shift,
+    note: "Übernahme für " + (cov.role || "Ersatzbedarf"),
+    plausibilityWarning: !check.ok,
+    isNightShiftConflict: !!check.isNightShiftConflict,
+    conflictDetails: check.reason || "",
+    plannerUnreadInfo: true,
+    status: "pending"
+  });
+  addHistoryLog(fullName(emp) + " meldet sich für gesuchte Bringschicht am " + formatDateDe(dateIso), "ABSENCE");
+  saveToFirebase();
+  return true;
+};
 
 function isExtraShiftInActiveWindow(es, nowObj) {
   if (!es || es.status !== "approved" || !es.date || !es.shift) return false;
@@ -572,7 +722,7 @@ window.syncAbsentAndExtraZones = function() {
 };
 
 /* ==========================================================================
-   4. QUALIFIKATIONS-STUNDENZÄHLER MIT 6H-TAGESFILTER (PUNKT 13)
+   4. ROLLEN-STEUERUNG & QUALIFIKATIONS-STUNDENZÄHLER (STANDARD 120H)
    ========================================================================== */
 
 window.doesRoleRequireLines = function(roleName) {
@@ -580,7 +730,19 @@ window.doesRoleRequireLines = function(roleName) {
     return shiftModelConfig.roleRequiresLines[roleName];
   }
   const rLow = String(roleName || "").toLowerCase();
-  if (rLow.indexOf("schichtexperte") !== -1 || rLow === "tl" || rLow.indexOf("teamleiter") !== -1) {
+  if (rLow.indexOf("schichtexperte") !== -1 || rLow === "tl" || rLow.indexOf("teamleiter") !== -1 || rLow.indexOf("waschraum") !== -1) {
+    return false;
+  }
+  return true;
+};
+
+/* Neuer Schalter: "Darf auf Linien verteilt werden" (Schutz vor Schichtexperten als Lückenfüller) */
+window.canRoleBeAssignedToLine = function(roleName) {
+  if (shiftModelConfig && shiftModelConfig.roleAllowLineAssign && typeof shiftModelConfig.roleAllowLineAssign[roleName] === "boolean") {
+    return shiftModelConfig.roleAllowLineAssign[roleName];
+  }
+  const rLow = String(roleName || "").toLowerCase();
+  if (rLow.indexOf("schichtexperte") !== -1 || rLow === "tl" || rLow.indexOf("teamleiter") !== -1 || rLow.indexOf("waschraum") !== -1) {
     return false;
   }
   return true;
@@ -590,22 +752,35 @@ window.recordManualAssignmentHours = function(empId, lineId, plannedHours) {
   const emp = employees.find(e => e.id === empId);
   if (!emp) return;
 
-  if (!doesRoleRequireLines(emp.role)) return;
+  if (!window.doesRoleRequireLines(emp.role) || !window.canRoleBeAssignedToLine(emp.role)) return;
 
   const isMain = Array.isArray(emp.mainLines) && emp.mainLines.indexOf(lineId) !== -1;
   const isSec = Array.isArray(emp.secLines) && emp.secLines.indexOf(lineId) !== -1;
   if (isMain || isSec) return;
 
-  // Punkt 13: Zähler akzeptiert Stunden ERST ab mindestens 6 Stunden Tageseinsatz
   const hours = parseFloat(plannedHours) || (shiftModelConfig && shiftModelConfig.defaultShiftHours) || 8;
   const minRequired = (shiftModelConfig && typeof shiftModelConfig.minDailyHoursForCounting === "number") ? shiftModelConfig.minDailyHoursForCounting : 6;
   if (hours < minRequired) return;
 
   if (!emp.trainingHoursByLine) emp.trainingHoursByLine = {};
+  if (!emp.trainingCreditedDates) emp.trainingCreditedDates = {};
+
+  const todayKey = getTodayIso();
+  const prevCredit = emp.trainingCreditedDates[todayKey];
+
+  // Schutz vor Mehrfach-Zählung am selben Tag beim Hin- und Herziehen
+  if (prevCredit && prevCredit.lineId === lineId) {
+    return;
+  }
+  if (prevCredit && prevCredit.lineId && prevCredit.hours) {
+    emp.trainingHoursByLine[prevCredit.lineId] = Math.max(0, (emp.trainingHoursByLine[prevCredit.lineId] || 0) - prevCredit.hours);
+  }
+
   emp.trainingHoursByLine[lineId] = (emp.trainingHoursByLine[lineId] || 0) + hours;
+  emp.trainingCreditedDates[todayKey] = { lineId: lineId, hours: hours };
 
   const accumulated = emp.trainingHoursByLine[lineId];
-  const threshold = (shiftModelConfig && typeof shiftModelConfig.secondaryUnlockThresholdHours === "number") ? shiftModelConfig.secondaryUnlockThresholdHours : 1000;
+  const threshold = (shiftModelConfig && typeof shiftModelConfig.secondaryUnlockThresholdHours === "number") ? shiftModelConfig.secondaryUnlockThresholdHours : 120;
 
   if (accumulated >= threshold) {
     pendingSecLineUnlockData = { empId: emp.id, lineId: lineId };
@@ -641,12 +816,11 @@ window.confirmSecondaryLineUnlock = function() {
   }
 };
 
-// Korrigierte Übersicht: Blendet freigeschaltete Anlagen sauber aus
 function renderUnqualifiedHoursOverview() {
   const container = document.getElementById("unqualifiedHoursOverviewList");
   if (!container) return;
 
-  const threshold = (shiftModelConfig && typeof shiftModelConfig.secondaryUnlockThresholdHours === "number") ? shiftModelConfig.secondaryUnlockThresholdHours : 1000;
+  const threshold = (shiftModelConfig && typeof shiftModelConfig.secondaryUnlockThresholdHours === "number") ? shiftModelConfig.secondaryUnlockThresholdHours : 120;
   const rows = [];
 
   employees.forEach(emp => {
@@ -672,7 +846,7 @@ function renderUnqualifiedHoursOverview() {
 }
 
 /* ==========================================================================
-   5. STRIKTE PRIO 1-10 ZUWEISUNG & GLOBALER SNAPSHOT-UNDO (PUNKTE 3, 10, 11)
+   5. STRIKTE PRIO 1-10 ZUWEISUNG, ROLLEN-SCHUTZ & ECHTER RINGTAUSCH
    ========================================================================== */
 
 function createBoardSnapshotForUndo() {
@@ -723,7 +897,6 @@ window.smartAssignShiftSlot = function(shiftId) {
     return;
   }
 
-  // Globaler Snapshot wird nur angelegt, wenn nicht bereits von "Alle Auto" geschehen
   if (!lastBoardSnapshotForUndo) {
     lastBoardSnapshotForUndo = createBoardSnapshotForUndo();
   }
@@ -739,13 +912,24 @@ window.smartAssignShiftSlot = function(shiftId) {
     }
   });
 
+  // Nur Mitarbeiter zulassen, deren Rolle für die Linienverteilung freigegeben ist!
   const slotCandidates = employees.filter(emp => {
     if (emp.zone === "absent") return false;
     if (emp.noRotation && isEmpAnchorActiveToday(emp, todayIso)) return false;
+    if (!window.canRoleBeAssignedToLine(emp.role || "Bediener")) return false;
     const isTeamMember = (emp.team === teamKey);
     const hasExtra = extraShifts.some(es => es.empId === emp.id && es.date === todayIso && es.shift === shiftId && es.status === "approved");
     return isTeamMember || hasExtra;
   });
+
+  // Spezialisten-Sortierung: Wer weniger Linien beherrscht, wird auf seiner Linie zuerst berücksichtigt,
+  // damit Allrounder für schwierigere Folgelinien frei bleiben.
+  const getQualCount = (emp) => {
+    const m = Array.isArray(emp.mainLines) ? emp.mainLines.length : 0;
+    const s = Array.isArray(emp.secLines) ? emp.secLines.length : 0;
+    return m + s;
+  };
+  slotCandidates.sort((a, b) => getQualCount(a) - getQualCount(b));
 
   // Strikte Sortierung von Prio 1 bis 10
   const sortedLines = activeLines.slice().sort((a, b) => {
@@ -763,14 +947,26 @@ window.smartAssignShiftSlot = function(shiftId) {
     return employees.filter(e => extractLineIdFromZone(e.zone) === lineId && extractShiftIdFromZone(e.zone) === shiftId);
   }
 
-  function getRoleTargetForLine(line, roleName) {
-    const rt = line.roleTargets || {};
-    return Number(rt[roleName] || 0);
+  function isFloorTLCovered(floorName) {
+    if (shiftModelConfig.smartRespectFloorTL === false) return false;
+    return employees.some(e => {
+      if (extractShiftIdFromZone(e.zone) !== shiftId || e.role !== "TL") return false;
+      const lId = extractLineIdFromZone(e.zone);
+      const lObj = lines.find(x => x.id === lId);
+      return lObj && (lObj.floor || "1. OG") === (floorName || "1. OG");
+    });
   }
 
-  function getLineTotalTarget(line) {
+  function getRoleDeficitForLine(line, roleName) {
+    if (!window.canRoleBeAssignedToLine(roleName)) return 0;
     const rt = line.roleTargets || {};
-    return Object.values(rt).reduce((sum, v) => sum + (Number(v) || 0), 0) || 3;
+    const roleSoll = Number(rt[roleName] || 0);
+    if (roleSoll <= 0) return 0;
+    const currentRoleCount = getLineEmps(line.id).filter(e => (e.role || "Bediener") === roleName).length;
+    if (roleName === "TL" && currentRoleCount === 0 && isFloorTLCovered(line.floor)) {
+      return 0;
+    }
+    return Math.max(0, roleSoll - currentRoleCount);
   }
 
   function placeEmpOnLine(emp, line) {
@@ -780,22 +976,28 @@ window.smartAssignShiftSlot = function(shiftId) {
     assignedCount++;
   }
 
+  // Durchgang 1: Strikte Besetzung nach Prio 1-10 & exakt geforderter Rolle (1a: PIN-Nadel, 1b: Stammlinie, 1c: Sekundärlinie)
   sortedLines.forEach(line => {
     const totalSoll = getLineTotalTarget(line);
     roles.forEach(rName => {
-      const roleSoll = getRoleTargetForLine(line, rName);
-      if (roleSoll <= 0) return;
-
-      while (getLineEmps(line.id).length < totalSoll) {
-        const currentRoleCount = getLineEmps(line.id).filter(e => (e.role || "Bediener") === rName).length;
-        if (currentRoleCount >= roleSoll) break;
-
+      while (getLineEmps(line.id).length < totalSoll && getRoleDeficitForLine(line, rName) > 0) {
+        // 1a: Passende PIN-Nadel + passende Rolle
         let cand = slotCandidates.find(e => {
           if (e.zone !== "pool" && e.zone !== "review" && e.zone !== "extra") return false;
           if ((e.role || "Bediener") !== rName) return false;
-          return Array.isArray(e.mainLines) && e.mainLines.indexOf(line.id) !== -1;
+          return extractLineIdFromZone(e.pinnedZone) === line.id;
         });
 
+        // 1b: Passende Stammlinie (Primär-Linie) + passende Rolle
+        if (!cand) {
+          cand = slotCandidates.find(e => {
+            if (e.zone !== "pool" && e.zone !== "review" && e.zone !== "extra") return false;
+            if ((e.role || "Bediener") !== rName) return false;
+            return Array.isArray(e.mainLines) && e.mainLines.indexOf(line.id) !== -1;
+          });
+        }
+
+        // 1c: Freigeschaltete Sekundärlinie + passende Rolle
         if (!cand) {
           cand = slotCandidates.find(e => {
             if (e.zone !== "pool" && e.zone !== "review" && e.zone !== "extra") return false;
@@ -810,60 +1012,65 @@ window.smartAssignShiftSlot = function(shiftId) {
     });
   });
 
-  sortedLines.forEach(line => {
-    const totalSoll = getLineTotalTarget(line);
-    while (getLineEmps(line.id).length < totalSoll) {
-      let cand = slotCandidates.find(e => {
-        if (e.zone !== "pool" && e.zone !== "review" && e.zone !== "extra") return false;
-        return Array.isArray(e.mainLines) && e.mainLines.indexOf(line.id) !== -1;
-      });
-      if (!cand) break;
-      placeEmpOnLine(cand, line);
-    }
-  });
-
-  sortedLines.forEach(line => {
-    const totalSoll = getLineTotalTarget(line);
-    while (getLineEmps(line.id).length < totalSoll) {
-      let cand = slotCandidates.find(e => {
-        if (e.zone !== "pool" && e.zone !== "review" && e.zone !== "extra") return false;
-        return Array.isArray(e.secLines) && e.secLines.indexOf(line.id) !== -1;
-      });
-      if (!cand) break;
-      placeEmpOnLine(cand, line);
-    }
-  });
-
+  // Durchgang 2: Echter Ringtausch (Allrounder auf besetzter Linie macht Platz für Spezialisten,
+  // wenn der Allrounder auf einer anderen Linie mit offenem Rollen-Bedarf eingesetzt werden kann)
   if (shiftModelConfig.smartAllowSwap !== false) {
     const unplaced = slotCandidates.filter(e => e.zone === "pool" || e.zone === "review" || e.zone === "extra");
     unplaced.forEach(cand => {
+      const cRole = cand.role || "Bediener";
       const candLines = [].concat(cand.mainLines || [], cand.secLines || []);
       for (let i = 0; i < candLines.length; i++) {
-        const fullLine = sortedLines.find(l => l.id === candLines[i]);
-        if (!fullLine) continue;
-        const currentEmps = getLineEmps(fullLine.id);
-        const totalSoll = getLineTotalTarget(fullLine);
-        if (currentEmps.length < totalSoll) {
-          placeEmpOnLine(cand, fullLine);
+        const targetLine = sortedLines.find(l => l.id === candLines[i]);
+        if (!targetLine) continue;
+
+        // Hat die Linie für diese Rolle noch direkt Platz?
+        if (getLineEmps(targetLine.id).length < getLineTotalTarget(targetLine) && getRoleDeficitForLine(targetLine, cRole) > 0) {
+          placeEmpOnLine(cand, targetLine);
           break;
         }
+
+        // Ringtausch prüfen: Sitzt auf targetLine jemand mit derselben Rolle (cRole), der auf eine andere unterbesetzte Linie wechseln kann?
+        const currentRoleOccupants = getLineEmps(targetLine.id).filter(occ => !occ.noRotation && (occ.role || "Bediener") === cRole);
+        let swapped = false;
+
+        for (let j = 0; j < currentRoleOccupants.length; j++) {
+          const occ = currentRoleOccupants[j];
+          const occAltLineIds = [].concat(occ.mainLines || [], occ.secLines || []).filter(id => id !== targetLine.id);
+          for (let k = 0; k < occAltLineIds.length; k++) {
+            const altLine = sortedLines.find(l => l.id === occAltLineIds[k]);
+            if (altLine && getLineEmps(altLine.id).length < getLineTotalTarget(altLine) && getRoleDeficitForLine(altLine, cRole) > 0) {
+              // Tausch durchführen: Allrounder (occ) wandert auf altLine, Spezialist (cand) übernimmt targetLine
+              occ.zone = altLine.id + "_" + shiftId;
+              occ.pinnedZone = occ.zone;
+              placeEmpOnLine(cand, targetLine);
+              swapCount++;
+              swapped = true;
+              break;
+            }
+          }
+          if (swapped) break;
+        }
+        if (swapped) break;
       }
     });
   }
 
+  // Durchgang 3: Nur Mitarbeiter, die grundsätzlich auf Linien verteilt werden dürfen,
+  // deren Stammlinien aber voll sind und denen eine passende Zweitlinie fehlt, kommen in "Noch zuzuteilen" (review).
+  // Nicht-Linien-Rollen (wie Schichtexperten) bleiben unangetastet im Pool!
   slotCandidates.forEach(cand => {
-    if (cand.zone === "pool" || cand.zone === "review" || cand.zone === "extra") {
+    if ((cand.zone === "pool" || cand.zone === "review" || cand.zone === "extra") && window.canRoleBeAssignedToLine(cand.role || "Bediener")) {
       cand.zone = "review";
     }
   });
 
-  addHistoryLog("Auto-Zuweisung für " + (shiftsLabel[shiftId] || shiftId) + " (" + assignedCount + " zugewiesen)", "AUTO");
+  const swapInfo = swapCount > 0 ? (" · " + swapCount + " Ringtausch") : "";
+  addHistoryLog("Auto-Zuweisung für " + (shiftsLabel[shiftId] || shiftId) + " (" + assignedCount + " zugewiesen" + swapInfo + ")", "AUTO");
   saveToFirebase();
   window.initBoard();
-  showToast("🪄 Auto-Zuweisung " + (shiftsLabel[shiftId] || shiftId) + " fertig (" + assignedCount + " MA)!");
+  showToast("🪄 Auto-Zuweisung " + (shiftsLabel[shiftId] || shiftId) + " fertig (" + assignedCount + " MA" + swapInfo + ")!");
 };
 
-/* Wrapper für "Alle Auto" mit einem einzigen gemeinsamen Undo-Snapshot */
 window.runAllShiftsAutoAssignment = function() {
   lastBoardSnapshotForUndo = createBoardSnapshotForUndo();
   activateUndoButtons();
@@ -874,7 +1081,7 @@ window.runAllShiftsAutoAssignment = function() {
 };
 
 /* ==========================================================================
-   6. GESTAFFELTER "AUTO SCHICHT RESET" (PUNKT 5)
+   6. GESTAFFELTER "AUTO SCHICHT RESET" & ZEIT-AUTOMATIK
    ========================================================================== */
 
 async function executeStaggeredAutoShiftReset() {
@@ -898,28 +1105,65 @@ async function executeStaggeredAutoShiftReset() {
     smartAssignShiftSlot(s.id);
   });
 
-  addHistoryLog("Zentraler 'Auto Schicht Reset' erfolgreich ausgeführt", "SHIFT");
+  addHistoryLog("Zeitgesteuerter 'Auto Schicht Reset' ausgeführt", "SHIFT");
   saveToFirebase();
 }
 
 function checkScheduledAutomations() {
   if (!hasLoadedFromCloud || isDraggingCard) return;
-  if (!shiftModelConfig.resetEnabled) return;
-
   const now = new Date();
   const day = now.getDay();
   const hour = now.getHours();
   const todayIso = getTodayIso(now);
-  const targetDay = Number(shiftModelConfig.resetDay ?? 0);
-  const targetHour = Number(shiftModelConfig.resetHour ?? 6);
+  let didChange = false;
 
-  const dayMatches = (targetDay === -1 || targetDay === day);
-  if (dayMatches && targetHour === hour) {
-    const runKey = todayIso + "_" + hour;
-    if (shiftModelConfig.lastResetRunKey !== runKey) {
-      shiftModelConfig.lastResetRunKey = runKey;
-      executeStaggeredAutoShiftReset();
+  // Box 1: Automatisch in den Pool schicken
+  if (shiftModelConfig.resetEnabled) {
+    const rDay = Number(shiftModelConfig.resetDay ?? 0);
+    const rHour = Number(shiftModelConfig.resetHour ?? 6);
+    if ((rDay === -1 || rDay === day) && rHour === hour) {
+      const runKey = todayIso + "_" + hour;
+      if (shiftModelConfig.lastResetRunKey !== runKey) {
+        shiftModelConfig.lastResetRunKey = runKey;
+        employees.forEach(e => {
+          if (e.zone && ["pool", "review", "absent", "extra"].indexOf(e.zone) === -1 && !isEmpAnchorActiveToday(e, todayIso)) {
+            e.zone = "pool";
+          }
+        });
+        addHistoryLog("Automatischer Pool-Reset ausgeführt", "SHIFT");
+        didChange = true;
+      }
     }
+  }
+
+  // Box 2: Teams automatisch verteilen
+  if (shiftModelConfig.loadEnabled) {
+    const lDay = Number(shiftModelConfig.loadDay ?? 0);
+    const lHour = Number(shiftModelConfig.loadHour ?? 5);
+    if ((lDay === -1 || lDay === day) && lHour === hour) {
+      const loadKey = todayIso + "_" + hour;
+      if (shiftModelConfig.lastLoadRunKey !== loadKey) {
+        shiftModelConfig.lastLoadRunKey = loadKey;
+        if (shiftModelConfig.autoRotate !== false) {
+          window.performShiftRotationLogic(true);
+        }
+        if (shiftModelConfig.smartAssignEnabled !== false) {
+          shifts.forEach(s => { smartAssignShiftSlot(s.id); });
+        } else {
+          ["frueh", "spaet", "nacht", "frei"].forEach(slot => {
+            const tKey = shiftRotation[slot];
+            if (tKey) distributeTeamToSlotInternal(tKey, slot);
+          });
+        }
+        addHistoryLog("Teams zeitgesteuert auf Positionen verteilt", "SHIFT");
+        didChange = true;
+      }
+    }
+  }
+
+  if (didChange) {
+    saveToFirebase();
+    window.initBoard();
   }
 }
 
@@ -943,7 +1187,7 @@ setInterval(() => {
 }, 30000);
 
 /* ==========================================================================
-   7. INIT BOARD & KARTEN RENDERING (DYNAMISCHES REVIEW-FENSTER)
+   7. INIT BOARD & KARTEN RENDERING
    ========================================================================== */
 
 function getLineTotalTarget(line) {
@@ -1192,7 +1436,6 @@ function renderEmployees() {
     if (targetZone) targetZone.appendChild(card);
   });
 
-  // Zellen-Balken aktualisieren
   lines.forEach(line => {
     const totalSoll = getLineTotalTarget(line);
     shifts.forEach(shift => {
@@ -1352,7 +1595,7 @@ function initDragAndDrop() {
 }
 
 /* ==========================================================================
-   8. SCHICHTEN LEEREN, LADEN & ROTIEREN
+   8. SCHICHTEN LEEREN, LADEN & ROTIEREN (TEIL 2 VON 2)
    ========================================================================== */
 
 window.clearEntireBoard = function() {
@@ -1391,17 +1634,22 @@ function distributeTeamToSlotInternal(teamKey, slotKey) {
       if (emp.noRotation && isEmpAnchorActiveToday(emp, todayIso) && emp.zone && ["pool", "review", "absent", "extra"].indexOf(emp.zone) === -1) {
         return;
       }
-      if (slotKey === "frei") {
+      const empRole = emp.role || "Bediener";
+      if (slotKey === "frei" || !window.canRoleBeAssignedToLine(empRole)) {
         emp.zone = "pool";
         return;
       }
       let targetLineId = emp.pinnedZone ? extractLineIdFromZone(emp.pinnedZone) : null;
       let lineObj = targetLineId ? lines.find(l => l.id === targetLineId && !l.ausgeplant) : null;
 
+      if (lineObj && Number((lineObj.roleTargets || {})[empRole] || 0) <= 0) {
+        lineObj = null;
+      }
+
       if (!lineObj && Array.isArray(emp.mainLines) && emp.mainLines.length > 0) {
         for (let i = 0; i < emp.mainLines.length; i++) {
           const candidate = lines.find(l => l.id === emp.mainLines[i] && !l.ausgeplant);
-          if (candidate) {
+          if (candidate && Number((candidate.roleTargets || {})[empRole] || 0) > 0) {
             lineObj = candidate;
             break;
           }
@@ -1598,7 +1846,7 @@ window.saveLineDetails = function(isAuto) {
 };
 
 /* ==========================================================================
-   11. EINSTELLUNGEN & SICHERHEIT
+   11. EINSTELLUNGEN, ROLLEN-HAKEN & SICHERHEIT
    ========================================================================== */
 
 window.openSettingsModal = function() {
@@ -1699,6 +1947,11 @@ function initSettingsDragAndDrop() {
   }
 }
 
+window.onEmpLineCheckboxChange = function() {
+  window._tempEditEmpMainLines = Array.from(document.querySelectorAll(".emp-main-line-chk:checked")).map(c => c.value);
+  window._tempEditEmpSecLines = Array.from(document.querySelectorAll(".emp-sec-line-chk:checked")).map(c => c.value);
+};
+
 function renderSettingsLists() {
   const empListEl = document.getElementById("employeeList");
   if (empListEl) {
@@ -1764,16 +2017,21 @@ function renderSettingsLists() {
   const roleListEl = document.getElementById("roleList");
   if (roleListEl) {
     if (!shiftModelConfig.roleRequiresLines) shiftModelConfig.roleRequiresLines = {};
+    if (!shiftModelConfig.roleAllowLineAssign) shiftModelConfig.roleAllowLineAssign = {};
     roleListEl.innerHTML = roles.map((r, idx) => {
-      const needsLines = shiftModelConfig.roleRequiresLines[r] !== false;
+      const needsLines = window.doesRoleRequireLines(r);
+      const allowAssign = window.canRoleBeAssignedToLine(r);
       return '<div class="item-row" data-role-idx="' + idx + '" style="flex-wrap:wrap; gap:6px;">' +
         '<div style="display:flex; align-items:center; gap:6px;">' +
           '<span class="drag-handle" title="Ziehen zum Verschieben">☰</span>' +
           '<b>' + (idx + 1) + '. ' + r + '</b>' +
         '</div>' +
-        '<div style="display:flex; gap:10px; align-items:center;">' +
-          '<label style="font-size:0.73rem; display:flex; align-items:center; gap:4px; cursor:pointer; font-weight:600; color:#0369a1;" title="Bestimmt, ob Mitarbeiter dieser Rolle im Onboarding Linien auswählen müssen">' +
-            '<input type="checkbox" ' + (needsLines ? 'checked' : '') + ' onchange="toggleRoleOnboardingLinesFlag(\'' + r + '\', this.checked)"> 🏭 Anlagen abfragen für Onboarding' +
+        '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">' +
+          '<label style="font-size:0.72rem; display:flex; align-items:center; gap:4px; cursor:pointer; font-weight:700; color:#166534; background:#f0fdf4; padding:2px 6px; border-radius:4px; border:1px solid #bbf7d0;" title="Steuert, ob diese Rolle automatisch auf Linien verteilt werden darf (AUS schützt z.B. Schichtexperten vor Lückenfüller-Zuweisung)">' +
+            '<input type="checkbox" ' + (allowAssign ? 'checked' : '') + ' onchange="toggleRoleAllowLineAssignFlag(\'' + r + '\', this.checked)"> 🎯 Darf auf Linien verteilt werden' +
+          '</label>' +
+          '<label style="font-size:0.72rem; display:flex; align-items:center; gap:4px; cursor:pointer; font-weight:600; color:#0369a1; background:#f0f9ff; padding:2px 6px; border-radius:4px; border:1px solid #bae6fd;" title="Bestimmt, ob Mitarbeiter dieser Rolle im Onboarding Linien auswählen müssen">' +
+            '<input type="checkbox" ' + (needsLines ? 'checked' : '') + ' onchange="toggleRoleOnboardingLinesFlag(\'' + r + '\', this.checked)"> 🏭 Anlagen für Onboarding' +
           '</label>' +
           '<button class="move-arrow-btn" onclick="moveRoleOrder(' + idx + ', -1)" ' + (idx === 0 ? 'disabled style="opacity:0.35;"' : '') + '>⬆️</button>' +
           '<button class="move-arrow-btn" onclick="moveRoleOrder(' + idx + ', 1)" ' + (idx === roles.length - 1 ? 'disabled style="opacity:0.35;"' : '') + '>⬇️</button>' +
@@ -1831,6 +2089,13 @@ window.toggleRoleOnboardingLinesFlag = function(roleName, val) {
   showToast("Onboarding-Regel für '" + roleName + "' aktualisiert");
 };
 
+window.toggleRoleAllowLineAssignFlag = function(roleName, val) {
+  if (!shiftModelConfig.roleAllowLineAssign) shiftModelConfig.roleAllowLineAssign = {};
+  shiftModelConfig.roleAllowLineAssign[roleName] = val;
+  saveToFirebase();
+  showToast("Linien-Verteilungsregel für '" + roleName + "' auf " + (val ? "AN" : "AUS") + " gestellt");
+};
+
 window.syncShiftModelSettingsUI = function() {
   const autoChk = document.getElementById("cfgAutoRotate");
   if (autoChk) autoChk.checked = shiftModelConfig.autoRotate !== false;
@@ -1859,7 +2124,7 @@ window.syncShiftModelSettingsUI = function() {
   if (loadHour) loadHour.value = String(shiftModelConfig.loadHour ?? 5);
 
   const threshInp = document.getElementById("cfgSecondaryUnlockHours");
-  if (threshInp) threshInp.value = shiftModelConfig.secondaryUnlockThresholdHours ?? 1000;
+  if (threshInp) threshInp.value = shiftModelConfig.secondaryUnlockThresholdHours ?? 120;
 
   const hoursInp = document.getElementById("cfgDefaultShiftHours");
   if (hoursInp) hoursInp.value = shiftModelConfig.defaultShiftHours ?? 8;
@@ -1893,7 +2158,7 @@ window.saveShiftModelSettings = function() {
   if (loadHour) shiftModelConfig.loadHour = parseInt(loadHour.value, 10) ?? 5;
 
   const threshInp = document.getElementById("cfgSecondaryUnlockHours");
-  if (threshInp) shiftModelConfig.secondaryUnlockThresholdHours = Math.max(6, parseInt(threshInp.value, 10) || 1000);
+  if (threshInp) shiftModelConfig.secondaryUnlockThresholdHours = Math.max(6, parseInt(threshInp.value, 10) || 120);
 
   const hoursInp = document.getElementById("cfgDefaultShiftHours");
   if (hoursInp) shiftModelConfig.defaultShiftHours = Math.max(1, parseFloat(hoursInp.value) || 8);
@@ -1901,6 +2166,7 @@ window.saveShiftModelSettings = function() {
   saveToFirebase();
   window.updateAutoRotationUI();
   renderEmployees();
+  renderUnqualifiedHoursOverview();
   showToast("Einstellungen & Stundenzähler gespeichert!");
 };
 
@@ -1935,7 +2201,7 @@ window.autoSaveSecurityConfig = function() {
 };
 
 /* ==========================================================================
-   12. HISTORIE, BACKUPS & PROFIL
+   12. HISTORIE, BACKUPS, PROFIL & STAMMDATEN-VERWALTUNG
    ========================================================================== */
 
 window.setHistoryCatFilter = function(cat, btnEl) {
@@ -2343,7 +2609,9 @@ window.addRole = function() {
     inp.value = "";
     activeRoleFilters[val] = true;
     if (!shiftModelConfig.roleRequiresLines) shiftModelConfig.roleRequiresLines = {};
+    if (!shiftModelConfig.roleAllowLineAssign) shiftModelConfig.roleAllowLineAssign = {};
     shiftModelConfig.roleRequiresLines[val] = true;
+    shiftModelConfig.roleAllowLineAssign[val] = true;
     addHistoryLog("Neue Rolle angelegt: " + val, "EMP");
     saveToFirebase();
     renderSettingsLists();
@@ -2410,7 +2678,7 @@ window.filterSettingsEmployees = function(q) {
 };
 
 /* ==========================================================================
-   12. AUTOCOMPLETE & POSTFACH
+   13. AUTOCOMPLETE, POSTFACH (INKL. BRINGSCHICHT-WARNUNGEN) & CLOUD-SYNC
    ========================================================================== */
 
 window.onPlannerLoginInput = function(val) {
@@ -2585,6 +2853,8 @@ window.addManualExtraShift = function() {
     date: dateVal,
     shift: shiftVal,
     note: noteVal,
+    plausibilityWarning: !!conflictWarning,
+    conflictDetails: conflictWarning || "",
     status: "approved"
   });
 
@@ -2611,6 +2881,10 @@ window.markAllSickLeavesRead = function() {
     if (sl.status === "pending") sl.status = "approved";
     sl.plannerUnreadInfo = false;
   });
+  extraShifts.forEach(es => {
+    if (es.status === "pending") es.status = "approved";
+    es.plannerUnreadInfo = false;
+  });
   saveToFirebase();
   window.syncAbsentAndExtraZones();
   renderEmployees();
@@ -2629,7 +2903,7 @@ window.renderInboxLists = function() {
   const searchActive = (document.getElementById("inboxActiveSearchInput") ? document.getElementById("inboxActiveSearchInput").value : "").trim().toLowerCase();
   const curCatFilter = typeof activeInboxHistoryCategory !== "undefined" ? activeInboxHistoryCategory : "ALL";
 
-  const unreadItems = sickLeaves.filter(sl => {
+  const unreadLeaves = sickLeaves.filter(sl => {
     if (sl.status !== "pending" && !sl.plannerUnreadInfo) return false;
     if (globalQ) {
       const emp = employees.find(e => e.id === sl.empId);
@@ -2639,10 +2913,20 @@ window.renderInboxLists = function() {
     return true;
   });
 
-  if (!unreadItems.length) {
-    unreadEl.innerHTML = '<p style="font-size:0.8rem; color:#64748b;">Keine neuen Krankmeldungen oder Onboarding-Meldungen.</p>';
+  const pendingExtraRequests = extraShifts.filter(es => {
+    if (es.status !== "pending" && !es.plannerUnreadInfo) return false;
+    if (globalQ) {
+      const emp = employees.find(e => e.id === es.empId);
+      const txt = ((emp ? fullName(emp) : "") + " " + (es.note || "") + " " + (es.conflictDetails || "") + " " + (es.date || "")).toLowerCase();
+      if (txt.indexOf(globalQ) === -1) return false;
+    }
+    return true;
+  });
+
+  if (!unreadLeaves.length && !pendingExtraRequests.length) {
+    unreadEl.innerHTML = '<p style="font-size:0.8rem; color:#64748b;">Keine neuen Krankmeldungen, Bringschicht-Anfragen oder Onboarding-Meldungen.</p>';
   } else {
-    unreadEl.innerHTML = unreadItems.map(sl => {
+    const leavesHtml = unreadLeaves.map(sl => {
       const emp = employees.find(e => e.id === sl.empId);
       const eName = emp ? fullName(emp) : "Unbekannt";
       
@@ -2668,6 +2952,31 @@ window.renderInboxLists = function() {
         '</div>' +
       '</div>';
     }).join("");
+
+    const extrasHtml = pendingExtraRequests.map(es => {
+      const emp = employees.find(e => e.id === es.empId);
+      const eName = emp ? fullName(emp) : "Unbekannt";
+      const warnText = es.conflictDetails || checkExtraShiftConflict(emp, es.date, es.shift) || "";
+      const hasWarn = !!(es.plausibilityWarning || warnText);
+      const warnBanner = hasWarn
+        ? '<div style="background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; padding:6px 8px; border-radius:5px; font-size:0.75rem; font-weight:700; margin-top:4px;">⚠️ Warnung: ' + warnText + '</div>'
+        : '<div style="color:#166534; font-size:0.74rem; font-weight:600; margin-top:2px;">✅ Regulär Freischicht (keine Konflikte)</div>';
+
+      return '<div style="background:#fff; border:1px solid ' + (hasWarn ? '#fca5a5' : '#86efac') + '; border-left:4px solid ' + (hasWarn ? '#dc2626' : '#16a34a') + '; padding:10px; border-radius:6px; margin-bottom:8px; font-size:0.82rem;">' +
+        '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+          '<b>➕ Bringschicht-Angebot: ' + eName + '</b>' +
+          '<span style="font-weight:700; color:' + (hasWarn ? '#b91c1c' : '#15803d') + ';">' + formatDateDe(es.date) + ' · ' + (shiftsLabel[es.shift] || es.shift) + '</span>' +
+        '</div>' +
+        (es.note ? '<div style="color:#475569; margin-top:2px;">Notiz: ' + es.note + '</div>' : '') +
+        warnBanner +
+        '<div style="display:flex; gap:6px; margin-top:8px;">' +
+          '<button class="btn btn-primary" style="padding:3px 10px; font-size:0.74rem; background:#16a34a;" onclick="approveExtraShiftRequest(\'' + es.id + '\')">✅ Bringschicht genehmigen</button>' +
+          '<button class="btn btn-outline" style="padding:3px 10px; font-size:0.74rem; color:#dc2626; border-color:#fca5a5;" onclick="rejectExtraShiftRequest(\'' + es.id + '\')">❌ Ablehnen</button>' +
+        '</div>' +
+      '</div>';
+    }).join("");
+
+    unreadEl.innerHTML = extrasHtml + leavesHtml;
   }
 
   if (extraListEl) {
@@ -2686,7 +2995,7 @@ window.renderInboxLists = function() {
       extraListEl.innerHTML = approvedExtras.map(es => {
         const emp = employees.find(e => e.id === es.empId);
         const eName = emp ? fullName(emp) : "Unbekannt";
-        const conflict = checkExtraShiftConflict(emp, es.date, es.shift);
+        const conflict = es.conflictDetails || checkExtraShiftConflict(emp, es.date, es.shift);
         const warnHtml = conflict ? '<div style="color:#dc2626; font-size:0.72rem; font-weight:700; margin-top:2px;">⚠️ ' + conflict + '</div>' : '';
         return '<div style="background:#fff; border:1px solid #86efac; padding:8px 10px; border-radius:6px; margin-bottom:6px; font-size:0.82rem; display:flex; justify-content:space-between; align-items:center;">' +
           '<div><b>' + eName + '</b> · Am ' + formatDateDe(es.date) + ' (' + (shiftsShortLabel[es.shift] || es.shift) + ')' + (es.note ? ' · ' + es.note : '') + warnHtml + '</div>' +
@@ -2730,6 +3039,20 @@ window.approveSickLeave = function(id) {
     sl.plannerUnreadInfo = false;
     sl.reviewedBy = currentPlannerName || "Planer";
     sl.reviewedAt = new Date().toISOString();
+
+    if (sl.lineRequestData && sl.lineRequestData.lineId) {
+      const emp = employees.find(e => e.id === sl.empId);
+      if (emp) {
+        if (sl.lineRequestData.type === "prio") {
+          if (!Array.isArray(emp.mainLines)) emp.mainLines = [];
+          if (emp.mainLines.indexOf(sl.lineRequestData.lineId) === -1) emp.mainLines.push(sl.lineRequestData.lineId);
+        } else {
+          if (!Array.isArray(emp.secLines)) emp.secLines = [];
+          if (emp.secLines.indexOf(sl.lineRequestData.lineId) === -1) emp.secLines.push(sl.lineRequestData.lineId);
+        }
+      }
+    }
+
     saveToFirebase();
     window.syncAbsentAndExtraZones();
     renderEmployees();
@@ -2753,6 +3076,38 @@ window.rejectSickLeave = function(id) {
   }
 };
 
+window.approveExtraShiftRequest = function(id) {
+  const es = extraShifts.find(x => x.id === id);
+  if (es) {
+    es.status = "approved";
+    es.plannerUnreadInfo = false;
+    const emp = employees.find(e => e.id === es.empId);
+    addHistoryLog("Bringschicht genehmigt für " + (emp ? fullName(emp) : "") + " am " + formatDateDe(es.date), "ABSENCE");
+    saveToFirebase();
+    window.syncAbsentAndExtraZones();
+    renderEmployees();
+    window.renderInboxLists();
+    window.updateInboxBadge();
+    showToast("Bringschicht genehmigt!");
+  }
+};
+
+window.rejectExtraShiftRequest = function(id) {
+  const es = extraShifts.find(x => x.id === id);
+  if (es) {
+    es.status = "rejected";
+    es.plannerUnreadInfo = false;
+    const emp = employees.find(e => e.id === es.empId);
+    addHistoryLog("Bringschicht abgelehnt für " + (emp ? fullName(emp) : "") + " am " + formatDateDe(es.date), "ABSENCE");
+    saveToFirebase();
+    window.syncAbsentAndExtraZones();
+    renderEmployees();
+    window.renderInboxLists();
+    window.updateInboxBadge();
+    showToast("Bringschicht abgelehnt");
+  }
+};
+
 window.deleteSickLeave = function(id) {
   if (!confirm("Möchten Sie diesen Eintrag wirklich löschen?")) return;
   sickLeaves = sickLeaves.filter(x => x.id !== id);
@@ -2771,6 +3126,7 @@ window.deleteExtraShift = function(id) {
   window.syncAbsentAndExtraZones();
   renderEmployees();
   window.renderInboxLists();
+  window.updateInboxBadge();
   showToast("Bringschicht entfernt");
 };
 
@@ -2798,17 +3154,15 @@ window.openInboxModal = function(empId, openSickForm, openExtraForm) {
 };
 
 window.updateInboxBadge = function() {
-  const unreadCount = sickLeaves.filter(sl => sl.status === "pending" || sl.plannerUnreadInfo).length;
+  const unreadLeavesCount = sickLeaves.filter(sl => sl.status === "pending" || sl.plannerUnreadInfo).length;
+  const unreadExtrasCount = extraShifts.filter(es => es.status === "pending" || es.plannerUnreadInfo).length;
+  const totalUnread = unreadLeavesCount + unreadExtrasCount;
   const badge = document.getElementById("inboxBadge");
   if (badge) {
-    badge.textContent = unreadCount;
-    badge.style.display = unreadCount > 0 ? "inline-flex" : "none";
+    badge.textContent = totalUnread;
+    badge.style.display = totalUnread > 0 ? "inline-flex" : "none";
   }
 };
-
-/* ==========================================================================
-   12. FIREBASE CLOUD-SYNCHRONISATION & LOGIN (INKL. PLANER-PIN-ZTWANG)
-   ========================================================================== */
 
 function applyIncomingDocData(d) {
   if (!d) return;
@@ -2833,6 +3187,19 @@ function applyIncomingDocData(d) {
     }
     if (d.shiftModelConfig && typeof d.shiftModelConfig === "object") {
       shiftModelConfig = Object.assign(shiftModelConfig, d.shiftModelConfig);
+      if (shiftModelConfig.secondaryUnlockThresholdHours === 1000 && !shiftModelConfig.thresholdMigrated120) {
+        shiftModelConfig.secondaryUnlockThresholdHours = 120;
+        shiftModelConfig.thresholdMigrated120 = true;
+      }
+      if (!shiftModelConfig.roleAllowLineAssign) {
+        shiftModelConfig.roleAllowLineAssign = {
+          "Bediener": true,
+          "LOP": true,
+          "TL": false,
+          "Schichtexperte": false,
+          "Waschraumoperator": false
+        };
+      }
     }
     if (typeof d.approvedShiftKey === "string") approvedShiftKey = d.approvedShiftKey;
     if (Array.isArray(d.employees)) employees = d.employees;
@@ -2935,7 +3302,7 @@ window.verifyPin = function() {
   }
 
   if (!emp) {
-    showTimedBoxMsg("loginModalError", "❌ Bitte tippe mind. 3 Buchstaben und wähle deinen Namen aus der Liste aus!", false);
+    showTimedBoxMsg("loginModalError", "❌ Bitte wähle deinen Namen aus der Vorschlagsliste aus!", false);
     return;
   }
 
