@@ -29,7 +29,6 @@
     .status-badge { display: none; font-size: 0.68rem; padding: 3px 8px; border-radius: 999px; font-weight: 700; background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
     body.planner-active .status-badge { display: inline-block; }
 
-    /* Automatik-Pills im Header (3 Schalter: Rotation, Auto-Zuweisung, Kombinierter Zeit-Reset/Verteilen) */
     @keyframes slowSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     .auto-toggle-pill { display: none; align-items: center; gap: 4px; font-size: 0.67rem; padding: 3px 8px; border-radius: 999px; font-weight: 700; cursor: pointer; border: 1px solid #cbd5e1; background: #f8fafc; color: #64748b; transition: 0.15s; user-select: none; }
     .auto-toggle-pill:hover { background: #e2e8f0; }
@@ -39,7 +38,6 @@
     .auto-toggle-pill.active-teal { border-color: #99f6e4; background: #f0fdfa; color: #0f766e; }
     body.planner-active .auto-toggle-pill { display: inline-flex; }
 
-    /* Dezenter "Zurück korrigieren"-Button */
     .undo-assign-btn { display: none; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 600; padding: 4px 9px; border-radius: 6px; cursor: pointer; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; transition: 0.15s; }
     .undo-assign-btn:hover { background: #f1f5f9; color: #0f172a; border-color: #94a3b8; }
     body.planner-active .undo-assign-btn.has-undo { display: inline-flex; }
@@ -58,7 +56,6 @@
 
     .inbox-badge { position: absolute; top: -5px; right: -5px; background: #dc2626; color: #fff; font-size: 0.64rem; font-weight: 800; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; display: none; align-items: center; justify-content: center; }
 
-    /* Hauptlayout - Kompakte Display-Ansicht ohne horizontales Scrollen */
     main { padding: 6px 8px; display: flex; gap: 8px; flex: 1; min-height: 0; width: 100%; align-items: stretch; overflow: hidden; }
     .sidebar { width: 236px; flex-shrink: 0; display: none; flex-direction: column; gap: 5px; height: 100%; min-height: 0; overflow: hidden; }
     body.planner-active .sidebar { display: flex; }
@@ -80,7 +77,6 @@
     .search-input { width: 100%; padding: 4px 20px 4px 7px; border: 1px solid #cbd5e1; border-radius: 5px; font-size: 0.72rem; background: #f8fafc; color: #0f172a; }
     .search-clear { display: none; position: absolute; right: 6px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; font-weight: bold; font-size: 0.95rem; }
 
-    /* Mitarbeiterkarten & Mauszeiger-Fix beim Drag & Drop */
     .employee-card { background: #fff; padding: 3px 5px; border-radius: 5px; border: 1px solid #e2e8f0; border-left: 4px solid #0091df; box-shadow: 0 1px 2px rgba(15,23,42,0.03); display: flex; flex-direction: column; user-select: none; gap: 1px; position: relative; backface-visibility: hidden; cursor: default; flex-shrink: 0; transition: box-shadow 0.12s, border-color 0.12s; }
     body.planner-active .employee-card { cursor: pointer; }
     body.planner-active .employee-card:hover { border-color: #94a3b8; box-shadow: 0 2px 4px rgba(15,23,42,0.08); }
@@ -111,7 +107,6 @@
     .card-prio-hint { display: none; }
     body.planner-active .sidebar .card-prio-hint { display: inline-block; font-size: 0.56rem; color: #64748b; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
 
-    /* Schicht-Matrix (Board) */
     .board-container { flex: 1; min-width: 0; height: 100%; min-height: 0; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.04); display: flex; flex-direction: column; overflow-x: hidden; overflow-y: hidden; }
     .board-table { width: 100%; height: 100%; border-collapse: collapse; table-layout: fixed; min-width: 0; }
     .board-table th.shift-header { position: sticky; left: 0; z-index: 15; box-shadow: 1px 0 3px rgba(0,0,0,0.03); }
@@ -167,7 +162,6 @@
     .shift-clear-btn { width: 100%; font-size: 0.58rem; font-weight: 600; padding: 2px; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff; color: #64748b; cursor: pointer; }
     .shift-clear-btn:hover { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
 
-    /* Ist/Soll-Balken in den Zellen */
     .cell-wrapper { display: flex; flex-direction: column; height: 100%; width: 100%; }
     .zone-staff-bar { display: none; justify-content: space-between; align-items: center; padding: 1px 3px; font-size: 0.51rem; font-weight: 600; border-bottom: 1px solid #f1f5f9; background: #f8fafc; color: #64748b; gap: 2px; flex-shrink: 0; flex-wrap: wrap; line-height: 1.1; }
     body.planner-active .zone-staff-bar { display: flex; }
@@ -224,9 +218,11 @@
     .recent-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: #e0f2fe; color: #0369a1; cursor: pointer; border: 1px solid #bae6fd; }
     .recent-chip:hover { background: #bae6fd; }
 
-    .role-target-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 6px; margin-top: 6px; }
-    .role-target-item { display: flex; align-items: center; justify-content: space-between; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px 8px; font-size: 0.75rem; font-weight: 600; gap: 4px; }
-    .role-target-item input { width: 46px; padding: 3px 4px; text-align: center; border: 1px solid #94a3b8; border-radius: 4px; font-weight: 700; font-size: 0.8rem; background: #fff; }
+    /* Korrigiertes Grid für Linien-Bearbeiten Modal (verhindert das Rausrutschen der Zahl) */
+    .role-target-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; margin-top: 6px; }
+    .role-target-item { display: flex; align-items: center; justify-content: space-between; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; font-size: 0.78rem; font-weight: 600; gap: 8px; }
+    .role-target-item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .role-target-item input { width: 52px; flex-shrink: 0; padding: 4px 6px; text-align: center; border: 1px solid #94a3b8; border-radius: 4px; font-weight: 700; font-size: 0.82rem; background: #fff; }
 
     .manual-entry-toggle { width: 100%; text-align: left; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 9px 12px; font-size: 0.84rem; font-weight: 700; color: #0f172a; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
     .manual-entry-toggle:hover { background: #f1f5f9; }
@@ -256,7 +252,6 @@
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
 
-  <!-- ERZWUNGENE PIN-ÄNDERUNG AUCH BEIM PLANER-LOGIN MIT START-PIN -->
   <div id="plannerForcePinModal" class="modal-overlay" style="display:none; z-index: 2500; background: rgba(15,23,42,0.85);">
     <div class="modal" style="max-width: 380px; background:#fff; padding:24px; border-radius:12px;">
       <h3 style="color:var(--bayer-blue); margin-bottom:8px;">🔐 Eigene PIN festlegen</h3>
@@ -268,7 +263,6 @@
     </div>
   </div>
 
-  <!-- QUALIFIKATIONS-FREIGABE-DIALOG FÜR SEKUNDÄR-ANLAGE -->
   <div id="secLineUnlockModal" class="modal-overlay" style="display:none; z-index: 2200;">
     <div class="modal" style="max-width: 440px;">
       <h3 style="color:#0369a1; margin-bottom:8px;">🏆 Sekundär-Anlage freischalten?</h3>
@@ -308,7 +302,7 @@
       <div class="header-title">
         <div class="header-title-text">
           <h1>Schicht und Linienübersicht</h1>
-          <div id="headerDateKw" class="header-meta">Lade Datum... · v4.9.62</div>
+          <div id="headerDateKw" class="header-meta">Lade Datum... · v4.9.63</div>
         </div>
         <div class="header-badges-row">
           <span id="plannerStatusBadge" class="status-badge">Planer-Modus aktiv</span>
@@ -375,7 +369,6 @@
         <div id="pool" class="card-list drop-zone" data-zone="pool"></div>
       </div>
 
-      <!-- Extra-Fenster "Noch zuzuteilen (Manuelle Prüfung)" - kompakt wenn (0) -->
       <div class="panel panel-review empty-review" id="reviewPanelWrap">
         <h2>
           <span style="color:#92400e;" title="Mitarbeiter, deren Stammlinie besetzt ist und denen noch eine passende Zweitlinien-Qualifikation fehlt">⚠️ Noch zuzuteilen <span id="reviewCount" style="font-size:0.72rem; color:#b45309;">(0)</span></span>
@@ -535,6 +528,7 @@
           <button class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('URLAUB')">Urlaub</button>
           <button class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('KRANK')">Krank</button>
           <button class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('EXTRA')">Bringschicht / Info</button>
+          <button class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('ONBOARDING')">🎓 Onboarding</button>
         </div>
         <div style="margin-bottom:10px;">
           <input type="text" id="inboxActiveSearchInput" class="form-control" placeholder="🔍 Einträge durchsuchen (Name, Grund, Notiz)..." oninput="renderInboxLists()" style="font-size:0.82rem; padding:8px 10px;">
@@ -547,7 +541,7 @@
   <div id="settingsModal" class="modal-overlay">
     <div class="modal" style="max-width: 760px;">
       <h3 style="display:flex; justify-content:space-between; color:var(--bayer-blue); margin-bottom:12px;">
-        <span>⚙️ Einstellungen <small style="font-size:0.72rem; color:#94a3b8; font-weight:600;">v4.9.62</small></span>
+        <span>⚙️ Einstellungen <small style="font-size:0.72rem; color:#94a3b8; font-weight:600;">v4.9.63</small></span>
         <button onclick="closeModal('settingsModal')" style="border:none; background:none; font-size:1.5rem; cursor:pointer;">&times;</button>
       </h3>
       <div class="tabs">
@@ -602,10 +596,9 @@
         <div id="employeeList" style="max-height: 240px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
       
-      <!-- Rollen inkl. Haken "Darf auf Linien verteilt werden" & "Anlagen abfragen für Onboarding" -->
       <div id="tabRoles" class="tab-content">
         <p style="font-size:0.75rem; color:#64748b; margin-bottom:8px;">
-          Lege die Reihenfolge per <b>☰ Ziehen</b> oder <b>⬆️ / ⬇️</b> fest. Über <b>„🎯 Darf auf Linien verteilt werden“</b> steuerst du, ob diese Rolle automatisch an Linien eingeteilt werden darf (deaktiviert schützt z.B. Schichtexperten davor, als Lückenfüller auf Linien gezogen zu werden). Über <b>„🏭 Anlagen abfragen für Onboarding“</b> bestimmst du, ob beim Onboarding Linien abgefragt werden.
+          Lege die Reihenfolge per <b>☰ Ziehen</b> oder <b>⬆️ / ⬇️</b> fest. Über <b>„🎯 Darf auf Linien verteilt werden“</b> steuerst du, ob diese Rolle automatisch an Linien eingeteilt werden darf. Über <b>„🏭 Anlagen abfragen für Onboarding“</b> bestimmst du, ob beim Onboarding Linien abgefragt werden.
         </p>
         <div style="display:flex; gap:8px; margin-bottom:12px;">
           <input type="text" id="newRoleName" class="form-control" placeholder="Neue Rolle eingeben (z.B. SF, Springer)..." onkeydown="if(event.key==='Enter') addRole()">
@@ -629,7 +622,6 @@
         <div id="lineSettingsList" style="max-height: 280px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;"></div>
       </div>
 
-      <!-- Automatik im Menü getrennt steuerbar + Qualifikations-Stundenzähler (Standard 120h) -->
       <div id="tabTeams" class="tab-content">
         <div class="settings-card" style="border-left: 4px solid #8b5cf6; background: #faf5ff;">
           <div class="settings-card-title">
@@ -666,7 +658,6 @@
           </div>
 
           <div style="border-top: 1px solid #cbd5e1; padding-top: 8px; display:flex; flex-direction:column; gap:8px;">
-            <!-- Box 1: Automatisch in den Pool schicken -->
             <div style="background:#fff; padding:8px 10px; border-radius:6px; border:1px solid #e2e8f0;">
               <div style="display:flex; align-items:center; gap:8px; margin-bottom: 5px;">
                 <input type="checkbox" id="cfgResetEnabled" onchange="saveShiftModelSettings()">
@@ -684,7 +675,6 @@
               </div>
             </div>
 
-            <!-- Box 2: Teams automatisch verteilen -->
             <div style="background:#fff; padding:8px 10px; border-radius:6px; border:1px solid #e2e8f0;">
               <div style="display:flex; align-items:center; gap:8px; margin-bottom: 5px;">
                 <input type="checkbox" id="cfgLoadEnabled" onchange="saveShiftModelSettings()">
@@ -704,13 +694,12 @@
           </div>
         </div>
 
-        <!-- Stundenzähler (6h-Tagesfilter), Schwellenwert (Standard 120h) & Übersicht -->
         <div class="settings-card" style="border-left: 4px solid #16a34a; background: #f0fdf4;">
           <div class="settings-card-title">
             <span style="color:#166534;">⏱️ Qualifikations-Stundenzähler für Sekundär-Anlagen (6h-Filter)</span>
           </div>
           <p style="font-size:0.74rem; color:#334155; margin-bottom:8px;">
-            Wird ein Mitarbeiter manuell an einer fremden Anlage eingesetzt, zählt das System die Stunden nur dann dazu, wenn er an diesem Tag <b>mindestens 6 Stunden</b> dort eingeteilt war (max. 1 Gutschrift pro Tag). Bei Erreichen des Schwellenwerts (Standard: 120 Std. = 15 Schichten) wird die Freischaltung als Sekundär-Anlage vorgeschlagen.
+            Wird ein Mitarbeiter manuell an einer fremden Anlage eingesetzt, zählt das System die Stunden nur dann dazu, wenn er an diesem Tag <b>mindestens 6 Stunden</b> dort eingeteilt war. Über den Reset-Button können gesammelte Stunden bei Bedarf gezielt zurückgesetzt werden.
           </p>
           <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
             <label style="font-size:0.8rem; font-weight:700; color:#0f172a;">
@@ -818,7 +807,6 @@
     </div>
   </div>
 
-  <!-- Linie bearbeiten Modal: Prio 1-10 & Zentrale Rollen-Steuerung -->
   <div id="lineEditModal" class="modal-overlay">
     <div class="modal" style="max-width: 500px;">
       <h3 style="display:flex; justify-content:space-between; align-items:center; color: var(--bayer-blue); margin-bottom: 12px;">
@@ -873,7 +861,7 @@
           <span id="editLineAutoTargetBadge" style="font-size:0.72rem; font-weight:700; background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:999px;">Gesamt-Soll: 3</span>
         </div>
         <p style="font-size:0.71rem; color:#64748b; margin-top:3px;">
-          Der Gesamt-Personalbedarf je Schicht (Früh / Spät / Nacht) ergibt sich automatisch und widerspruchsfrei aus der Summe dieser Rollen:
+          Der Gesamt-Personalbedarf je Schicht ergibt sich automatisch aus der Summe dieser Rollen:
         </p>
         <div id="editLineRoleTargetsContainer" class="role-target-grid"></div>
       </div>
@@ -882,9 +870,8 @@
     </div>
   </div>
 
-  <!-- Sicherheits-Bootstrap -->
   <script>
-    window.EXPECTED_HTML_VERSION = "4.9.62";
+    window.EXPECTED_HTML_VERSION = "4.9.63";
     window.closeModal = function(id) {
       var el = document.getElementById(id);
       if (el) el.style.display = "none";
@@ -904,6 +891,7 @@
     }
     function classifyInboxActiveItem(sl) {
       if (!sl) return "EXTRA";
+      if (sl.isOnboardingNotice) return "ONBOARDING";
       const cat = (sl.category || "").toLowerCase();
       if (cat.indexOf("urlaub") !== -1 || cat.indexOf("freizeit") !== -1) return "URLAUB";
       if (cat.indexOf("krank") !== -1 || cat.indexOf("abwesen") !== -1 || cat.indexOf("arbeitsunfähig") !== -1) return "KRANK";
@@ -926,6 +914,6 @@
       if (arrow) arrow.textContent = shouldOpen ? "▲ Formular schließen" : "▼ Formular öffnen";
     }
   </script>
-  <script src="planer.js?v=4.9.62"></script>
+  <script src="planer.js?v=4.9.63"></script>
 </body>
 </html>
