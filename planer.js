@@ -98,6 +98,7 @@ let hasLoadedFromCloud = false;
 let isDraggingCard = false;
 let lastBoardSnapshotForUndo = null;
 let pendingSecLineUnlockData = null;
+let activeCoverageReleaseLeaveId = null;
 
 let activeTeamFilters = {};
 let activeRoleFilters = {};
@@ -174,6 +175,13 @@ function formatDateDe(isoDate) {
   const p = String(isoDate).split("-");
   if (p.length !== 3) return isoDate;
   return p[2] + "." + p[1] + "." + p[0];
+}
+
+function getWeekdayShortDe(isoDate) {
+  const p = String(isoDate || "").split("-");
+  if (p.length !== 3) return "";
+  const d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  return weekdayShortNames[d.getDay()] || "";
 }
 
 function isIsoDateSunday(iso) {
@@ -542,7 +550,6 @@ window.hasLeaveOverlap = function(empId, startIso, endIso) {
   });
 };
 
-/* Ermittelt die voraussichtliche Linie eines Mitarbeiters für Ersatzgesuche */
 window.getEmpProbableLinesText = function(emp) {
   if (!emp) return "";
   if (emp.pinnedZone) {
@@ -556,14 +563,23 @@ window.getEmpProbableLinesText = function(emp) {
   return "";
 };
 
-/* Erzeugt automatisch offene Bringschicht-Gesuche für genehmigte Urlaubs-/Kranktage */
-window.generateCoveragePromptForLeave = function(sl) {
-  if (!sl || sl.isOnboardingNotice || sl.lineRequestData || !sl.startDate || !sl.endDate) return;
+/* Erzeugt die Schichttage eines Urlaubs/Krankenscheins für die Planer-Einzelfreigabe */
+window.generateCoveragePromptForLeave = function(sl, defaultDayStatus) {
+  if (!sl || sl.isOnboardingNotice || sl.lineRequestData || !sl.startDate || !sl.endDate) return null;
   const emp = employees.find(e => e.id === sl.empId);
-  if (!emp) return;
+  if (!emp) return null;
 
-  leaveRequests = (Array.isArray(leaveRequests) ? leaveRequests : []).filter(r => r.leaveId !== sl.id);
+  const existingCov = (Array.isArray(leaveRequests) ? leaveRequests : []).find(r => r.leaveId === sl.id || r.id === ("cov_" + sl.id));
+  const prevDaysMap = {};
+  if (existingCov && Array.isArray(existingCov.days)) {
+    existingCov.days.forEach(d => {
+      prevDaysMap[d.date + "_" + d.shift] = d;
+    });
+  }
 
+  leaveRequests = (Array.isArray(leaveRequests) ? leaveRequests : []).filter(r => r.leaveId !== sl.id && r.id !== ("cov_" + sl.id));
+
+  const initStatus = defaultDayStatus || "closed";
   const days = [];
   let curIso = sl.startDate;
   let safetyCounter = 0;
@@ -571,26 +587,30 @@ window.generateCoveragePromptForLeave = function(sl) {
     safetyCounter++;
     const regShift = window.getEmpRegularShiftOnDate(emp, curIso);
     if (regShift) {
+      const prev = prevDaysMap[curIso + "_" + regShift];
       days.push({
         date: curIso,
         shift: regShift,
-        takenBy: null,
-        dayStatus: "open"
+        takenBy: prev ? prev.takenBy : null,
+        dayStatus: prev ? prev.dayStatus : initStatus
       });
     }
     curIso = getNextDateIso(curIso);
   }
 
   if (days.length > 0) {
-    leaveRequests.push({
+    const newCov = {
       id: "cov_" + sl.id,
       leaveId: sl.id,
       empId: emp.id,
       role: emp.role || "Bediener",
       probableLines: window.getEmpProbableLinesText(emp),
       days: days
-    });
+    };
+    leaveRequests.push(newCov);
+    return newCov;
   }
+  return null;
 };
 
 window.removeCoveragePromptForLeave = function(slId) {
@@ -617,7 +637,6 @@ window.checkExtraShiftPlausibility = function(empId, dateIso, shiftId, ignoreExt
     return { ok: false, isWorkingConflict: false, reason: "Ungültige Eingabe." };
   }
 
-  // Prüfen, ob bereits eine ANDERE Bringschicht an diesem Tag existiert (ignoreExtraId verhindert Selbst-Treffer!)
   const existingExtra = extraShifts.find(es => es.id !== ignoreExtraId && es.empId === emp.id && es.date === dateIso && es.status !== "rejected");
   if (existingExtra) {
     return {
@@ -630,26 +649,22 @@ window.checkExtraShiftPlausibility = function(empId, dateIso, shiftId, ignoreExt
   const warnings = [];
   let isNightConflict = false;
 
-  // 1. Abwesenheit / Urlaub am selben Tag?
   const activeLeave = getActiveLeaveForEmpOnDate(emp.id, dateIso);
   if (activeLeave) {
     warnings.push("Du bist am " + formatDateDe(dateIso) + " als abwesend eingetragen (" + (activeLeave.category || "Urlaub/Krank") + ").");
   }
 
-  // 2. Sonntag (im 2-2-2 Modell Früh/Spät frei; in den Sonntag reinarbeiten = Sa-Nacht; nicht aus Sonntag rausarbeiten)
   if (isIsoDateSunday(dateIso)) {
     if (shiftId === "nacht") isNightConflict = true;
     warnings.push("Der " + formatDateDe(dateIso) + " ist ein Sonntag (regulär schichtfrei; in den Sonntag reinarbeiten zählt als Samstags-Nachtschicht, aus dem Sonntag rausarbeiten ist regulär nicht vorgesehen).");
   }
 
-  // 3. Arbeitet der Mitarbeiter an diesem Tag bereits regulär?
   const regShift = window.getEmpRegularShiftOnDate(emp, dateIso);
   if (regShift) {
     if (regShift === "nacht" || shiftId === "nacht") isNightConflict = true;
     warnings.push("Du arbeitest am " + formatDateDe(dateIso) + " laut Schichtplan bereits regulär in der " + (shiftsLabel[regShift] || regShift) + ".");
   }
 
-  // 4. Vortag prüfen (Nach Nachtschicht keine Früh oder Spät; nach Spätschicht keine Früh)
   const prevIso = getPrevDateIso(dateIso);
   const prevShift = getEmpAnyShiftOnDate(emp, prevIso, ignoreExtraId);
   if (prevShift === "nacht" && (shiftId === "frueh" || shiftId === "spaet")) {
@@ -659,7 +674,6 @@ window.checkExtraShiftPlausibility = function(empId, dateIso, shiftId, ignoreExt
     warnings.push("Ruhezeit-Konflikt: Nach deiner Spätschicht am Vortag (" + formatDateDe(prevIso) + ", bis 22:00 Uhr) ist die Ruhezeit bis zur Frühschicht (06:00 Uhr) zu kurz.");
   }
 
-  // 5. Folgetag prüfen (Vor der 1. Frühschicht keine Nacht- oder Spätschicht; vor Spätschicht keine Nachtschicht)
   const nextIso = getNextDateIso(dateIso);
   const nextShift = getEmpAnyShiftOnDate(emp, nextIso, ignoreExtraId);
   if (shiftId === "nacht" && (nextShift === "frueh" || nextShift === "spaet")) {
@@ -708,7 +722,7 @@ window.addPortalLeaveRequest = function(empId, startIso, endIso, category, reaso
   };
   sickLeaves.unshift(newLeave);
   if (isSick) {
-    window.generateCoveragePromptForLeave(newLeave);
+    window.generateCoveragePromptForLeave(newLeave, "closed");
   }
   addHistoryLog((emp ? fullName(emp) : "Mitarbeiter") + " hat " + (category || "Antrag") + " (" + formatDateDe(startIso) + " - " + formatDateDe(endIso) + ") eingereicht", "ABSENCE");
   saveToFirebase();
@@ -895,7 +909,6 @@ window.confirmSecondaryLineUnlock = function() {
   }
 };
 
-/* Sicherheits-Reset für gesammelte Schulungsstunden eines einzelnen Mitarbeiters */
 window.resetEmployeeTrainingHours = function(empId, lineId) {
   const emp = employees.find(e => e.id === empId);
   if (!emp || !emp.trainingHoursByLine) return;
@@ -1933,8 +1946,95 @@ window.saveLineDetails = function(isAuto) {
 };
 
 /* ==========================================================================
-   11. EINSTELLUNGEN, ROLLEN-HAKEN, ONBOARDING-STATUS & SICHERHEIT
+   11. PLANER-EINZELFREIGABE FÜR BRINGSCHICHTEN & EINSTELLUNGEN
    ========================================================================== */
+
+window.openCoverageReleaseModal = function(leaveId) {
+  activeCoverageReleaseLeaveId = leaveId;
+  const sl = sickLeaves.find(x => x.id === leaveId);
+  let req = (leaveRequests || []).find(r => r.leaveId === leaveId || r.id === leaveId || r.id === ("cov_" + leaveId));
+  if (!req && sl && !sl.isOnboardingNotice) {
+    req = window.generateCoveragePromptForLeave(sl, "closed");
+  }
+
+  const modal = document.getElementById("coverageReleaseModal");
+  const subEl = document.getElementById("coverageReleaseSubtitle");
+  const listEl = document.getElementById("coverageReleaseDaysList");
+  if (!modal || !listEl) return;
+
+  const emp = sl ? employees.find(e => e.id === sl.empId) : (req ? employees.find(e => e.id === req.empId) : null);
+  const nameTxt = emp ? fullName(emp) : "Mitarbeiter";
+  const roleTxt = (req && req.role) ? req.role : (emp ? emp.role : "Bediener");
+  const probLineTxt = (req && req.probableLines) ? (" · " + req.probableLines) : "";
+
+  if (subEl) {
+    subEl.innerHTML =
+      "Abwesenheit von <b>" + nameTxt + "</b> (" + roleTxt + probLineTxt + ").<br>" +
+      "Wähle aus, welche regulären Arbeitstage als <b>gesuchte Bringschichten</b> im Mitarbeiter-Portal (nur für passende Kollegen mit Freischicht & eingehaltener Ruhezeit) angezeigt werden sollen:";
+  }
+
+  if (!req || !Array.isArray(req.days) || !req.days.length) {
+    listEl.innerHTML = '<p style="font-size:0.82rem; color:#64748b; padding:8px;">In diesem Zeitraum fallen laut 2-2-2-Schichtplan keine regulären Arbeitstage für ' + nameTxt + ' an (bereits regulär Freischicht/Sonntag).</p>';
+  } else {
+    listEl.innerHTML = req.days.map((d, dIdx) => {
+      const isOpen = (d.dayStatus === "open");
+      const isTaken = !!d.takenBy;
+      const takenEmp = isTaken ? employees.find(x => x.id === d.takenBy) : null;
+      const wdShort = typeof getWeekdayShortDe === "function" ? getWeekdayShortDe(d.date) : "";
+
+      let statusBadge = "";
+      if (isTaken) {
+        statusBadge = '<span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:700;">🤝 Übernommen von ' + (takenEmp ? fullName(takenEmp) : 'Kollege') + '</span>';
+      } else if (isOpen) {
+        statusBadge = '<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:700;">🟢 Im Portal sichtbar (Freigegeben)</span>';
+      } else {
+        statusBadge = '<span style="background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:700;">🔒 Nicht freigegeben (Intern)</span>';
+      }
+
+      let btnAction = "";
+      if (!isTaken) {
+        btnAction = isOpen
+          ? '<button type="button" class="btn btn-outline" style="padding:4px 10px; font-size:0.74rem; color:#b91c1c; border-color:#fca5a5;" onclick="toggleCoverageDayStatus(\'' + req.leaveId + '\', ' + dIdx + ')">🔒 Nicht freigeben</button>'
+          : '<button type="button" class="btn btn-primary" style="padding:4px 10px; font-size:0.74rem; background:#16a34a;" onclick="toggleCoverageDayStatus(\'' + req.leaveId + '\', ' + dIdx + ')">📢 Für Portal freigeben</button>';
+      }
+
+      return '<div style="display:flex; justify-content:space-between; align-items:center; background:#fff; border:1px solid ' + (isOpen ? '#86efac' : '#cbd5e1') + '; border-left:4px solid ' + (isOpen ? '#16a34a' : '#94a3b8') + '; padding:9px 12px; border-radius:6px; margin-bottom:6px; gap:8px; flex-wrap:wrap;">' +
+        '<div>' +
+          '<b>' + (wdShort ? wdShort + ', ' : '') + formatDateDe(d.date) + '</b> · <b>' + (shiftsLabel[d.shift] || d.shift) + '</b>' +
+          '<div style="margin-top:3px;">' + statusBadge + '</div>' +
+        '</div>' +
+        btnAction +
+      '</div>';
+    }).join("");
+  }
+
+  modal.style.display = "flex";
+};
+
+window.toggleCoverageDayStatus = function(leaveId, dayIdx) {
+  const req = (leaveRequests || []).find(r => r.leaveId === leaveId || r.id === leaveId || r.id === ("cov_" + leaveId));
+  if (!req || !req.days || !req.days[dayIdx]) return;
+  req.days[dayIdx].dayStatus = (req.days[dayIdx].dayStatus === "open") ? "closed" : "open";
+  saveToFirebase();
+  const modal = document.getElementById("coverageReleaseModal");
+  if (modal && modal.style.display === "flex") {
+    window.openCoverageReleaseModal(req.leaveId);
+  }
+  window.renderInboxLists();
+};
+
+window.setAllModalCoverageDaysStatus = function(targetStatus) {
+  if (!activeCoverageReleaseLeaveId) return;
+  const req = (leaveRequests || []).find(r => r.leaveId === activeCoverageReleaseLeaveId || r.id === activeCoverageReleaseLeaveId || r.id === ("cov_" + activeCoverageReleaseLeaveId));
+  if (!req || !Array.isArray(req.days)) return;
+  req.days.forEach(d => {
+    if (!d.takenBy) d.dayStatus = targetStatus;
+  });
+  saveToFirebase();
+  window.openCoverageReleaseModal(req.leaveId);
+  window.renderInboxLists();
+  showToast(targetStatus === "open" ? "✅ Alle Schichttage fürs Portal freigegeben!" : "🔒 Alle Schichttage gesperrt");
+};
 
 window.openSettingsModal = function() {
   document.getElementById("settingsModal").style.display = "flex";
@@ -2123,7 +2223,7 @@ function renderSettingsLists() {
           '<b>' + (idx + 1) + '. ' + r + '</b>' +
         '</div>' +
         '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">' +
-          '<label style="font-size:0.72rem; display:flex; align-items:center; gap:4px; cursor:pointer; font-weight:700; color:#166534; background:#f0fdf4; padding:2px 6px; border-radius:4px; border:1px solid #bbf7d0;" title="Steuert, ob diese Rolle automatisch auf Linien verteilt werden darf (AUS schützt z.B. Schichtexperten vor Lückenfüller-Zuweisung)">' +
+          '<label style="font-size:0.72rem; display:flex; align-items:center; gap:4px; cursor:pointer; font-weight:700; color:#166534; background:#f0fdf4; padding:2px 6px; border-radius:4px; border:1px solid #bbf7d0;" title="Steuert, ob diese Rolle automatisch auf Linien verteilt werden darf">' +
             '<input type="checkbox" ' + (allowAssign ? 'checked' : '') + ' onchange="toggleRoleAllowLineAssignFlag(\'' + r + '\', this.checked)"> 🎯 Darf auf Linien verteilt werden' +
           '</label>' +
           '<label style="font-size:0.72rem; display:flex; align-items:center; gap:4px; cursor:pointer; font-weight:600; color:#0369a1; background:#f0f9ff; padding:2px 6px; border-radius:4px; border:1px solid #bae6fd;" title="Bestimmt, ob Mitarbeiter dieser Rolle im Onboarding Linien auswählen müssen">' +
@@ -2790,7 +2890,7 @@ window.filterSettingsEmployees = function(q) {
 };
 
 /* ==========================================================================
-   13. AUTOCOMPLETE, POSTFACH (INKL. BRINGSCHICHT-WARNUNGEN) & CLOUD-SYNC
+   13. AUTOCOMPLETE, POSTFACH (INKL. EINZEL-FREIGABE FÜR BRINGSCHICHTEN) & CLOUD
    ========================================================================== */
 
 window.onPlannerLoginInput = function(val) {
@@ -2924,14 +3024,15 @@ window.addManualSickLeave = function() {
     reviewedAt: new Date().toISOString()
   };
   sickLeaves.push(newLeave);
-  window.generateCoveragePromptForLeave(newLeave);
+  window.generateCoveragePromptForLeave(newLeave, "closed");
 
   addHistoryLog("Abwesenheit (" + cat + ") für " + (emp ? fullName(emp) : "") + " eingetragen", "ABSENCE");
   saveToFirebase();
   window.syncAbsentAndExtraZones();
   renderEmployees();
   window.renderInboxLists();
-  showToast("Abwesenheit eingetragen & genehmigt!");
+  window.openCoverageReleaseModal(newLeave.id);
+  showToast("Abwesenheit eingetragen – bitte Bringschichten prüfen!");
 
   document.getElementById("manualSickStart").value = "";
   document.getElementById("manualSickEnd").value = "";
@@ -2995,7 +3096,9 @@ window.markAllSickLeavesRead = function() {
   sickLeaves.forEach(sl => {
     if (sl.status === "pending") {
       sl.status = "approved";
-      window.generateCoveragePromptForLeave(sl);
+      if (!sl.isOnboardingNotice) {
+        window.generateCoveragePromptForLeave(sl, "closed");
+      }
     }
     sl.plannerUnreadInfo = false;
   });
@@ -3013,6 +3116,7 @@ window.markAllSickLeavesRead = function() {
 
 window.renderInboxLists = function() {
   const unreadEl = document.getElementById("unreadSickList");
+  const coverageListEl = document.getElementById("inboxCoverageControlList");
   const extraListEl = document.getElementById("inboxExtraList");
   const activeListEl = document.getElementById("activeSickList");
   if (!unreadEl || !activeListEl) return;
@@ -3076,8 +3180,8 @@ window.renderInboxLists = function() {
       return '<div style="background:#fff; border:1px solid #cbd5e1; border-left:4px solid #dc2626; padding:10px; border-radius:6px; margin-bottom:8px; font-size:0.82rem;">' +
         '<div style="display:flex; justify-content:space-between; align-items:center;"><b>' + eName + '</b><span style="color:#b91c1c; font-weight:700;">' + (sl.category || 'Meldung') + '</span></div>' +
         '<div style="color:#475569; margin:3px 0;">Von ' + formatDateDe(sl.startDate) + ' bis ' + formatDateDe(sl.endDate) + (sl.reason ? ' · ' + sl.reason : '') + '</div>' +
-        '<div style="display:flex; gap:6px; margin-top:6px;">' +
-          '<button class="btn btn-primary" style="padding:3px 10px; font-size:0.74rem; background:#16a34a;" onclick="approveSickLeave(\'' + sl.id + '\')">✅ Genehmigen</button>' +
+        '<div style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;">' +
+          '<button class="btn btn-primary" style="padding:3px 10px; font-size:0.74rem; background:#16a34a;" onclick="approveSickLeave(\'' + sl.id + '\')">✅ Genehmigen & Bringschichten wählen</button>' +
           '<button class="btn btn-outline" style="padding:3px 10px; font-size:0.74rem; color:#dc2626; border-color:#fca5a5;" onclick="rejectSickLeave(\'' + sl.id + '\')">❌ Ablehnen</button>' +
         '</div>' +
       '</div>';
@@ -3107,6 +3211,60 @@ window.renderInboxLists = function() {
     }).join("");
 
     unreadEl.innerHTML = extrasHtml + leavesHtml;
+  }
+
+  if (coverageListEl) {
+    const todayIso = getTodayIso();
+    const activeLeavesWithCov = (sickLeaves || []).filter(sl => sl.status === "approved" && !sl.isOnboardingNotice && sl.endDate >= todayIso);
+    activeLeavesWithCov.forEach(sl => {
+      const hasCov = (leaveRequests || []).some(r => r.leaveId === sl.id || r.id === ("cov_" + sl.id));
+      if (!hasCov) window.generateCoveragePromptForLeave(sl, "closed");
+    });
+
+    const covRequests = (leaveRequests || []).filter(r => {
+      const sl = activeLeavesWithCov.find(x => x.id === r.leaveId || ("cov_" + x.id) === r.id);
+      if (!sl) return false;
+      if (globalQ) {
+        const emp = employees.find(e => e.id === r.empId);
+        const hay = ((emp ? fullName(emp) : "") + " " + (r.role || "") + " " + (r.probableLines || "")).toLowerCase();
+        if (hay.indexOf(globalQ) === -1) return false;
+      }
+      return Array.isArray(r.days) && r.days.some(d => d.date >= todayIso);
+    });
+
+    if (!covRequests.length) {
+      coverageListEl.innerHTML = '<p style="font-size:0.8rem; color:#64748b;">Keine kommenden Urlaubs- oder Krankheits-Schichten zur Portal-Freigabe vorhanden.</p>';
+    } else {
+      coverageListEl.innerHTML = covRequests.map(cov => {
+        const sl = sickLeaves.find(x => x.id === cov.leaveId || ("cov_" + x.id) === cov.id);
+        const emp = employees.find(e => e.id === cov.empId);
+        const name = emp ? fullName(emp) : "Mitarbeiter";
+        const probLine = cov.probableLines ? (" · " + cov.probableLines) : "";
+        const leaveIdKey = sl ? sl.id : cov.leaveId;
+
+        const dayPills = (cov.days || []).map((d, dIdx) => {
+          if (d.date < todayIso) return "";
+          const isOpen = d.dayStatus === "open";
+          const isTaken = !!d.takenBy;
+          const wd = typeof getWeekdayShortDe === "function" ? getWeekdayShortDe(d.date) : "";
+          if (isTaken) {
+            const tEmp = employees.find(x => x.id === d.takenBy);
+            return '<span style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:6px; font-size:0.73rem; font-weight:700; background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">🤝 ' + (wd ? wd + ' ' : '') + formatDateDe(d.date).slice(0, 6) + ' (' + (shiftsShortLabel[d.shift] || d.shift) + '): ' + (tEmp ? fullName(tEmp) : 'Besetzt') + '</span>';
+          }
+          return '<button type="button" onclick="toggleCoverageDayStatus(\'' + leaveIdKey + '\', ' + dIdx + ')" style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:6px; font-size:0.73rem; font-weight:700; cursor:pointer; border:1px solid ' + (isOpen ? '#86efac' : '#cbd5e1') + '; background:' + (isOpen ? '#dcfce7' : '#f8fafc') + '; color:' + (isOpen ? '#166534' : '#475569') + ';" title="Klicken zum direkten Freigeben oder Sperren für das Mitarbeiter-Portal">' +
+            (isOpen ? '📢 Freigegeben: ' : '🔒 Gesperrt: ') + (wd ? wd + ' ' : '') + formatDateDe(d.date).slice(0, 6) + ' (' + (shiftsShortLabel[d.shift] || d.shift) + ')' +
+          '</button>';
+        }).filter(Boolean).join("");
+
+        return '<div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #0284c7; padding:9px 11px; border-radius:6px; margin-bottom:8px; font-size:0.82rem;">' +
+          '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px;">' +
+            '<div><b>Ersatzbedarf für ' + name + '</b> <span style="color:#475569;">(' + (cov.role || 'Bediener') + probLine + ')</span></div>' +
+            '<button type="button" class="btn btn-outline" style="padding:2px 8px; font-size:0.72rem; color:var(--bayer-blue); border-color:var(--bayer-blue);" onclick="openCoverageReleaseModal(\'' + leaveIdKey + '\')">📋 Liste öffnen</button>' +
+          '</div>' +
+          '<div style="display:flex; gap:5px; flex-wrap:wrap;">' + dayPills + '</div>' +
+        '</div>';
+      }).join("");
+    }
   }
 
   if (extraListEl) {
@@ -3154,9 +3312,15 @@ window.renderInboxLists = function() {
       const stBadge = sl.status === "approved"
         ? '<span style="color:#166534; font-weight:700;">✅ Aktiv</span>'
         : '<span style="color:#b91c1c; font-weight:700;">❌ Abgelehnt</span>';
-      return '<div style="background:#fff; border:1px solid #e2e8f0; padding:8px 10px; border-radius:6px; margin-bottom:6px; font-size:0.82rem; display:flex; justify-content:space-between; align-items:center;">' +
+      const covBtn = (sl.status === "approved" && !sl.isOnboardingNotice && !sl.lineRequestData)
+        ? '<button class="btn btn-outline" style="padding:2px 7px; font-size:0.71rem; color:var(--bayer-blue); border-color:#bae6fd;" onclick="openCoverageReleaseModal(\'' + sl.id + '\')" title="Bringschichten für diesen Zeitraum freigeben oder sperren">📢 Bringschichten</button>'
+        : '';
+      return '<div style="background:#fff; border:1px solid #e2e8f0; padding:8px 10px; border-radius:6px; margin-bottom:6px; font-size:0.82rem; display:flex; justify-content:space-between; align-items:center; gap:6px;">' +
         '<div><b>' + eName + '</b> · <b>' + (sl.category || 'Abwesend') + '</b> (' + formatDateDe(sl.startDate) + ' bis ' + formatDateDe(sl.endDate) + ')' + (sl.reason ? ' · ' + sl.reason : '') + ' ' + stBadge + '</div>' +
-        '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.72rem; color:#dc2626;" onclick="deleteSickLeave(\'' + sl.id + '\')">🗑️</button>' +
+        '<div style="display:flex; gap:4px; align-items:center; flex-shrink:0;">' +
+          covBtn +
+          '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.72rem; color:#dc2626;" onclick="deleteSickLeave(\'' + sl.id + '\')">🗑️</button>' +
+        '</div>' +
       '</div>';
     }).join("");
   }
@@ -3182,7 +3346,8 @@ window.approveSickLeave = function(id) {
         }
       }
     } else if (!sl.isOnboardingNotice) {
-      window.generateCoveragePromptForLeave(sl);
+      window.generateCoveragePromptForLeave(sl, "closed");
+      window.openCoverageReleaseModal(sl.id);
     }
 
     saveToFirebase();
@@ -3430,7 +3595,7 @@ window.logoutPlanner = function() {
   currentPlannerEmpId = null;
   ["planner_name", "planner_level", "planner_emp_id", "planner_last_active"].forEach(k => sessionStorage.removeItem(k));
   document.body.classList.remove("planner-active", "planner-lvl-2", "planner-lvl-3", "planner-lvl-4");
-  ["pinModal", "inboxModal", "settingsModal", "lineEditModal", "secLineUnlockModal", "plannerForcePinModal"].forEach(window.closeModal);
+  ["pinModal", "inboxModal", "settingsModal", "lineEditModal", "secLineUnlockModal", "plannerForcePinModal", "coverageReleaseModal"].forEach(window.closeModal);
   window.initBoard();
 };
 
@@ -3497,10 +3662,14 @@ window.submitPlannerForcePinChange = function() {
   const errBox = document.getElementById("plannerForcePinError");
 
   if (!p1 || p1.length < 4) {
-    errBox.textContent = "❌ Die eigene PIN muss mindestens 4 Zeichen lang sein!"; errBox.style.display = "block"; return;
+    errBox.textContent = "❌ Die eigene PIN muss mindestens 4 Zeichen lang sein!";
+    errBox.style.display = "block";
+    return;
   }
   if (p1 !== p2) {
-    errBox.textContent = "❌ Die beiden PINs stimmen nicht überein!"; errBox.style.display = "block"; return;
+    errBox.textContent = "❌ Die beiden PINs stimmen nicht überein!";
+    errBox.style.display = "block";
+    return;
   }
 
   emp.password = p1;
@@ -3543,4 +3712,3 @@ window.addEventListener("DOMContentLoaded", function() {
 
   window.initBoard();
 });
-
