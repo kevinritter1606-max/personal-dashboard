@@ -94,6 +94,9 @@
     .card-fix-tag { display: none; font-size: 0.54rem; padding: 0px 3px; background: #fef08a; color: #854d0e; border-radius: 3px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
     body.planner-active .card-fix-tag { display: inline-block; }
 
+    .card-trainee-tag { display: none; font-size: 0.54rem; padding: 0px 4px; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 3px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+    body.planner-active .card-trainee-tag { display: inline-block; }
+
     .card-qual-warn { display: none; font-size: 0.55rem; color: #d97706; font-weight: 800; cursor: help; flex-shrink: 0; }
     body.planner-active .card-qual-warn { display: inline-block; }
 
@@ -128,25 +131,29 @@
     .line-prio { font-size: 0.51rem; padding: 1px 3px; border-radius: 3px; background: #f1f5f9; font-weight: 700; color: #475569; border: 1px solid #e2e8f0; }
     .line-prio.prio-high { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
     .line-prio.prio-mid { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+    .line-mainonly-tag { display: none !important; align-items: center; gap: 3px; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 999px; padding: 1px 7px; font-size: 0.58rem; font-weight: 700; }
+    body.planner-active .line-mainonly-tag { display: inline-flex !important; }
     .line-status-tag { font-size: 0.51rem; padding: 1px 3px; border-radius: 3px; background: #f3f4f6; color: #4b5563; font-weight: 700; border: 1px solid #e5e7eb; }
     .line-ausgeplant-tag { font-size: 0.51rem; padding: 1px 3px; border-radius: 3px; background: #475569; color: #fff; font-weight: 700; }
     .line-role-summary-tag { display: none; font-size: 0.5rem; color: #64748b; font-weight: 600; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; }
     body.planner-active .line-role-summary-tag { display: block; }
     .line-notes { font-size: 0.53rem; color: #475569; margin-top: 2px; background: #fff; padding: 1px 2px; border-radius: 3px; border: 1px dashed #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     
-    .shift-header { background: #f8fafc; font-weight: 700; font-size: 0.74rem; width: 82px; text-align: center; padding: 4px 3px; color: #334155; vertical-align: middle; }
-    body.planner-active .shift-header { width: 102px; padding: 4px 3px; }
+    .shift-header { background: #f8fafc; font-weight: 700; font-size: 0.74rem; width: 86px; text-align: center; padding: 4px 3px; color: #334155; vertical-align: middle; }
+    body.planner-active .shift-header { width: 114px; padding: 4px 4px; }
 
     .shift-team-badge { display: inline-flex; align-items: center; justify-content: center; gap: 3px; margin-top: 3px; padding: 2px 5px; border-radius: 4px; background: #fff; border: 1px solid #cbd5e1; font-size: 0.64rem; font-weight: 700; color: #1e293b; }
     body.planner-active .shift-team-badge { display: none; }
     
     .shift-kpi-row { display: none; justify-content: center; gap: 2px; flex-wrap: wrap; margin-top: 2px; }
     body.planner-active .shift-kpi-row { display: flex; }
-    .shift-kpi-pill { font-size: 0.52rem; font-weight: 700; padding: 1px 3px; border-radius: 3px; background: #e2e8f0; color: #334155; white-space: nowrap; }
-    .shift-kpi-pill.ok { background: #f0fdf4; color: #166534; border: 1px solid #dcfce7; }
-    .shift-kpi-pill.warn { background: #fffbfa; color: #9a3412; border: 1px solid #ffedd5; }
+    .shift-kpi-pill { font-size: 0.54rem; font-weight: 700; padding: 1px 5px; border-radius: 999px; background: #e2e8f0; color: #334155; white-space: nowrap; display: inline-flex; align-items: center; gap: 2px; }
+    .shift-kpi-pill.ok { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+    .shift-kpi-pill.warn { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; }
+    .shift-kpi-pill.eh-zero { background: #fef2f2 !important; color: #dc2626 !important; border: 1px solid #f87171 !important; font-weight: 800 !important; }
+    .eh-plus-icon { color: #dc2626 !important; font-weight: 900 !important; font-size: 0.72rem; line-height: 1; }
 
-    .shift-controls { display: none; flex-direction: column; gap: 2px; margin-top: 3px; }
+    .shift-controls { display: none; flex-direction: column; gap: 3px; margin-top: 3px; }
     body.planner-active .shift-controls { display: flex; }
     .shift-rotate-btn { width: 100%; font-size: 0.61rem; font-weight: 700; padding: 2px; border-radius: 4px; border: none; background: var(--bayer-blue); color: #fff; cursor: pointer; }
     .shift-rotate-btn:hover { background: #0077b6; }
@@ -154,10 +161,10 @@
     .shift-auto-btn:hover { background: #ede9fe; }
     .shift-undo-mini-btn { display: none; width: 100%; font-size: 0.58rem; font-weight: 600; padding: 2px; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; cursor: pointer; }
     body.planner-active .shift-undo-mini-btn.has-undo { display: block; }
-    .shift-load-row { display: flex; gap: 2px; align-items: center; }
-    .shift-team-select { width: 100%; font-size: 0.61rem; font-weight: 700; padding: 2px 1px; border-radius: 4px; border: 1px solid var(--bayer-blue); background: #fff; color: #0f172a; cursor: pointer; min-width: 0; }
-    .shift-load-btn { padding: 2px 4px; font-size: 0.61rem; font-weight: 700; border-radius: 4px; border: 1px solid var(--bayer-blue); background: var(--bayer-blue); color: #fff; cursor: pointer; flex-shrink: 0; }
-    .shift-magic-btn { padding: 2px 4px; font-size: 0.61rem; font-weight: 700; border-radius: 4px; border: 1px solid #8b5cf6; background: #8b5cf6; color: #fff; cursor: pointer; flex-shrink: 0; }
+    .shift-load-row { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+    .shift-team-select { width: 100%; flex: 1 1 100%; font-size: 0.64rem; font-weight: 700; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--bayer-blue); background: #fff; color: #0f172a; cursor: pointer; min-width: 0; }
+    .shift-load-btn { flex: 1; padding: 2px 4px; font-size: 0.62rem; font-weight: 700; border-radius: 4px; border: 1px solid var(--bayer-blue); background: var(--bayer-blue); color: #fff; cursor: pointer; }
+    .shift-magic-btn { flex: 1; padding: 2px 4px; font-size: 0.62rem; font-weight: 700; border-radius: 4px; border: 1px solid #8b5cf6; background: #8b5cf6; color: #fff; cursor: pointer; }
     .shift-magic-btn:hover { background: #7c3aed; }
     .shift-clear-btn { width: 100%; font-size: 0.58rem; font-weight: 600; padding: 2px; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff; color: #64748b; cursor: pointer; }
     .shift-clear-btn:hover { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
@@ -252,17 +259,18 @@
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
 
-  <!-- MODAL: PLANER BRINGSCHICHT-EINZELFREIGABE NACH URLAUB/KRANK-GENEHMIGUNG -->
+  <!-- MODAL: PLANER BRINGSCHICHT-EINZELFREIGABE MIT SMARTER 3ER-SCHNELLAUSWAHL -->
   <div id="coverageReleaseModal" class="modal-overlay" style="display:none;">
-    <div class="modal" style="max-width: 560px;">
+    <div class="modal" style="max-width: 580px;">
       <h3 style="display:flex; justify-content:space-between; align-items:center; color:var(--bayer-blue); margin-bottom:8px;">
         <span>📢 Bringschichten für Portal freigeben?</span>
         <button onclick="closeModal('coverageReleaseModal')" style="border:none; background:none; font-size:1.5rem; cursor:pointer;">&times;</button>
       </h3>
       <p id="coverageReleaseSubtitle" style="font-size:0.82rem; color:#475569; margin-bottom:10px; line-height:1.4;"></p>
-      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
-        <button type="button" class="btn btn-primary" style="background:#16a34a; font-size:0.76rem; padding:5px 10px;" onclick="setAllModalCoverageDaysStatus('open')">✅ Alle Tage fürs Portal freigeben</button>
-        <button type="button" class="btn btn-outline" style="color:#b91c1c; border-color:#fca5a5; font-size:0.76rem; padding:5px 10px;" onclick="setAllModalCoverageDaysStatus('closed')">🔒 Keine freigeben (Alle sperren)</button>
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid #e2e8f0;">
+        <button type="button" class="btn btn-primary" style="background:#16a34a; font-size:0.73rem; padding:5px 9px;" onclick="setAllModalCoverageDaysStatus('open_green')">🟢 Alle fahrbaren Tage (Ja)</button>
+        <button type="button" class="btn btn-outline" style="background:#fffbeb; color:#b45309; border-color:#fde68a; font-size:0.73rem; padding:5px 9px;" onclick="setAllModalCoverageDaysStatus('open_all')">🟡 Alle inkl. Ruhezeit-Warnung (Ja)</button>
+        <button type="button" class="btn btn-outline" style="background:#fef2f2; color:#b91c1c; border-color:#fecaca; font-size:0.73rem; padding:5px 9px;" onclick="setAllModalCoverageDaysStatus('rejected')">❌ Alle ablehnen (Nein)</button>
       </div>
       <div id="coverageReleaseDaysList" style="max-height:310px; overflow-y:auto; border:1px solid #cbd5e1; border-radius:8px; padding:8px; background:#f8fafc;"></div>
       <div class="modal-actions">
@@ -321,7 +329,7 @@
       <div class="header-title">
         <div class="header-title-text">
           <h1>Schicht und Linienübersicht</h1>
-          <div id="headerDateKw" class="header-meta">Lade Datum... · v4.9.64</div>
+          <div id="headerDateKw" class="header-meta">Lade Datum... · v4.9.65</div>
         </div>
         <div class="header-badges-row">
           <span id="plannerStatusBadge" class="status-badge">Planer-Modus aktiv</span>
@@ -347,7 +355,7 @@
       <button id="btnUndoAutoAssignHeader" class="undo-assign-btn" onclick="undoLastAutoAssignment()" title="Stellt den Zustand vor der letzten automatischen Zuweisung fehlerfrei wieder her">
         ↩️ Zurück korrigieren
       </button>
-      <button id="plannerApprovalIndicator" class="planner-approval-indicator" onclick="toggleShiftApprovalState()">
+      <button id="plannerApprovalIndicator" class="planner-approval-indicator" onclick="toggleShiftApprovalState()" title="Gibt gezielt die aktuell laufende Schicht (ab 05:00 Früh / 13:00 Spät / 21:00 Nacht) für das Portal frei">
         <span id="indicatorDot" style="width:8px; height:8px; border-radius:50%; background:#dc2626;"></span>
         <span id="indicatorText">Freigeben</span>
       </button>
@@ -552,11 +560,11 @@
           <h4 style="font-size:0.92rem; margin:0;">📋 Bearbeitete & aktive Abwesenheiten</h4>
         </div>
         <div id="inboxHistoryFilterBar" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; align-items:center;">
-          <button class="btn btn-outline active" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('ALL')">Alle</button>
-          <button class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('URLAUB')">Urlaub</button>
-          <button class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('KRANK')">Krank</button>
-          <button class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('EXTRA')">Bringschicht / Info</button>
-          <button class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('ONBOARDING')">🎓 Onboarding</button>
+          <button type="button" class="btn btn-outline active" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('ALL')">Alle</button>
+          <button type="button" class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('URLAUB')">Urlaub</button>
+          <button type="button" class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('KRANK')">Krank</button>
+          <button type="button" class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('EXTRA')">Bringschicht / Info</button>
+          <button type="button" class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('ONBOARDING')">🎓 Onboarding</button>
         </div>
         <div style="margin-bottom:10px;">
           <input type="text" id="inboxActiveSearchInput" class="form-control" placeholder="🔍 Einträge durchsuchen (Name, Grund, Notiz)..." oninput="renderInboxLists()" style="font-size:0.82rem; padding:8px 10px;">
@@ -569,7 +577,7 @@
   <div id="settingsModal" class="modal-overlay">
     <div class="modal" style="max-width: 760px;">
       <h3 style="display:flex; justify-content:space-between; color:var(--bayer-blue); margin-bottom:12px;">
-        <span>⚙️ Einstellungen <small style="font-size:0.72rem; color:#94a3b8; font-weight:600;">v4.9.64</small></span>
+        <span>⚙️ Einstellungen <small style="font-size:0.72rem; color:#94a3b8; font-weight:600;">v4.9.65</small></span>
         <button onclick="closeModal('settingsModal')" style="border:none; background:none; font-size:1.5rem; cursor:pointer;">&times;</button>
       </h3>
       <div class="tabs">
@@ -604,14 +612,32 @@
             </div>
           </div>
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; flex-wrap:wrap; gap:8px;">
-            <div style="display:flex; gap:14px; align-items:center;">
+            <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
               <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.82rem; font-weight:600;"><input type="checkbox" id="newEmpFirstAider"> Ersthelfer <span style="color:#dc2626; font-weight:900;">+</span></label>
               <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.82rem; font-weight:600;"><input type="checkbox" id="newEmpNoRotation" onchange="document.getElementById('newEmpAnchorDaysWrap').style.display=this.checked?'block':'none'; if(this.checked && typeof renderAnchorDayButtons==='function') renderAnchorDayButtons([1,2,3,4,5]);"> ⚓ Fix (Anker)</label>
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.82rem; font-weight:700; color:#1d4ed8; background:#eff6ff; padding:3px 8px; border-radius:6px; border:1px solid #bfdbfe;"><input type="checkbox" id="newEmpInTrainingPhase" onchange="document.getElementById('newEmpTrainingPhaseWrap').style.display=this.checked?'block':'none';"> 🛡️ In Einarbeitung (Stamm-Schutz)</label>
             </div>
           </div>
           <div id="newEmpAnchorDaysWrap" style="margin-bottom:10px; background:#f1f5f9; padding:8px 10px; border-radius:6px; display:none;">
             <label style="display:block; font-size:0.75rem; font-weight:700; margin-bottom:5px;">Anker-Modus (Wochentage aktiv):</label>
             <div id="anchorDaysContainer" style="display:flex; gap:5px; flex-wrap:wrap;"></div>
+          </div>
+          <div id="newEmpTrainingPhaseWrap" style="margin-bottom:10px; background:#eff6ff; border:1px solid #bfdbfe; padding:10px 12px; border-radius:8px; display:none;">
+            <div style="font-size:0.76rem; font-weight:700; color:#1d4ed8; margin-bottom:6px;">🛡️ Neu-Mitarbeiter Einarbeitungs-Modus (Überwiegend an eigener Stammlinie einsetzen):</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+              <div style="flex:1; min-width:130px;">
+                <label style="font-size:0.72rem; font-weight:600; color:#1e293b; display:block; margin-bottom:2px;">Dauer in Tagen (frei wählbar):</label>
+                <input type="number" id="newEmpTrainingDays" class="form-control" min="1" max="1500" value="360" style="padding:5px 8px; font-size:0.8rem; font-weight:700;">
+              </div>
+              <div style="flex:1; min-width:130px;">
+                <label style="font-size:0.72rem; font-weight:600; color:#1e293b; display:block; margin-bottom:2px;">Stammlinien-Quote in %:</label>
+                <input type="number" id="newEmpTrainingMainPct" class="form-control" min="50" max="100" step="5" value="90" style="padding:5px 8px; font-size:0.8rem; font-weight:700;">
+              </div>
+              <div style="flex:1; min-width:140px;">
+                <label style="font-size:0.72rem; font-weight:600; color:#1e293b; display:block; margin-bottom:2px;">Startdatum Einarbeitung:</label>
+                <input type="date" id="newEmpTrainingStartDate" class="form-control" style="padding:5px 8px; font-size:0.8rem;">
+              </div>
+            </div>
           </div>
           <div class="form-group"><label>Prio-Linien (Stammlinien):</label><div id="mainLinesCheckboxes" style="display:flex; flex-wrap:wrap; gap:5px;"></div></div>
           <div class="form-group"><label>Sek-Linien (Zweitlinien):</label><div id="secLinesCheckboxes" style="display:flex; flex-wrap:wrap; gap:5px;"></div></div>
@@ -899,7 +925,7 @@
   </div>
 
   <script>
-    window.EXPECTED_HTML_VERSION = "4.9.64";
+    window.EXPECTED_HTML_VERSION = "4.9.65";
     window.closeModal = function(id) {
       var el = document.getElementById(id);
       if (el) el.style.display = "none";
@@ -912,19 +938,19 @@
     window.updateAutoRotationUI = window.updateAutoRotationUI || function() {};
     window.updateSmartAssignUI = window.updateSmartAssignUI || function() {};
 
-    let activeInboxHistoryCategory = "ALL";
-    function setInboxHistoryCategoryFilter(cat) { 
-      activeInboxHistoryCategory = cat || "ALL"; 
-      if (typeof renderInboxLists === "function") renderInboxLists(); 
-    }
-    function classifyInboxActiveItem(sl) {
+    window.activeInboxHistoryCategory = "ALL";
+    window.setInboxHistoryCategoryFilter = function(cat) { 
+      window.activeInboxHistoryCategory = cat || "ALL"; 
+      if (typeof window.renderInboxLists === "function") window.renderInboxLists(); 
+    };
+    window.classifyInboxActiveItem = function(sl) {
       if (!sl) return "EXTRA";
-      if (sl.isOnboardingNotice) return "ONBOARDING";
-      const cat = (sl.category || "").toLowerCase();
-      if (cat.indexOf("urlaub") !== -1 || cat.indexOf("freizeit") !== -1) return "URLAUB";
-      if (cat.indexOf("krank") !== -1 || cat.indexOf("abwesen") !== -1 || cat.indexOf("arbeitsunfähig") !== -1) return "KRANK";
+      if (sl.isOnboardingNotice || sl.lineRequestData) return "ONBOARDING";
+      const cat = String(sl.category || "").toLowerCase();
+      if (cat.indexOf("urlaub") !== -1 || cat.indexOf("freizeit") !== -1 || cat.indexOf("gleittag") !== -1) return "URLAUB";
+      if (cat.indexOf("krank") !== -1 || cat.indexOf("abwesen") !== -1 || cat.indexOf("arbeitsunfähig") !== -1 || cat.indexOf("fortbildung") !== -1 || cat.indexOf("dienstreise") !== -1 || cat.indexOf("dienstgang") !== -1) return "KRANK";
       return "EXTRA";
-    }
+    };
     function toggleManualEntryBox(forceOpen) {
       const content = document.getElementById("manualEntryContent");
       const arrow = document.getElementById("manualEntryArrow");
@@ -942,6 +968,6 @@
       if (arrow) arrow.textContent = shouldOpen ? "▲ Formular schließen" : "▼ Formular öffnen";
     }
   </script>
-  <script src="planer.js?v=4.9.64"></script>
+  <script src="planer.js?v=4.9.65"></script>
 </body>
 </html>
