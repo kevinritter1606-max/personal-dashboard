@@ -1110,6 +1110,13 @@
       const start = document.getElementById("portalVacStart").value, end = document.getElementById("portalVacEnd").value;
       const cat = document.getElementById("portalVacCategory").value, reason = document.getElementById("portalVacReason").value.trim();
       if (!start || !end) { showPortalInlineMsg("Bitte Von- und Bis-Datum auswählen.", false); return; }
+
+      // Strenge Prüfung: Existiert bereits ein aktiver oder offener Antrag mit Überschneidung?
+      if (typeof window.hasLeaveOverlap === "function" && window.hasLeaveOverlap(loggedInPortalEmpId, start, end)) {
+        showPortalInlineMsg("⛔ Du hast für diesen Zeitraum bereits einen Urlaubs- oder Abwesenheitsantrag eingereicht oder genehmigt.", false);
+        return;
+      }
+
       if (typeof window.addPortalLeaveRequest === "function" && window.addPortalLeaveRequest(loggedInPortalEmpId, start, end, cat, reason)) {
         showPortalInlineMsg("✅ Urlaubsantrag übermittelt.", true);
         renderPortalView();
@@ -1121,6 +1128,13 @@
       const start = document.getElementById("portalSickStart").value, end = document.getElementById("portalSickEnd").value;
       const cat = document.getElementById("portalSickCategory").value, reason = document.getElementById("portalSickReason").value.trim();
       if (!start || !end) { showPortalInlineMsg("Bitte Von- und Bis-Datum auswählen.", false); return; }
+
+      // Strenge Prüfung: Existiert bereits ein aktiver oder offener Antrag mit Überschneidung?
+      if (typeof window.hasLeaveOverlap === "function" && window.hasLeaveOverlap(loggedInPortalEmpId, start, end)) {
+        showPortalInlineMsg("⛔ Du hast für diesen Zeitraum bereits eine Abwesenheitsmeldung eingereicht oder eingetragen.", false);
+        return;
+      }
+
       if (typeof window.addPortalLeaveRequest === "function" && window.addPortalLeaveRequest(loggedInPortalEmpId, start, end, cat, reason)) {
         showPortalInlineMsg("✅ Abwesenheitsmeldung übermittelt.", true);
         renderPortalView();
