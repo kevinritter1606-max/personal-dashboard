@@ -139,7 +139,6 @@
     body.planner-active .line-role-summary-tag { display: block; }
     .line-notes { font-size: 0.53rem; color: #475569; margin-top: 2px; background: #fff; padding: 1px 2px; border-radius: 3px; border: 1px dashed #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     
-    /* Verbreiterte Schicht-Spalte & Team-Dropdowns */
     .shift-header { background: #f8fafc; font-weight: 700; font-size: 0.74rem; width: 92px; text-align: center; padding: 4px 4px; color: #334155; vertical-align: middle; }
     body.planner-active .shift-header { width: 132px; min-width: 132px; padding: 4px 5px; }
 
@@ -308,7 +307,7 @@
       <div style="height: 6px; background: linear-gradient(90deg, #0091df 0%, #00bcff 50%, #89d329 100%); width: 100%;"></div>
       <div style="padding: 24px;">
         <div style="text-align: center; margin-bottom: 12px;">
-          <img src="logo.png" alt="Bayer Logo" style="width: 52px; height: 52px; object-fit: contain; margin-bottom: 6px;" onerror="if(this.src.indexOf('IMG-20261023-WA0008.jpg')===-1){this.src='IMG-20261023-WA0008.jpg';}else{this.style.display='none';}">
+          <img src="logo.png" alt="Bayer Logo" style="width: 52px; height: 52px; object-fit: contain; margin-bottom: 6px;" onerror="this.style.display='none'">
           <h3 style="color: var(--bayer-blue); font-size: 1.2rem; margin: 0;">🔒 Schicht- und Linienübersicht</h3>
         </div>
         <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 14px;">Bitte einmalig das Start-Passwort eingeben, um die Übersicht für diese Sitzung freizuschalten.</p>
@@ -328,12 +327,12 @@
   <header>
     <div class="header-left">
       <div class="bayer-logo-btn" onclick="handleLogoClick()">
-        <img src="logo.png" alt="Bayer Logo" onerror="if(this.src.indexOf('IMG-20261023-WA0008.jpg')===-1){this.src='IMG-20261023-WA0008.jpg';}else{this.style.display='none';}">
+        <img src="logo.png" alt="Bayer Logo" onerror="this.style.display='none'">
       </div>
       <div class="header-title">
         <div class="header-title-text">
           <h1>Schicht und Linienübersicht</h1>
-          <div id="headerDateKw" class="header-meta">Lade Datum... · v4.9.65</div>
+          <div id="headerDateKw" class="header-meta">Lade Datum... · v4.9.66</div>
         </div>
         <div class="header-badges-row">
           <span id="plannerStatusBadge" class="status-badge">Planer-Modus aktiv</span>
@@ -439,7 +438,7 @@
       <div style="height: 6px; background: linear-gradient(90deg, #0091df 0%, #00bcff 50%, #89d329 100%); width: 100%;"></div>
       <div style="padding: 24px;">
         <div style="text-align: center; margin-bottom: 12px;">
-          <img src="logo.png" alt="Bayer Logo" style="width: 52px; height: 52px; object-fit: contain; margin-bottom: 6px;" onerror="if(this.src.indexOf('IMG-20261023-WA0008.jpg')===-1){this.src='IMG-20261023-WA0008.jpg';}else{this.style.display='none';}">
+          <img src="logo.png" alt="Bayer Logo" style="width: 52px; height: 52px; object-fit: contain; margin-bottom: 6px;" onerror="this.style.display='none'">
           <h3 style="color: var(--bayer-blue); font-size: 1.2rem; margin: 0;">🔐 Planer-Anmeldung</h3>
         </div>
         <div id="loginModalError" style="display:none; background:#fee2e2; color:#b91c1c; padding:10px; border-radius:6px; font-size:0.8rem; font-weight:700; margin-bottom:12px; text-align:center;"></div>
@@ -581,7 +580,7 @@
   <div id="settingsModal" class="modal-overlay">
     <div class="modal" style="max-width: 760px;">
       <h3 style="display:flex; justify-content:space-between; color:var(--bayer-blue); margin-bottom:12px;">
-        <span>⚙️ Einstellungen <small style="font-size:0.72rem; color:#94a3b8; font-weight:600;">v4.9.65</small></span>
+        <span>⚙️ Einstellungen <small style="font-size:0.72rem; color:#94a3b8; font-weight:600;">v4.9.66</small></span>
         <button onclick="closeModal('settingsModal')" style="border:none; background:none; font-size:1.5rem; cursor:pointer;">&times;</button>
       </h3>
       <div class="tabs">
@@ -936,7 +935,7 @@
   </div>
 
   <script>
-    window.EXPECTED_HTML_VERSION = "4.9.65";
+    window.EXPECTED_HTML_VERSION = "4.9.66";
     window.closeModal = function(id) {
       var el = document.getElementById(id);
       if (el) el.style.display = "none";
@@ -980,6 +979,6 @@
       if (arrow) arrow.textContent = shouldOpen ? "▲ Formular schließen" : "▼ Formular öffnen";
     }
   </script>
-  <script src="planer.js?v=4.9.65"></script>
+  <script src="planer.js?v=4.9.66"></script>
 </body>
 </html>
