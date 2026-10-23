@@ -57,7 +57,7 @@
     .inbox-badge { position: absolute; top: -5px; right: -5px; background: #dc2626; color: #fff; font-size: 0.64rem; font-weight: 800; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; display: none; align-items: center; justify-content: center; }
 
     main { padding: 6px 8px; display: flex; gap: 8px; flex: 1; min-height: 0; width: 100%; align-items: stretch; overflow: hidden; }
-    .sidebar { width: 236px; flex-shrink: 0; display: none; flex-direction: column; gap: 5px; height: 100%; min-height: 0; overflow: hidden; }
+    .sidebar { width: 242px; flex-shrink: 0; display: none; flex-direction: column; gap: 5px; height: 100%; min-height: 0; overflow: hidden; }
     body.planner-active .sidebar { display: flex; }
     
     .panel { background: #fff; border-radius: 8px; padding: 5px 7px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; display: flex; flex-direction: column; flex: 1; min-height: 0; }
@@ -65,7 +65,7 @@
     .panel-review { flex: 0.95; background: #fffbeb; border-color: #fde68a; transition: all 0.15s ease; }
     .panel-review.empty-review { flex: 0 0 auto; }
     .panel-review.empty-review .card-list { min-height: 22px; max-height: 24px; padding: 2px; overflow: hidden; }
-    .panel h2 { font-size: 0.73rem; margin-bottom: 3px; display: flex; justify-content: space-between; align-items: center; color: #1e293b; flex-shrink: 0; }
+    .panel h2 { font-size: 0.73rem; margin-bottom: 3px; display: flex; justify-content: space-between; align-items: center; color: #1e293b; flex-shrink: 0; gap: 4px; }
     
     .card-list { flex: 1; overflow-y: auto; min-height: 30px; padding: 3px; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1; display: flex; flex-direction: column; gap: 3px; cursor: default; }
     .team-filter-box { display: none; background: #fff; padding: 5px 7px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 0.69rem; flex-shrink: 0; }
@@ -139,8 +139,9 @@
     body.planner-active .line-role-summary-tag { display: block; }
     .line-notes { font-size: 0.53rem; color: #475569; margin-top: 2px; background: #fff; padding: 1px 2px; border-radius: 3px; border: 1px dashed #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     
-    .shift-header { background: #f8fafc; font-weight: 700; font-size: 0.74rem; width: 86px; text-align: center; padding: 4px 3px; color: #334155; vertical-align: middle; }
-    body.planner-active .shift-header { width: 114px; padding: 4px 4px; }
+    /* Verbreiterte Schicht-Spalte & Team-Dropdowns */
+    .shift-header { background: #f8fafc; font-weight: 700; font-size: 0.74rem; width: 92px; text-align: center; padding: 4px 4px; color: #334155; vertical-align: middle; }
+    body.planner-active .shift-header { width: 132px; min-width: 132px; padding: 4px 5px; }
 
     .shift-team-badge { display: inline-flex; align-items: center; justify-content: center; gap: 3px; margin-top: 3px; padding: 2px 5px; border-radius: 4px; background: #fff; border: 1px solid #cbd5e1; font-size: 0.64rem; font-weight: 700; color: #1e293b; }
     body.planner-active .shift-team-badge { display: none; }
@@ -162,7 +163,8 @@
     .shift-undo-mini-btn { display: none; width: 100%; font-size: 0.58rem; font-weight: 600; padding: 2px; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; cursor: pointer; }
     body.planner-active .shift-undo-mini-btn.has-undo { display: block; }
     .shift-load-row { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
-    .shift-team-select { width: 100%; flex: 1 1 100%; font-size: 0.64rem; font-weight: 700; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--bayer-blue); background: #fff; color: #0f172a; cursor: pointer; min-width: 0; }
+    .shift-team-select { width: 100%; flex: 1 1 100%; min-width: 116px; font-size: 0.68rem; font-weight: 700; padding: 3px 6px; border-radius: 5px; border: 1px solid var(--bayer-blue); background: #fff; color: #0f172a; cursor: pointer; }
+    #teamSelect_frei { min-width: 118px; font-size: 0.68rem; padding: 2px 6px; border-radius: 5px; border: 1px solid #cbd5e1; font-weight: 700; color: #334155; cursor: pointer; background: #fff; }
     .shift-load-btn { flex: 1; padding: 2px 4px; font-size: 0.62rem; font-weight: 700; border-radius: 4px; border: 1px solid var(--bayer-blue); background: var(--bayer-blue); color: #fff; cursor: pointer; }
     .shift-magic-btn { flex: 1; padding: 2px 4px; font-size: 0.62rem; font-weight: 700; border-radius: 4px; border: 1px solid #8b5cf6; background: #8b5cf6; color: #fff; cursor: pointer; }
     .shift-magic-btn:hover { background: #7c3aed; }
@@ -306,7 +308,7 @@
       <div style="height: 6px; background: linear-gradient(90deg, #0091df 0%, #00bcff 50%, #89d329 100%); width: 100%;"></div>
       <div style="padding: 24px;">
         <div style="text-align: center; margin-bottom: 12px;">
-          <img src="logo.png" alt="Bayer Logo" style="width: 52px; height: 52px; object-fit: contain; margin-bottom: 6px;" onerror="this.style.display='none'">
+          <img src="logo.png" alt="Bayer Logo" style="width: 52px; height: 52px; object-fit: contain; margin-bottom: 6px;" onerror="if(this.src.indexOf('IMG-20261023-WA0008.jpg')===-1){this.src='IMG-20261023-WA0008.jpg';}else{this.style.display='none';}">
           <h3 style="color: var(--bayer-blue); font-size: 1.2rem; margin: 0;">🔒 Schicht- und Linienübersicht</h3>
         </div>
         <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 14px;">Bitte einmalig das Start-Passwort eingeben, um die Übersicht für diese Sitzung freizuschalten.</p>
@@ -325,7 +327,9 @@
   
   <header>
     <div class="header-left">
-      <div class="bayer-logo-btn" onclick="handleLogoClick()"><img src="logo.png" alt="Bayer Logo" onerror="this.style.display='none'"></div>
+      <div class="bayer-logo-btn" onclick="handleLogoClick()">
+        <img src="logo.png" alt="Bayer Logo" onerror="if(this.src.indexOf('IMG-20261023-WA0008.jpg')===-1){this.src='IMG-20261023-WA0008.jpg';}else{this.style.display='none';}">
+      </div>
       <div class="header-title">
         <div class="header-title-text">
           <h1>Schicht und Linienübersicht</h1>
@@ -389,7 +393,7 @@
         <h2>
           <span>Pool <span id="poolCount" style="font-size:0.72rem; color:#64748b;">(0)</span></span>
           <div id="poolFreiControlWrap" style="display:flex; align-items:center; gap:3px;">
-            <select id="teamSelect_frei" style="font-size:0.66rem; padding:1px 3px; border-radius:4px; border:1px solid #cbd5e1; font-weight:700; color:#334155; cursor:pointer;"></select>
+            <select id="teamSelect_frei"></select>
             <button class="btn btn-outline" style="padding:1px 5px; font-size:0.66rem; color:var(--bayer-blue); border-color:var(--bayer-blue);" onclick="loadTeamToShift('frei')" title="Team als Schichtfrei in den Pool setzen">📥</button>
           </div>
         </h2>
@@ -435,7 +439,7 @@
       <div style="height: 6px; background: linear-gradient(90deg, #0091df 0%, #00bcff 50%, #89d329 100%); width: 100%;"></div>
       <div style="padding: 24px;">
         <div style="text-align: center; margin-bottom: 12px;">
-          <img src="logo.png" alt="Bayer Logo" style="width: 52px; height: 52px; object-fit: contain; margin-bottom: 6px;" onerror="this.style.display='none'">
+          <img src="logo.png" alt="Bayer Logo" style="width: 52px; height: 52px; object-fit: contain; margin-bottom: 6px;" onerror="if(this.src.indexOf('IMG-20261023-WA0008.jpg')===-1){this.src='IMG-20261023-WA0008.jpg';}else{this.style.display='none';}">
           <h3 style="color: var(--bayer-blue); font-size: 1.2rem; margin: 0;">🔐 Planer-Anmeldung</h3>
         </div>
         <div id="loginModalError" style="display:none; background:#fee2e2; color:#b91c1c; padding:10px; border-radius:6px; font-size:0.8rem; font-weight:700; margin-bottom:12px; text-align:center;"></div>
@@ -615,7 +619,7 @@
             <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
               <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.82rem; font-weight:600;"><input type="checkbox" id="newEmpFirstAider"> Ersthelfer <span style="color:#dc2626; font-weight:900;">+</span></label>
               <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.82rem; font-weight:600;"><input type="checkbox" id="newEmpNoRotation" onchange="document.getElementById('newEmpAnchorDaysWrap').style.display=this.checked?'block':'none'; if(this.checked && typeof renderAnchorDayButtons==='function') renderAnchorDayButtons([1,2,3,4,5]);"> ⚓ Fix (Anker)</label>
-              <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.82rem; font-weight:700; color:#1d4ed8; background:#eff6ff; padding:3px 8px; border-radius:6px; border:1px solid #bfdbfe;"><input type="checkbox" id="newEmpInTrainingPhase" onchange="document.getElementById('newEmpTrainingPhaseWrap').style.display=this.checked?'block':'none';"> 🛡️ In Einarbeitung (Stamm-Schutz)</label>
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.82rem; font-weight:700; color:#1d4ed8; background:#eff6ff; padding:3px 8px; border-radius:6px; border:1px solid #bfdbfe;"><input type="checkbox" id="newEmpInTrainingPhase" onchange="document.getElementById('newEmpTrainingPhaseWrap').style.display=this.checked?'block':'none'; if(this.checked && !document.getElementById('newEmpTrainingStartDate').value && typeof getLogicalDateIso==='function') document.getElementById('newEmpTrainingStartDate').value=getLogicalDateIso();"> 🛡️ In Einarbeitung (Stamm-Schutz)</label>
             </div>
           </div>
           <div id="newEmpAnchorDaysWrap" style="margin-bottom:10px; background:#f1f5f9; padding:8px 10px; border-radius:6px; display:none;">
@@ -724,7 +728,7 @@
                   <option value="3">Mittwoch</option><option value="4">Donnerstag</option><option value="5">Freitag</option><option value="6">Samstag</option>
                 </select>
                 <select id="cfgResetHour" class="form-control" style="flex:1; font-size:0.76rem; padding:4px;" onchange="saveShiftModelSettings()">
-                  <option value="0">00:00 Uhr</option><option value="1">01:00 Uhr</option><option value="2">02:00 Uhr</option><option value="3">03:00 Uhr</option><option value="4">04:00 Uhr</option><option value="5">05:00 Uhr</option><option value="6" selected>06:00 Uhr</option><option value="7">07:00 Uhr</option><option value="8">08:00 Uhr</option><option value="9">09:00 Uhr</option><option value="10">10:00 Uhr</option><option value="11">11:00 Uhr</option><option value="12">12:00 Uhr</option><option value="13">13:00 Uhr</option><option value="14">14:00 Uhr</option><option value="15">15:00 Uhr</option><option value="16">16:00 Uhr</option><option value="17">17:00 Uhr</option><option value="18">18:00 Uhr</option><option value="19">19:00 Uhr</option><option value="20">20:00 Uhr</option><option value="21">21:00 Uhr</option><option value="22">22:00 Uhr</option><option value="23">23:00 Uhr</option>
+                  <option value="0">00:00 Uhr</option><option value="1">01:00 Uhr</option><option value="2">02:00 Uhr</option><option value="3">03:00 Uhr</option><option value="4">04:00 Uhr</option><option value="5" selected>05:00 Uhr</option><option value="6">06:00 Uhr</option><option value="7">07:00 Uhr</option><option value="8">08:00 Uhr</option><option value="9">09:00 Uhr</option><option value="10">10:00 Uhr</option><option value="11">11:00 Uhr</option><option value="12">12:00 Uhr</option><option value="13">13:00 Uhr</option><option value="14">14:00 Uhr</option><option value="15">15:00 Uhr</option><option value="16">16:00 Uhr</option><option value="17">17:00 Uhr</option><option value="18">18:00 Uhr</option><option value="19">19:00 Uhr</option><option value="20">20:00 Uhr</option><option value="21">21:00 Uhr</option><option value="22">22:00 Uhr</option><option value="23">23:00 Uhr</option>
                 </select>
               </div>
             </div>
@@ -736,8 +740,8 @@
               </div>
               <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                 <select id="cfgLoadDay" class="form-control" style="flex:1; font-size:0.76rem; padding:4px;" onchange="saveShiftModelSettings()">
-                  <option value="-1">Täglich (Jeden Tag)</option>
-                  <option value="0" selected>Sonntag</option><option value="1">Montag</option><option value="2">Dienstag</option>
+                  <option value="-1" selected>Täglich (Jeden Tag)</option>
+                  <option value="0">Sonntag</option><option value="1">Montag</option><option value="2">Dienstag</option>
                   <option value="3">Mittwoch</option><option value="4">Donnerstag</option><option value="5">Freitag</option><option value="6">Samstag</option>
                 </select>
                 <select id="cfgLoadHour" class="form-control" style="flex:1; font-size:0.76rem; padding:4px;" onchange="saveShiftModelSettings()">
@@ -869,10 +873,17 @@
       </h3>
       <input type="hidden" id="editLineId">
 
-      <div class="form-group" style="background:#fef2f2; border:1px solid #fecaca; padding:9px 12px; border-radius:6px; margin-bottom:10px;">
+      <div class="form-group" style="background:#fef2f2; border:1px solid #fecaca; padding:9px 12px; border-radius:6px; margin-bottom:8px;">
         <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin:0; color:#b91c1c; font-weight:700; font-size:0.85rem;">
           <input type="checkbox" id="editLineAusgeplant" style="width:16px; height:16px; cursor:pointer;" onchange="saveLineDetails(true)">
           🚫 Linie ausgeplant (Bei Auto-Zuweisung überspringen)
+        </label>
+      </div>
+
+      <div class="form-group" style="background:#eff6ff; border:1px solid #bfdbfe; padding:9px 12px; border-radius:6px; margin-bottom:10px;">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin:0; color:#1d4ed8; font-weight:700; font-size:0.82rem;">
+          <input type="checkbox" id="editLineMainOnly" style="width:16px; height:16px; cursor:pointer;" onchange="saveLineDetails(true)">
+          🛡️ Nur Stammmitarbeiter (Von Lern-Rotation befreit – Sekundär nur im Notfall)
         </label>
       </div>
 
@@ -945,6 +956,7 @@
     };
     window.classifyInboxActiveItem = function(sl) {
       if (!sl) return "EXTRA";
+      if (sl._isExtraShiftRecord) return "EXTRA";
       if (sl.isOnboardingNotice || sl.lineRequestData) return "ONBOARDING";
       const cat = String(sl.category || "").toLowerCase();
       if (cat.indexOf("urlaub") !== -1 || cat.indexOf("freizeit") !== -1 || cat.indexOf("gleittag") !== -1) return "URLAUB";
