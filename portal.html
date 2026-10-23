@@ -129,7 +129,7 @@
       <div style="height: 6px; background: linear-gradient(90deg, #0091df 0%, #00bcff 50%, #89d329 100%); width: 100%;"></div>
       <div style="padding: 24px;">
         <div style="text-align: center; margin-bottom: 12px;">
-          <img src="logo.png" alt="Bayer Logo" style="width: 52px; height: 52px; object-fit: contain; margin-bottom: 6px;" onerror="if(this.src.indexOf('IMG-20261023-WA0008.jpg')===-1){this.src='IMG-20261023-WA0008.jpg';}else{this.style.display='none';}">
+          <img src="logo.png" alt="Bayer Logo" style="width: 52px; height: 52px; object-fit: contain; margin-bottom: 6px;" onerror="this.style.display='none'">
           <h3 style="color: var(--bayer-blue); font-size: 1.2rem; margin: 0;">👤 Mitarbeiter-Portal Login</h3>
         </div>
         <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 14px; text-align:center;">Bitte wähle deinen Namen aus und gib deine PIN ein.</p>
@@ -168,7 +168,7 @@
 
   <header>
     <div class="header-left">
-      <img src="logo.png" alt="Bayer Logo" class="bayer-logo" onerror="if(this.src.indexOf('IMG-20261023-WA0008.jpg')===-1){this.src='IMG-20261023-WA0008.jpg';}else{this.style.display='none';}">
+      <img src="logo.png" alt="Bayer Logo" class="bayer-logo" onerror="this.style.display='none'">
       <div class="header-title">
         <h1>Mitarbeiter Portal</h1>
         <div id="headerDate" class="header-meta">Lade Datum...</div>
@@ -325,7 +325,7 @@
     </div>
   </main>
 
-  <script src="planer.js?v=4.9.65"></script>
+  <script src="planer.js?v=4.9.66"></script>
   <script>
     let loggedInPortalEmpId = null, selectedLoginPortalEmpId = null, initialSessionChecked = false, pendingExtraSubmission = null, pendingForceEmp = null;
     let activeMyRequestsCategory = "ALL";
@@ -335,7 +335,23 @@
 
     function lockPortalSubmitBriefly() {
       isSubmittingPortalAction = true;
-      setTimeout(() => { isSubmittingPortalAction = false; }, 900);
+      setTimeout(() => { isSubmittingPortalAction = false; }, 1000);
+    }
+
+    /* Lokale + globale Sicherheitsprüfung gegen doppelte Urlaubs-/Krankheits-Zeiträume */
+    function hasPortalLeaveOverlapLocal(empId, startIso, endIso) {
+      if (!empId || !startIso || !endIso) return false;
+      const sIso = startIso <= endIso ? startIso : endIso;
+      const eIso = startIso <= endIso ? endIso : startIso;
+      if (typeof window.hasLeaveOverlap === "function" && window.hasLeaveOverlap(empId, sIso, eIso)) {
+        return true;
+      }
+      if (typeof sickLeaves === "undefined" || !Array.isArray(sickLeaves)) return false;
+      return sickLeaves.some(sl => {
+        if (!sl || sl.empId !== empId || sl.status === "rejected" || sl.isOnboardingNotice || sl.lineRequestData) return false;
+        if (!sl.startDate || !sl.endDate) return false;
+        return !(sl.endDate < sIso || sl.startDate > eIso);
+      });
     }
 
     function updatePortalHeaderClock() {
@@ -772,32 +788,71 @@
 
       const assignEl = document.getElementById("empLiveAssignment"), noteEl = document.getElementById("empLiveApprovalNote");
       const sundayFree = typeof isSundayDaytimeFree === "function" ? isSundayDaytimeFree() : false;
-      const prodTodayIso = typeof getLogicalDateIso === "function" ? getLogicalDateIso() : getTodayIso();
+      const nowObj = new Date();
+      const prodTodayIso = typeof getLogicalDateIso === "function" ? getLogicalDateIso(nowObj) : getTodayIso(nowObj);
+      const calTodayIso = getTodayIso(nowObj);
 
-      let empShiftId = "frueh";
-      if (emp.zone && ["pool", "review", "absent", "extra"].indexOf(emp.zone) === -1) {
-        empShiftId = extractShiftIdFromZone(emp.zone) || "frueh";
-      } else {
-        const regShift = typeof window.getEmpRegularShiftOnDate === "function" ? window.getEmpRegularShiftOnDate(emp, prodTodayIso) : null;
-        empShiftId = regShift || (typeof getCurrentActiveShiftId === "function" ? getCurrentActiveShiftId() : "frueh");
-      }
-      const empShiftName = (typeof shiftsLabel !== "undefined" && shiftsLabel[empShiftId]) ? shiftsLabel[empShiftId] : "Schicht";
+      const isOnLine = !!(emp.zone && ["pool", "review", "absent", "extra"].indexOf(emp.zone) === -1);
+      const activeLeaveToday = (typeof getActiveLeaveForEmpOnDate === "function")
+        ? (getActiveLeaveForEmpOnDate(emp.id, prodTodayIso) || getActiveLeaveForEmpOnDate(emp.id, calTodayIso))
+        : null;
+      const todayExtraShift = (typeof extraShifts !== "undefined" ? extraShifts : []).find(es =>
+        es.empId === emp.id &&
+        es.status === "approved" &&
+        (es.date === prodTodayIso || (typeof isExtraShiftInActiveWindow === "function" && isExtraShiftInActiveWindow(es, nowObj)))
+      );
 
-      const empShiftApprovalKey = prodTodayIso + "_" + empShiftId;
-      const isEmpShiftApproved = (typeof approvedShiftKey !== "undefined" && approvedShiftKey === empShiftApprovalKey);
-
-      if (sundayFree && (!emp.zone || emp.zone === "pool" || emp.zone === "review")) assignEl.textContent = "☀️ Sonntag – Regulär Schichtfrei (im Pool)";
-      else if (!emp.zone || emp.zone === "pool" || emp.zone === "review") assignEl.textContent = "📋 Aktuell im Pool / Noch in Einteilung";
-      else if (emp.zone === "absent") assignEl.textContent = "🏥 Aktuell als abwesend eingetragen";
-      else if (emp.zone === "extra") assignEl.textContent = "➕ Im Bringschichtfenster bereitgestellt (1h Vorlauf)";
-      else {
+      if (emp.zone === "absent" || activeLeaveToday) {
+        const leaveCat = (activeLeaveToday && activeLeaveToday.category) ? activeLeaveToday.category : "Abwesend";
+        assignEl.textContent = "🏥 Aktuell abwesend (" + leaveCat + ")";
+        noteEl.style.color = "#0369a1";
+        noteEl.textContent = "ℹ️ Während deiner Abwesenheit keine Schicht-Einteilung";
+      } else if (isOnLine) {
         const lId = extractLineIdFromZone(emp.zone), sId = extractShiftIdFromZone(emp.zone);
         const lineObj = lines.find(l => l.id === lId);
-        assignEl.textContent = "🏭 " + (lineObj ? lineObj.name : lId) + " (" + ((typeof shiftsLabel !== "undefined" && shiftsLabel[sId]) ? shiftsLabel[sId] : sId) + ")";
-      }
+        const shiftName = (typeof shiftsLabel !== "undefined" && shiftsLabel[sId]) ? shiftsLabel[sId] : sId;
+        const isExtraHere = !!(todayExtraShift && todayExtraShift.shift === sId);
+        assignEl.textContent = "🏭 " + (lineObj ? lineObj.name : lId) + " (" + shiftName + (isExtraHere ? " · ➕ Bringschicht" : "") + ")";
 
-      noteEl.style.color = isEmpShiftApproved ? "#166534" : (sundayFree ? "#0369a1" : "#b91c1c");
-      noteEl.textContent = sundayFree ? "☀️ Wochenend-Ruhe bis Montag 05:00 Uhr" : (isEmpShiftApproved ? ("✅ " + empShiftName + " ist vom Planer bestätigt") : ("⏳ " + empShiftName + " noch nicht bestätigt"));
+        const empShiftApprovalKey = prodTodayIso + "_" + sId;
+        const isEmpShiftApproved = (typeof approvedShiftKey !== "undefined" && approvedShiftKey === empShiftApprovalKey);
+        noteEl.style.color = isEmpShiftApproved ? "#166534" : "#b91c1c";
+        noteEl.textContent = isEmpShiftApproved
+          ? ("✅ " + shiftName + " ist vom Planer bestätigt")
+          : ("⏳ " + shiftName + " noch nicht bestätigt");
+      } else if (todayExtraShift) {
+        const sId = todayExtraShift.shift;
+        const shiftName = (typeof shiftsLabel !== "undefined" && shiftsLabel[sId]) ? shiftsLabel[sId] : sId;
+        const noteSuffix = todayExtraShift.note ? (" · " + todayExtraShift.note) : "";
+        assignEl.textContent = "➕ Bringschicht: " + shiftName + (emp.zone === "extra" ? " (Bereitgestellt)" : " (Noch in Einteilung)") + noteSuffix;
+
+        const extraApprovalKey = (todayExtraShift.date || prodTodayIso) + "_" + sId;
+        const isExtraApproved = (typeof approvedShiftKey !== "undefined" && approvedShiftKey === extraApprovalKey);
+        noteEl.style.color = isExtraApproved ? "#166534" : "#b91c1c";
+        noteEl.textContent = isExtraApproved
+          ? ("✅ " + shiftName + " (Bringschicht) ist vom Planer bestätigt")
+          : ("⏳ " + shiftName + " (Bringschicht) noch nicht bestätigt");
+      } else if (sundayFree) {
+        assignEl.textContent = "☀️ Sonntag – Regulär Schichtfrei (im Pool)";
+        noteEl.style.color = "#0369a1";
+        noteEl.textContent = "☀️ Wochenend-Ruhe bis Montag 05:00 Uhr";
+      } else {
+        const regShift = typeof window.getEmpRegularShiftOnDate === "function" ? window.getEmpRegularShiftOnDate(emp, prodTodayIso) : null;
+        if (regShift) {
+          const shiftName = (typeof shiftsLabel !== "undefined" && shiftsLabel[regShift]) ? shiftsLabel[regShift] : regShift;
+          assignEl.textContent = "📋 " + shiftName + " (Im Pool / Noch in Einteilung)";
+          const empShiftApprovalKey = prodTodayIso + "_" + regShift;
+          const isEmpShiftApproved = (typeof approvedShiftKey !== "undefined" && approvedShiftKey === empShiftApprovalKey);
+          noteEl.style.color = isEmpShiftApproved ? "#166534" : "#b91c1c";
+          noteEl.textContent = isEmpShiftApproved
+            ? ("✅ " + shiftName + " ist vom Planer bestätigt")
+            : ("⏳ " + shiftName + " noch nicht bestätigt");
+        } else {
+          assignEl.textContent = "🌴 Heute regulär Freischicht (im Pool)";
+          noteEl.style.color = "#0369a1";
+          noteEl.textContent = "ℹ️ Heute keine reguläre Schicht eingeteilt";
+        }
+      }
 
       renderOpenCoverageRequests(emp);
       renderMyRequestsList(emp.id);
@@ -1133,8 +1188,7 @@
       if (!start || !end) { showPortalInlineMsg("Bitte Von- und Bis-Datum auswählen.", false); return; }
       if (start > end) { showPortalInlineMsg("⛔ Das Bis-Datum darf nicht vor dem Von-Datum liegen.", false); return; }
 
-      // Strenge Prüfung: Existiert bereits ein aktiver oder offener Antrag mit Überschneidung?
-      if (typeof window.hasLeaveOverlap === "function" && window.hasLeaveOverlap(loggedInPortalEmpId, start, end)) {
+      if (hasPortalLeaveOverlapLocal(loggedInPortalEmpId, start, end)) {
         showPortalInlineMsg("⛔ Du hast für diesen Zeitraum bereits einen Urlaubs- oder Abwesenheitsantrag eingereicht oder genehmigt.", false);
         return;
       }
@@ -1146,6 +1200,8 @@
         document.getElementById("portalVacReason").value = "";
         showPortalInlineMsg("✅ Urlaubsantrag übermittelt.", true);
         renderPortalView();
+      } else {
+        showPortalInlineMsg("⛔ Antrag konnte nicht gespeichert werden (Zeitraum bereits belegt).", false);
       }
     }
 
@@ -1156,8 +1212,7 @@
       if (!start || !end) { showPortalInlineMsg("Bitte Von- und Bis-Datum auswählen.", false); return; }
       if (start > end) { showPortalInlineMsg("⛔ Das Bis-Datum darf nicht vor dem Von-Datum liegen.", false); return; }
 
-      // Strenge Prüfung: Existiert bereits ein aktiver oder offener Antrag mit Überschneidung?
-      if (typeof window.hasLeaveOverlap === "function" && window.hasLeaveOverlap(loggedInPortalEmpId, start, end)) {
+      if (hasPortalLeaveOverlapLocal(loggedInPortalEmpId, start, end)) {
         showPortalInlineMsg("⛔ Du hast für diesen Zeitraum bereits eine Abwesenheitsmeldung eingereicht oder eingetragen.", false);
         return;
       }
@@ -1169,6 +1224,8 @@
         document.getElementById("portalSickReason").value = "";
         showPortalInlineMsg("✅ Abwesenheitsmeldung übermittelt.", true);
         renderPortalView();
+      } else {
+        showPortalInlineMsg("⛔ Meldung konnte nicht gespeichert werden (Zeitraum bereits belegt).", false);
       }
     }
 
