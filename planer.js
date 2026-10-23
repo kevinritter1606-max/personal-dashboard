@@ -177,9 +177,9 @@ function injectModernSaaSStyles() {
       background: #f8fafc !important;
     }
     body.planner-active .shift-header {
-      width: 114px !important;
-      min-width: 114px !important;
-      padding: 4px 4px !important;
+      width: 132px !important;
+      min-width: 132px !important;
+      padding: 4px 5px !important;
     }
     .shift-load-row {
       display: flex !important;
@@ -190,10 +190,16 @@ function injectModernSaaSStyles() {
     .shift-team-select {
       width: 100% !important;
       flex: 1 1 100% !important;
-      min-width: 96px !important;
-      font-size: 0.65rem !important;
+      min-width: 116px !important;
+      font-size: 0.68rem !important;
       font-weight: 700 !important;
-      padding: 3px 4px !important;
+      padding: 3px 6px !important;
+      border-radius: 5px !important;
+    }
+    #teamSelect_frei {
+      min-width: 118px !important;
+      font-size: 0.68rem !important;
+      padding: 2px 6px !important;
       border-radius: 5px !important;
     }
     .shift-load-btn, .shift-magic-btn {
@@ -870,9 +876,10 @@ window.didEmpWorkNightBefore = function(emp, dateIso) {
   return (emp && dateIso) ? (getEmpAnyShiftOnDate(emp, getPrevDateIso(dateIso)) === "nacht") : false;
 };
 
+/* WICHTIG: Ignoriert Onboarding-Notizen UND Linien-Qualifikationsanfragen (lineRequestData)! */
 function getActiveLeaveForEmpOnDate(empId, isoDate) {
   return sickLeaves.find(sl => {
-    if (sl.empId !== empId || sl.status === "rejected" || sl.status === "pending" || sl.isOnboardingNotice) return false;
+    if (sl.empId !== empId || sl.status === "rejected" || sl.status === "pending" || sl.isOnboardingNotice || sl.lineRequestData) return false;
     if (sl.blocks && sl.blocks.length) {
       return sl.blocks.some(b => b.status === "approved" && b.start <= isoDate && b.end >= isoDate);
     }
@@ -880,10 +887,16 @@ function getActiveLeaveForEmpOnDate(empId, isoDate) {
   });
 }
 
-window.hasLeaveOverlap = function(empId, startIso, endIso) {
+/* Strikte Doppel-Antrags-Sperre: Ignoriert abgelehnte Einträge, Onboarding-Notizen und Linien-Anfragen */
+window.hasLeaveOverlap = function(empId, startIso, endIso, ignoreLeaveId) {
+  if (!empId || !startIso || !endIso) return false;
+  const sIso = startIso <= endIso ? startIso : endIso;
+  const eIso = startIso <= endIso ? endIso : startIso;
   return sickLeaves.some(sl => {
-    if (sl.empId !== empId || sl.status === "rejected" || sl.isOnboardingNotice) return false;
-    return !(sl.endDate < startIso || sl.startDate > endIso);
+    if (ignoreLeaveId && sl.id === ignoreLeaveId) return false;
+    if (sl.empId !== empId || sl.status === "rejected" || sl.isOnboardingNotice || sl.lineRequestData) return false;
+    if (!sl.startDate || !sl.endDate) return false;
+    return !(sl.endDate < sIso || sl.startDate > eIso);
   });
 };
 
@@ -1040,6 +1053,8 @@ function checkExtraShiftConflict(emp, dateIso, shiftId, ignoreExtraId) {
 window.addPortalLeaveRequest = function(empId, startIso, endIso, category, reason) {
   const emp = employees.find(e => e.id === empId);
   if (!emp || !startIso || !endIso || startIso > endIso) return false;
+  if (window.hasLeaveOverlap(emp.id, startIso, endIso)) return false;
+
   const isSick = String(category || "").toLowerCase().indexOf("arbeitsunfähig") !== -1 || String(category || "").toLowerCase().indexOf("krank") !== -1;
   const newLeave = {
     id: "sl_" + Date.now(),
@@ -3698,6 +3713,10 @@ window.addManualSickLeave = function() {
   const reason = document.getElementById("manualSickReason").value.trim();
   if (!start || !end || start > end) return showToast("Bitte gültigen Zeitraum auswählen", true);
 
+  if (window.hasLeaveOverlap(selectedManualSickEmpId, start, end)) {
+    return showToast("⛔ Für diesen Mitarbeiter existiert bereits eine Abwesenheit im gewählten Zeitraum.", true);
+  }
+
   const emp = employees.find(e => e.id === selectedManualSickEmpId);
   const newLeave = {
     id: "sl_" + Date.now(),
@@ -4042,7 +4061,7 @@ window.renderInboxLists = function() {
       }
 
       const covBtn = (sl.status === "approved" && !sl.isOnboardingNotice && !sl.lineRequestData)
-        ? '<button class="btn btn-outline" style="padding:2px 7px; font-size:0.71rem; color:var(--bayer-blue); border-color:#bae6fd;" onclick="openCoverageReleaseModal(\'' + sl.id + '\')" title="Bringschichten für diesen Zeitraum jederzeit nachträglich mit Ja/Nein rein- oder rausnehmen">📢 Bringschichten (Ja/Nein)</button>'
+        ? '<button class="btn btn-outline" style="padding:2px 7px; font-size:0.71rem; color:var(--bayer-blue); border-color:#bae6fd;" onclick="openCoverageReleaseModal(\'' + sl.id + \')" title="Bringschichten für diesen Zeitraum jederzeit nachträglich mit Ja/Nein rein- oder rausnehmen">📢 Bringschichten (Ja/Nein)</button>'
         : '';
       return '<div style="background:#fff; border:1px solid #e2e8f0; padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.82rem; display:flex; justify-content:space-between; align-items:center; gap:6px;">' +
         '<div><b>' + eName + '</b> · <b>' + (sl.category || 'Abwesend') + '</b> (' + formatDateDe(sl.startDate) + ' bis ' + formatDateDe(sl.endDate) + ')' + (sl.reason ? ' · ' + sl.reason : '') + ' ' + stBadge + '</div>' +
