@@ -44,6 +44,11 @@
     .emp-live-grid { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; }
     .emp-assignment-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 6px; font-size: 0.82rem; font-weight: 700; background: #fff; border: 1px solid #cbd5e1; color: #0f172a; }
 
+    .training-progress-wrap { margin-top: 10px; padding-top: 10px; border-top: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 8px; }
+    .training-progress-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; }
+    .training-progress-bar-bg { width: 100%; height: 7px; background: #e2e8f0; border-radius: 999px; overflow: hidden; margin-top: 5px; }
+    .training-progress-bar-fill { height: 100%; background: linear-gradient(90deg, #0091df 0%, #10b981 100%); border-radius: 999px; transition: width 0.3s ease; }
+
     .form-group { margin-bottom: 14px; position: relative; }
     .form-group label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 4px; color: #475569; }
     .form-control { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.92rem; background: #fff; color: #0f172a; }
@@ -209,6 +214,9 @@
         </div>
       </div>
 
+      <!-- NEU: EINARBEITUNGS-FORTSCHRITT (Z.B. 16h / 120h BIS FREISCHALTUNG) & STAMM-SCHUTZ-STATUS -->
+      <div id="portalMyTrainingProgressBox" class="training-progress-wrap" style="display:none;"></div>
+
       <div id="portalLineRequestRow" style="margin-top: 8px; border-top: 1px solid #f1f5f9; padding-top: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
         <select id="portalLineRequestTarget" class="form-control" style="padding: 6px 8px; font-size: 0.8rem; flex: 1; min-width: 120px;"></select>
         <select id="portalLineRequestType" class="form-control" style="padding: 6px 8px; font-size: 0.8rem; width: 130px;">
@@ -318,7 +326,7 @@
     </div>
   </main>
 
-  <script src="planer.js?v=4.9.63"></script>
+  <script src="planer.js?v=4.9.65"></script>
   <script>
     let loggedInPortalEmpId = null, selectedLoginPortalEmpId = null, initialSessionChecked = false, pendingExtraSubmission = null, pendingForceEmp = null;
     let activeMyRequestsCategory = "ALL";
@@ -329,8 +337,40 @@
       const dEl = document.getElementById("headerDate"); if (!dEl) return;
       const now = new Date(), ld = typeof getLogicalDateObj === "function" ? getLogicalDateObj(now) : now;
       const kw = typeof getCalendarWeek === "function" ? getCalendarWeek(ld) : "";
+      const activeShiftId = typeof getCurrentActiveShiftId === "function" ? getCurrentActiveShiftId(now) : "frueh";
+      const activeShiftName = (typeof shiftsLabel !== "undefined" && shiftsLabel[activeShiftId]) ? shiftsLabel[activeShiftId] : "Frühschicht";
       const dateStr = now.toLocaleDateString("de-DE", { weekday: "long", year: "numeric", month: "2-digit", day: "2-digit" });
-      dEl.textContent = dateStr + (kw ? " · KW " + kw : "");
+      dEl.textContent = dateStr + (kw ? " · KW " + kw : "") + " · Aktuell: " + activeShiftName;
+    }
+
+    /* Synchronisiert den oberen Portal-Balken UND den Status-Button mit der aktiven Schichtfreigabe des Planers */
+    function updatePortalShiftApprovalBanner() {
+      const approved = typeof isCurrentShiftApproved === "function" ? isCurrentShiftApproved() : false;
+      const sundayFree = typeof isSundayDaytimeFree === "function" ? isSundayDaytimeFree() : false;
+      const activeShiftId = typeof getCurrentActiveShiftId === "function" ? getCurrentActiveShiftId() : "frueh";
+      const activeShiftName = (typeof shiftsLabel !== "undefined" && shiftsLabel[activeShiftId]) ? shiftsLabel[activeShiftId] : "Aktuelle Schicht";
+
+      const bar = document.getElementById("brandGradientBar");
+      if (bar) bar.className = (approved || sundayFree) ? "brand-gradient approved" : "brand-gradient pending";
+
+      const badge = document.getElementById("portalShiftStatusBadge");
+      const dot = document.getElementById("portalStatusDot");
+      const txt = document.getElementById("portalStatusText");
+      if (!badge || !dot || !txt) return;
+
+      if (sundayFree) {
+        badge.className = "portal-shift-status sunday";
+        dot.style.background = "#0284c7";
+        txt.textContent = "☀️ Sonntag – Regulär Schichtfrei";
+      } else if (approved) {
+        badge.className = "portal-shift-status approved";
+        dot.style.background = "#16a34a";
+        txt.textContent = "✅ " + activeShiftName + " ist vom Planer bestätigt";
+      } else {
+        badge.className = "portal-shift-status pending";
+        dot.style.background = "#dc2626";
+        txt.textContent = "⏳ " + activeShiftName + " ist noch nicht bestätigt";
+      }
     }
 
     function switchPortalTab(tabId, btnEl) {
@@ -614,7 +654,70 @@
       document.getElementById("portalLoginModal").style.display = "flex";
     }
 
+    /* Zeigt dem Mitarbeiter seinen Einarbeitungs-Fortschritt (z. B. 16h / 120h) bis zur Linien-Freischaltung */
+    function renderMyTrainingProgress(emp) {
+      const box = document.getElementById("portalMyTrainingProgressBox");
+      if (!box || !emp) return;
+
+      const threshold = (typeof shiftModelConfig !== "undefined" && typeof shiftModelConfig.secondaryUnlockThresholdHours === "number")
+        ? shiftModelConfig.secondaryUnlockThresholdHours
+        : 120;
+
+      const itemsHtml = [];
+
+      if (typeof window.getEmpTrainingProtectionInfo === "function") {
+        const prot = window.getEmpTrainingProtectionInfo(emp);
+        if (prot && prot.active) {
+          itemsHtml.push(
+            '<div class="training-progress-item" style="background:#eff6ff; border-color:#bfdbfe;">' +
+              '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; font-size:0.78rem;">' +
+                '<span style="font-weight:700; color:#1d4ed8;">🛡️ Stamm-Schutz-Phase aktiv (' + prot.mainPct + '% Stammlinie)</span>' +
+                '<span style="font-weight:700; color:#0369a1;">Noch ' + prot.remainingDays + ' von ' + prot.totalDays + ' Tagen</span>' +
+              '</div>' +
+            '</div>'
+          );
+        }
+      }
+
+      const hoursMap = emp.trainingHoursByLine || {};
+      Object.keys(hoursMap).forEach(lineId => {
+        const hours = Number(hoursMap[lineId] || 0);
+        if (hours <= 0) return;
+        const isMain = Array.isArray(emp.mainLines) && emp.mainLines.indexOf(lineId) !== -1;
+        const isSec = Array.isArray(emp.secLines) && emp.secLines.indexOf(lineId) !== -1;
+        if (isMain || isSec) return;
+
+        const lineObj = (typeof lines !== "undefined" ? lines : []).find(l => l.id === lineId);
+        const lineName = lineObj ? lineObj.name : lineId;
+        const remaining = Math.max(0, threshold - hours);
+        const pct = Math.min(100, Math.round((hours / threshold) * 100));
+
+        itemsHtml.push(
+          '<div class="training-progress-item">' +
+            '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; font-size:0.79rem;">' +
+              '<span style="font-weight:700; color:#0f172a;">🎯 Einarbeitung an <span style="color:#0284c7;">' + lineName + '</span></span>' +
+              '<span style="font-weight:700; color:#166534;">' + hours + 'h / ' + threshold + 'h (' + pct + '%) · <span style="color:#0369a1;">noch ' + remaining + 'h bis Freischaltung</span></span>' +
+            '</div>' +
+            '<div class="training-progress-bar-bg">' +
+              '<div class="training-progress-bar-fill" style="width:' + pct + '%;"></div>' +
+            '</div>' +
+          '</div>'
+        );
+      });
+
+      if (itemsHtml.length > 0) {
+        box.innerHTML = itemsHtml.join("");
+        box.style.display = "flex";
+      } else {
+        box.innerHTML = "";
+        box.style.display = "none";
+      }
+    }
+
     function renderPortalView() {
+      updatePortalHeaderClock();
+      updatePortalShiftApprovalBanner();
+
       if (!loggedInPortalEmpId) return;
       const emp = employees.find(x => x.id === loggedInPortalEmpId);
       if (!emp) { logoutPortalEmp(); return; }
@@ -637,6 +740,8 @@
       if (mainBox) mainBox.innerHTML = (emp.mainLines && emp.mainLines.length) ? emp.mainLines.map(id => { const l = lines.find(x => x.id === id); return (l ? l.name : id); }).join(", ") : (reqLines ? "Keine" : "Keine Anlage nötig");
       if (secBox) secBox.innerHTML = (emp.secLines && emp.secLines.length) ? emp.secLines.map(id => { const l = lines.find(x => x.id === id); return (l ? l.name : id); }).join(", ") : "Keine";
 
+      renderMyTrainingProgress(emp);
+
       const lineSel = document.getElementById("portalLineRequestTarget");
       if (lineSel && typeof lines !== "undefined") {
         const alreadyHas = [].concat(emp.mainLines || [], emp.secLines || []);
@@ -653,6 +758,8 @@
       const assignEl = document.getElementById("empLiveAssignment"), noteEl = document.getElementById("empLiveApprovalNote");
       const approved = typeof isCurrentShiftApproved === "function" ? isCurrentShiftApproved() : false;
       const sundayFree = typeof isSundayDaytimeFree === "function" ? isSundayDaytimeFree() : false;
+      const activeShiftId = typeof getCurrentActiveShiftId === "function" ? getCurrentActiveShiftId() : "frueh";
+      const activeShiftName = (typeof shiftsLabel !== "undefined" && shiftsLabel[activeShiftId]) ? shiftsLabel[activeShiftId] : "Aktuelle Schicht";
 
       if (sundayFree && (!emp.zone || emp.zone === "pool" || emp.zone === "review")) assignEl.textContent = "☀️ Sonntag – Regulär Schichtfrei (im Pool)";
       else if (!emp.zone || emp.zone === "pool" || emp.zone === "review") assignEl.textContent = "📋 Aktuell im Pool / Noch in Einteilung";
@@ -665,14 +772,16 @@
       }
 
       noteEl.style.color = approved ? "#166534" : (sundayFree ? "#0369a1" : "#b91c1c");
-      noteEl.textContent = sundayFree ? "☀️ Wochenend-Ruhe bis Montag 05:00 Uhr" : (approved ? "✅ Schicht ist vom Planer bestätigt" : "⏳ Schicht noch nicht bestätigt");
+      noteEl.textContent = sundayFree
+        ? "☀️ Wochenend-Ruhe bis Montag 05:00 Uhr"
+        : (approved ? ("✅ " + activeShiftName + " ist vom Planer bestätigt") : ("⏳ " + activeShiftName + " noch nicht bestätigt"));
 
       renderOpenCoverageRequests(emp);
       renderMyRequestsList(emp.id);
       updateExtraShiftPreviewHint();
     }
 
-    /* Zeigt nur vom Planer freigegebene Bringschichten an, wenn der Mitarbeiter zum freien Team gehört und die Ruhezeit passt */
+    /* Zeigt vom Planer freigegebene Bringschichten an (inkl. vom Planer bewusst übersteuerter Ruhezeit-Tage) */
     function renderOpenCoverageRequests(emp) {
       const sec = document.getElementById("openCoverageSection"), listEl = document.getElementById("openCoverageList"), badgeEl = document.getElementById("openCovBadge");
       if (!sec || !listEl) return;
@@ -696,12 +805,10 @@
         const availDays = (cov.days || []).filter(d => {
           if (d.date < today || d.takenBy || d.dayStatus !== "open" || !d.explicitlyApproved) return false;
           
-          /* Strikte Team-Prüfung: Gehört der Mitarbeiter zum freien Team an diesem Tag? */
           const rot = getRotationForDate(d.date);
           if (emp.team !== rot.frei) return false;
 
-          /* Ruhezeit-Prüfung */
-          if (typeof window.checkExtraShiftPlausibility === "function") {
+          if (typeof window.checkExtraShiftPlausibility === "function" && !d.allowWithRestWarning) {
             const check = window.checkExtraShiftPlausibility(emp.id, d.date, d.shift);
             if (!check.ok) return false;
           }
@@ -712,11 +819,15 @@
 
         const daysHtml = availDays.map(d => {
           availableCount++;
+          const check = (typeof window.checkExtraShiftPlausibility === "function") ? window.checkExtraShiftPlausibility(emp.id, d.date, d.shift) : { ok: true };
+          const statusTag = check.ok
+            ? '<span style="background:#dcfce7; color:#166534; padding:1px 6px; border-radius:4px; font-size:0.7rem; font-weight:700; margin-left:4px;">✅ Freigeschaltet & Passend</span>'
+            : '<span style="background:#fef3c7; color:#b45309; padding:1px 6px; border-radius:4px; font-size:0.7rem; font-weight:700; margin-left:4px;">🟡 Vom Planer mit Ruhezeit-Hinweis freigegeben</span>';
           const actionHtml = '<button class="btn btn-primary" style="padding:4px 10px; font-size:0.74rem; background:#16a34a;" onclick="volunteerForCoverageDay(\'' + cov.id + '\', \'' + d.date + '\')">✋ Übernehmen</button>';
 
           return '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:#fff; border:1px solid #cbd5e1; border-radius:6px; margin-top:4px; gap:6px; flex-wrap:wrap;">' +
             '<div><b>' + formatDateDe(d.date) + '</b> · <b>' + (shiftsLabel[d.shift] || d.shift) + '</b> ' +
-            '<span style="background:#dcfce7; color:#166534; padding:1px 6px; border-radius:4px; font-size:0.7rem; font-weight:700; margin-left:4px;">✅ Freigeschaltet & Passend</span>' +
+            statusTag +
             (probLinesTxt ? ' <span style="background:#e0f2fe; color:#0369a1; padding:1px 6px; border-radius:4px; font-size:0.72rem; font-weight:700; margin-left:4px;">🏭 ' + probLinesTxt + '</span>' : '') +
             '</div>' + actionHtml + '</div>';
         }).join("");
@@ -1016,6 +1127,7 @@
     boardRef.onSnapshot(doc => {
       updatePortalHeaderClock();
       if (typeof updateShiftApprovalUI === "function") updateShiftApprovalUI();
+      updatePortalShiftApprovalBanner();
       if (!initialSessionChecked && employees && employees.length > 0) {
         initialSessionChecked = true;
         const savedId = sessionStorage.getItem("portal_logged_emp_id");
@@ -1031,6 +1143,7 @@
     window.addEventListener("DOMContentLoaded", () => {
       updatePortalHeaderClock();
       if (typeof updateShiftApprovalUI === "function") updateShiftApprovalUI();
+      updatePortalShiftApprovalBanner();
       const todayIso = typeof getTodayIso === "function" ? getTodayIso() : "";
       if (document.getElementById("portalExtraDate") && todayIso) document.getElementById("portalExtraDate").value = todayIso;
     });
