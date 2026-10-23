@@ -1,10 +1,10 @@
 /* ==========================================================================
-   PLANER-BOARD MASTER-LOGIK (planer.js) - Version 4.9.64 (TEIL 1 VON 2)
+   PLANER-BOARD MASTER-LOGIK (planer.js) - Version 4.9.65 (TEIL 1 VON 2)
    Vollständige Original-Struktur · Bayer 2-2-2 (Sonntag frei) Automatik ab 05:00 Uhr
-   1h-Schicht-Vorlauf · "Nur Stamm"-Linien · Dezente Ja/Nein-Freigabe · SyntaxError-Fix
+   1h-Schicht-Vorlauf · "Nur Stamm" (Planer-Only) · Rotes +EH · Stamm-Schutz-Modus
    ========================================================================== */
 
-window.PLANER_JS_VERSION = "4.9.64";
+window.PLANER_JS_VERSION = "4.9.65";
 
 try {
   if (!firebase.apps || !firebase.apps.length) {
@@ -176,6 +176,31 @@ function injectModernSaaSStyles() {
     .line-header:hover {
       background: #f8fafc !important;
     }
+    body.planner-active .shift-header {
+      width: 114px !important;
+      min-width: 114px !important;
+      padding: 4px 4px !important;
+    }
+    .shift-load-row {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      gap: 3px !important;
+      align-items: center !important;
+    }
+    .shift-team-select {
+      width: 100% !important;
+      flex: 1 1 100% !important;
+      min-width: 96px !important;
+      font-size: 0.65rem !important;
+      font-weight: 700 !important;
+      padding: 3px 4px !important;
+      border-radius: 5px !important;
+    }
+    .shift-load-btn, .shift-magic-btn {
+      flex: 1 1 44% !important;
+      padding: 2px 4px !important;
+      font-size: 0.64rem !important;
+    }
     .line-prio {
       border-radius: 999px !important;
       padding: 2px 8px !important;
@@ -194,7 +219,7 @@ function injectModernSaaSStyles() {
       border-color: #fde68a !important;
     }
     .line-mainonly-tag {
-      display: inline-flex;
+      display: none !important;
       align-items: center;
       gap: 3px;
       background: #eff6ff;
@@ -204,6 +229,9 @@ function injectModernSaaSStyles() {
       padding: 1px 7px;
       font-size: 0.62rem;
       font-weight: 700;
+    }
+    body.planner-active .line-mainonly-tag {
+      display: inline-flex !important;
     }
     .line-status-tag {
       background: #f1f5f9 !important;
@@ -292,6 +320,18 @@ function injectModernSaaSStyles() {
       color: #be123c !important;
       border: 1px solid #fecdd3 !important;
       border-radius: 999px !important;
+    }
+    .shift-kpi-pill.eh-zero {
+      background: #fef2f2 !important;
+      color: #dc2626 !important;
+      border: 1px solid #f87171 !important;
+      font-weight: 800 !important;
+    }
+    .eh-plus-icon {
+      color: #dc2626 !important;
+      font-weight: 900 !important;
+      font-size: 0.74rem !important;
+      line-height: 1 !important;
     }
     .modal-content, .portal-card, .sidebar-panel {
       border-radius: 14px !important;
@@ -401,7 +441,7 @@ function isIsoDateSunday(iso) {
   return p.length === 3 && parseIsoToLocalDate(iso).getDay() === 0;
 }
 
-/* Sonntag ist komplett schichtfrei (06:00 Uhr morgens nach Ende der Sa-Nachtschicht bis Montag 05:00 Uhr Vorlauf) */
+/* Sonntag ist komplett schichtfrei (ab 05:00 Uhr morgens bis Montag 05:00 Uhr Vorlauf) */
 function isSundayRestPeriod(baseDate) {
   const d = baseDate || new Date();
   return d.getDay() === 0 && d.getHours() >= 5;
@@ -425,7 +465,7 @@ function getLogicalDateIso(baseDate) {
   return getTodayIso(getLogicalDateObj(baseDate));
 }
 
-/* 1-Stunden-Vorlauf für jede Schicht:
+/* 1-Stunden-Vorlauf für jede Schicht (ab 05:00 Uhr):
    - Ab 05:00 bis 12:59 Uhr -> Frühschicht (Start 06:00)
    - Ab 13:00 bis 20:59 Uhr -> Spätschicht (Start 14:00)
    - Ab 21:00 bis 04:59 Uhr -> Nachtschicht (Start 22:00) */
@@ -452,12 +492,7 @@ function getCalendarWeek(d) {
   return Math.ceil((firstThursday - target) / 604800000 + 1);
 }
 
-/* Exakte Bayer 2-2-2 (Sonntag frei) Block-Formel:
-   Jede Woche hat 6 Werktage (Mo-Sa) = exakt 3 Blöcke à 2 Tage:
-   - Block 0 der Woche: Montag + Dienstag
-   - Block 1 der Woche: Mittwoch + Donnerstag
-   - Block 2 der Woche: Freitag + Samstag
-   - Sonntag: Immer schichtfrei (erhöht den Block-Zähler nicht; liefert den Block-Stand vom Samstag) */
+/* Exakte Bayer 2-2-2 (Sonntag frei) Block-Formel */
 function getWorkdayBlockIndex(isoDateStr) {
   const p = String(isoDateStr || getLogicalDateIso()).split("-");
   const diffDays = Math.floor((Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2])) - Date.UTC(2026, 0, 12)) / 86400000);
@@ -466,7 +501,6 @@ function getWorkdayBlockIndex(isoDateStr) {
   return weeks * 3 + Math.floor(Math.min(dayInWeek, 5) / 2);
 }
 
-/* Gibt zurück, ob das übergebene Datum Tag 1 (Mo, Mi, Fr) oder Tag 2 (Di, Do, Sa) des 2-Tages-Blocks ist */
 function getBlockDayInfo(isoDateStr) {
   const d = parseIsoToLocalDate(isoDateStr || getLogicalDateIso());
   const jsDay = d.getDay();
@@ -522,6 +556,39 @@ function isEmpAnchorActiveToday(emp, dateIso) {
   return fixDays.indexOf(jsDay) !== -1;
 }
 
+/* Prüft den Neu-Mitarbeiter Einarbeitungs-Modus ("Stamm-Schutz-Phase", z.B. 360 Tage zu 90% an Stammlinie) */
+window.getEmpTrainingProtectionInfo = function(emp, refDateIso) {
+  if (!emp || !emp.inTrainingPhase) {
+    return { active: false, totalDays: 0, elapsedDays: 0, remainingDays: 0, mainPct: 90, startDate: "" };
+  }
+  const todayIso = refDateIso || getLogicalDateIso();
+  const startIso = emp.trainingStartDate || todayIso;
+  const totalDays = Math.max(1, parseInt(emp.trainingDays, 10) || 360);
+  const mainPct = Math.min(100, Math.max(50, parseInt(emp.trainingMainPct, 10) || 90));
+  const pStart = parseIsoToLocalDate(startIso).getTime();
+  const pToday = parseIsoToLocalDate(todayIso).getTime();
+  const elapsedDays = Math.max(0, Math.floor((pToday - pStart) / 86400000));
+  const remainingDays = Math.max(0, totalDays - elapsedDays);
+  return {
+    active: elapsedDays < totalDays,
+    totalDays: totalDays,
+    elapsedDays: elapsedDays,
+    remainingDays: remainingDays,
+    mainPct: mainPct,
+    startDate: startIso
+  };
+};
+
+/* Entscheidet anhand der gewählten Prozent-Quote (z.B. 90%), ob der Mitarbeiter heute strikt auf seiner Stammlinie gehalten wird */
+window.shouldHoldEmpOnMainLineToday = function(emp, todayIso) {
+  const prot = window.getEmpTrainingProtectionInfo(emp, todayIso);
+  if (!prot.active) return false;
+  if (!Array.isArray(emp.mainLines) || emp.mainLines.length === 0) return false;
+  if (prot.mainPct >= 100) return true;
+  const bucket = ((prot.elapsedDays * 17) + 7) % 100;
+  return bucket < prot.mainPct;
+};
+
 window.sanitizeTeamReferences = function() {
   const validKeys = Object.keys(teamsConfig);
   if (!validKeys.length) {
@@ -542,6 +609,11 @@ window.sanitizeTeamReferences = function() {
     if (!emp.trainingCreditedDates) emp.trainingCreditedDates = {};
     if (!emp.lineHistory) emp.lineHistory = {};
     if (!emp.lineAssignCounts) emp.lineAssignCounts = {};
+    if (emp.inTrainingPhase) {
+      if (!emp.trainingDays) emp.trainingDays = 360;
+      if (!emp.trainingMainPct) emp.trainingMainPct = 90;
+      if (!emp.trainingStartDate) emp.trainingStartDate = getLogicalDateIso();
+    }
   });
   Object.keys(activeTeamFilters).forEach(k => {
     if (!teamsConfig[k]) delete activeTeamFilters[k];
@@ -595,34 +667,61 @@ window.updateHeaderDateKw = function() {
   }
 };
 
+/* Aktualisiert sowohl den Planer-Button als auch den Portal-Header-Status für die aktuell aktive Schicht */
 window.updateShiftApprovalUI = function() {
   const approved = isCurrentShiftApproved();
+  const sundayFree = isSundayDaytimeFree();
+  const activeShiftId = getCurrentActiveShiftId();
+  const activeShort = shiftsShortLabel[activeShiftId] || "Schicht";
+  const activeLong = shiftsLabel[activeShiftId] || "Aktuelle Schicht";
+
   const bar = document.getElementById("brandGradientBar");
-  if (bar) bar.className = approved ? "brand-gradient approved" : "brand-gradient pending";
+  if (bar) bar.className = (approved || sundayFree) ? "brand-gradient approved" : "brand-gradient pending";
 
   const dot = document.getElementById("indicatorDot");
   const text = document.getElementById("indicatorText");
   const btn = document.getElementById("plannerApprovalIndicator");
   if (dot && text && btn) {
     dot.style.background = approved ? "#16a34a" : "#dc2626";
-    text.textContent = approved ? "Freigegeben" : "Freigeben";
+    text.textContent = approved ? ("Freigegeben (" + activeShort + ")") : (activeShort + " freigeben");
     btn.style.borderColor = approved ? "#86efac" : "#fecaca";
     btn.style.background = approved ? "#f0fdf4" : "#fef2f2";
     btn.style.color = approved ? "#166534" : "#b91c1c";
+  }
+
+  const portalBadge = document.getElementById("portalShiftStatusBadge");
+  const portalDot = document.getElementById("portalStatusDot");
+  const portalText = document.getElementById("portalStatusText");
+  if (portalBadge && portalDot && portalText) {
+    if (sundayFree) {
+      portalBadge.className = "portal-shift-status sunday";
+      portalDot.style.background = "#0284c7";
+      portalText.textContent = "☀️ Sonntag – Regulär Schichtfrei";
+    } else if (approved) {
+      portalBadge.className = "portal-shift-status approved";
+      portalDot.style.background = "#16a34a";
+      portalText.textContent = "✅ " + activeLong + " ist vom Planer bestätigt";
+    } else {
+      portalBadge.className = "portal-shift-status pending";
+      portalDot.style.background = "#dc2626";
+      portalText.textContent = "⏳ " + activeLong + " ist noch nicht bestätigt";
+    }
   }
 };
 
 window.toggleShiftApprovalState = function() {
   if (plannerLevel <= 2) return;
+  const activeShiftId = getCurrentActiveShiftId();
+  const activeLong = shiftsLabel[activeShiftId] || "Schicht";
   const currentKey = getCurrentShiftApprovalKey();
   if (approvedShiftKey === currentKey) {
     approvedShiftKey = "";
-    addHistoryLog("Schicht-Freigabe zurückgenommen", "SHIFT");
-    showToast("Freigabe zurückgenommen");
+    addHistoryLog("Freigabe für " + activeLong + " zurückgenommen", "SHIFT");
+    showToast("Freigabe für " + activeLong + " zurückgenommen");
   } else {
     approvedShiftKey = currentKey;
-    addHistoryLog("Schicht freigegeben", "SHIFT");
-    showToast("Aktuelle Schicht freigegeben!");
+    addHistoryLog(activeLong + " fürs Mitarbeiter-Portal freigegeben", "SHIFT");
+    showToast("✅ " + activeLong + " freigegeben!");
   }
   window.updateShiftApprovalUI();
   saveToFirebase();
@@ -725,7 +824,6 @@ function addHistoryLog(text, category) {
 }
 window.logHistory = function(cat, text) { addHistoryLog(text, cat); };
 
-/* Berechnet die Team-Aufstellung für jedes beliebige Datum anhand des 2-2-2 (Sonntag frei) Block-Index */
 function getRotationForDate(targetIso) {
   const anchorBlock = (typeof shiftModelConfig.lastRotationBlockIndex === "number")
     ? shiftModelConfig.lastRotationBlockIndex
@@ -831,7 +929,8 @@ window.generateCoveragePromptForLeave = function(sl, defaultDayStatus) {
         shift: regShift,
         takenBy: prev ? prev.takenBy : null,
         dayStatus: prev ? prev.dayStatus : initStatus,
-        explicitlyApproved: prev ? !!prev.explicitlyApproved : (initStatus === "open")
+        explicitlyApproved: prev ? !!prev.explicitlyApproved : (initStatus === "open"),
+        allowWithRestWarning: prev ? !!prev.allowWithRestWarning : false
       });
     }
     curIso = getNextDateIso(curIso);
@@ -973,7 +1072,7 @@ window.applyForCoverageDay = function(covId, dateIso, empId) {
 
   if (extraShifts.some(es => es.empId === emp.id && es.date === dateIso && es.status !== "rejected")) return false;
   const check = window.checkExtraShiftPlausibility(emp.id, dateIso, dayObj.shift);
-  if (!check.ok) return false;
+  if (!check.ok && !dayObj.allowWithRestWarning) return false;
 
   const probTxt = cov.probableLines ? (" · " + cov.probableLines) : "";
   extraShifts.push({
@@ -983,9 +1082,9 @@ window.applyForCoverageDay = function(covId, dateIso, empId) {
     shift: dayObj.shift,
     note: "Ersatzbedarf (" + (cov.role || "Mitarbeiter") + ")" + probTxt,
     coverageId: cov.id,
-    plausibilityWarning: false,
-    isNightShiftConflict: false,
-    conflictDetails: "",
+    plausibilityWarning: !check.ok,
+    isNightShiftConflict: !!check.isNightShiftConflict,
+    conflictDetails: (!check.ok && check.reason) ? window.formatConflictForPlanner(check.reason, fullName(emp)) : "",
     plannerUnreadInfo: true,
     status: "pending"
   });
@@ -994,8 +1093,6 @@ window.applyForCoverageDay = function(covId, dateIso, empId) {
   return true;
 };
 
-/* 1-Stunden-Vorlauf für Bringschichten:
-   Früh ab 05:00 Uhr, Spät ab 13:00 Uhr, Nacht ab 21:00 Uhr */
 function isExtraShiftInActiveWindow(es, nowObj) {
   if (!es || es.status !== "approved" || !es.date || !es.shift) return false;
   const now = nowObj || new Date();
@@ -1274,6 +1371,7 @@ function getActiveFocusLineHours(emp, lineId) {
 }
 
 function isEmpDueForRotationLearning(emp, todayIso) {
+  if (window.shouldHoldEmpOnMainLineToday(emp, todayIso)) return false;
   const cycleMonths = Number(shiftModelConfig.rotationCycleMonths || 0);
   if (cycleMonths <= 0) return false;
   const secCount = Array.isArray(emp.secLines) ? emp.secLines.length : 0;
@@ -1380,6 +1478,24 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     assignedCount++;
   }
 
+  /* PHASE 0: Neu-Mitarbeiter mit aktivem Stamm-Schutz (z.B. 360 Tage / 90%) zuerst fest auf ihrer Stammlinie sichern */
+  slotCandidates.filter(e => isAvailableInPool(e) && window.shouldHoldEmpOnMainLineToday(e, todayIso)).forEach(protectedEmp => {
+    const rName = protectedEmp.role || "Bediener";
+    const mainList = Array.isArray(protectedEmp.mainLines) ? protectedEmp.mainLines : [];
+    const pinLineId = extractLineIdFromZone(protectedEmp.pinnedZone);
+    const orderedIds = (pinLineId && mainList.indexOf(pinLineId) !== -1)
+      ? [pinLineId].concat(mainList.filter(id => id !== pinLineId))
+      : mainList.slice();
+
+    for (let i = 0; i < orderedIds.length; i++) {
+      const line = sortedLines.find(l => l.id === orderedIds[i]);
+      if (line && getLineEmps(line.id).length < getLineTotalTarget(line) && getRoleDeficitForLine(line, rName) > 0) {
+        placeEmpOnLine(protectedEmp, line, false);
+        break;
+      }
+    }
+  });
+
   /* PHASE 1: "Nur Stammmitarbeiter"-Linien (line.mainOnly) zuerst strikt mit Stammpersonal besetzen */
   sortedLines.filter(l => l.mainOnly).forEach(line => {
     const totalSoll = getLineTotalTarget(line);
@@ -1415,6 +1531,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
         if (shiftModelConfig.focusModeEnabled !== false && !existingTraineeOnLine && getLineEmps(line.id).length >= 1) {
           const focusCands = slotCandidates.filter(e =>
             isAvailableInPool(e) &&
+            !window.shouldHoldEmpOnMainLineToday(e, todayIso) &&
             (e.role || "Bediener") === rName &&
             getActiveFocusLineHours(e, line.id) > 0
           ).sort((a, b) => getActiveFocusLineHours(b, line.id) - getActiveFocusLineHours(a, line.id));
@@ -1444,6 +1561,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
         if (!cand) {
           const secPool = slotCandidates.filter(e =>
             isAvailableInPool(e) &&
+            !window.shouldHoldEmpOnMainLineToday(e, todayIso) &&
             (e.role || "Bediener") === rName &&
             Array.isArray(e.secLines) && e.secLines.indexOf(line.id) !== -1
           ).sort((a, b) => compareSecondaryFairness(a, b, line.id, todayIso));
@@ -1456,13 +1574,14 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     });
   });
 
-  /* PHASE 3: AUSNAHME-FALLBACK für "Nur Stammmitarbeiter"-Linien (nur falls zu wenige oder gar keine Stammmitarbeiter da sind) */
+  /* PHASE 3: AUSNAHME-FALLBACK für "Nur Stammmitarbeiter"-Linien */
   sortedLines.filter(l => l.mainOnly).forEach(line => {
     const totalSoll = getLineTotalTarget(line);
     roles.forEach(rName => {
       while (getLineEmps(line.id).length < totalSoll && getRoleDeficitForLine(line, rName) > 0) {
         const secFallback = slotCandidates.filter(e =>
           isAvailableInPool(e) &&
+          !window.shouldHoldEmpOnMainLineToday(e, todayIso) &&
           (e.role || "Bediener") === rName &&
           Array.isArray(e.secLines) && e.secLines.indexOf(line.id) !== -1
         ).sort((a, b) => compareSecondaryFairness(a, b, line.id, todayIso));
@@ -1472,12 +1591,13 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     });
   });
 
-  /* PHASE 4: Intelligenter Ringtausch */
+  /* PHASE 4: Intelligenter Ringtausch (Stamm-Schutz-Mitarbeiter werden nicht von ihrer Stammlinie wegrotiert) */
   if (shiftModelConfig.smartAllowSwap !== false) {
     const unplaced = slotCandidates.filter(isAvailableInPool);
     unplaced.forEach(cand => {
       const cRole = cand.role || "Bediener";
-      const candLines = [].concat(cand.mainLines || [], cand.secLines || []);
+      const holdOnMain = window.shouldHoldEmpOnMainLineToday(cand, todayIso);
+      const candLines = holdOnMain ? (cand.mainLines || []).slice() : [].concat(cand.mainLines || [], cand.secLines || []);
       for (let i = 0; i < candLines.length; i++) {
         const targetLine = sortedLines.find(l => l.id === candLines[i]);
         if (!targetLine) continue;
@@ -1492,7 +1612,11 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
           break;
         }
 
-        const currentRoleOccupants = getLineEmps(targetLine.id).filter(occ => !occ.noRotation && (occ.role || "Bediener") === cRole);
+        const currentRoleOccupants = getLineEmps(targetLine.id).filter(occ =>
+          !occ.noRotation &&
+          !window.shouldHoldEmpOnMainLineToday(occ, todayIso) &&
+          (occ.role || "Bediener") === cRole
+        );
         let swapped = false;
 
         for (let j = 0; j < currentRoleOccupants.length; j++) {
@@ -1524,13 +1648,14 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     });
   }
 
-  /* PHASE 5: Förder-Zyklus (alle X Monate an neue Linien heranführen, außer Linie ist mainOnly) */
+  /* PHASE 5: Förder-Zyklus (alle X Monate an neue Linien heranführen, außer Linie ist mainOnly oder Mitarbeiter im Stamm-Schutz) */
   sortedLines.filter(l => !l.mainOnly).forEach(line => {
     const totalSoll = getLineTotalTarget(line);
     roles.forEach(rName => {
       while (getLineEmps(line.id).length < totalSoll && getRoleDeficitForLine(line, rName) > 0) {
         let learner = slotCandidates.find(e =>
           isAvailableInPool(e) &&
+          !window.shouldHoldEmpOnMainLineToday(e, todayIso) &&
           (e.role || "Bediener") === rName &&
           (getActiveFocusLineHours(e, line.id) > 0 || isEmpDueForRotationLearning(e, todayIso))
         );
@@ -1573,10 +1698,6 @@ window.runAllShiftsAutoAssignment = function(silent) {
    6. KUGELSICHERE 05:00-UHR-AUTOMATIK (INKL. CATCH-UP & 2-2-2 SONNTAG FREI)
    ========================================================================== */
 
-/* Prüft bei jedem Laden und alle 30 Sekunden:
-   1. Ist seit 05:00 Uhr morgens ein neuer 2-Tages-Block (Mo, Mi, Fr) gestartet? -> Automatisch rotieren!
-   2. Ist ein neuer Produktionstag (Mo-Sa ab 05:00 Uhr) gestartet? -> Automatisch Pool bereinigen & Früh/Spät/Nacht neu zuweisen!
-   3. Ist ein 1h-Vorlauf-Fenster (05:00 Früh, 13:00 Spät, 21:00 Nacht) erreicht? -> Bringschichten & Status aktualisieren! */
 function checkScheduledAutomations() {
   if (!hasLoadedFromCloud || isDraggingCard || isRunningAutoTransition) return false;
   const now = new Date();
@@ -1587,13 +1708,11 @@ function checkScheduledAutomations() {
 
   isRunningAutoTransition = true;
   try {
-    /* Initialisiere Block-Anker beim allerersten Start, falls noch leer */
     if (typeof shiftModelConfig.lastRotationBlockIndex !== "number") {
       shiftModelConfig.lastRotationBlockIndex = currentBlockIdx;
       didChange = true;
     }
 
-    /* A) 2-2-2 (Sonntag frei) BLOCK-ROTATION (Montag 05:00, Mittwoch 05:00, Freitag 05:00 + Catch-Up falls später geöffnet) */
     if (!isSundayNow && shiftModelConfig.autoRotate !== false && currentBlockIdx !== shiftModelConfig.lastRotationBlockIndex) {
       const blockDiff = currentBlockIdx - shiftModelConfig.lastRotationBlockIndex;
       const steps = ((blockDiff % 4) + 4) % 4;
@@ -1605,12 +1724,10 @@ function checkScheduledAutomations() {
       didChange = true;
     }
 
-    /* B) TÄGLICHER PRODUKTIONSTAG-WECHSEL AB 05:00 UHR (MIT CATCH-UP GARANTIE) */
     if (shiftModelConfig.lastProcessedProductionDate !== prodTodayIso) {
       shiftModelConfig.lastProcessedProductionDate = prodTodayIso;
 
       if (isSundayNow) {
-        /* Sonntag: Alle regulären Schichten in den Pool (Sonntagsruhe) */
         employees.forEach(e => {
           if (e.zone && ["pool", "review", "absent", "extra"].indexOf(e.zone) === -1) {
             e.zone = "pool";
@@ -1620,7 +1737,6 @@ function checkScheduledAutomations() {
         addHistoryLog("Sonntags-Ruhe ab 05:00 Uhr aktiviert (Board in Pool geleert)", "SHIFT");
         didChange = true;
       } else {
-        /* Werktag (Mo-Sa): Pool-Reset + Abwesenheiten/Bringschichten + Auto-Zuweisung für Früh, Spät & Nacht */
         if (shiftModelConfig.resetEnabled !== false || shiftModelConfig.autoRotate !== false) {
           employees.forEach(e => {
             if (e.zone && ["pool", "review", "absent", "extra"].indexOf(e.zone) === -1 && !isEmpAnchorActiveToday(e, prodTodayIso)) {
@@ -1646,11 +1762,11 @@ function checkScheduledAutomations() {
       }
     }
 
-    /* C) 1-STUNDEN-VORLAUF PRO SCHICHT (05:00 Früh, 13:00 Spät, 21:00 Nacht) */
     const activeShiftWindowKey = prodTodayIso + "_" + getCurrentActiveShiftId(now);
     if (shiftModelConfig.lastActiveShiftWindowKey !== activeShiftWindowKey) {
       shiftModelConfig.lastActiveShiftWindowKey = activeShiftWindowKey;
       window.syncAbsentAndExtraZones();
+      window.updateShiftApprovalUI();
       didChange = true;
     }
 
@@ -1664,7 +1780,6 @@ function checkScheduledAutomations() {
   return didChange;
 }
 
-/* Manuelle Synchronisation für den Planer: Setzt die aktuell eingestellten Teams als heutigen 2-2-2 Anker & verteilt neu */
 window.syncCurrentBoardAs222Anchor = function() {
   const prodTodayIso = getLogicalDateIso();
   shiftModelConfig.lastRotationBlockIndex = getWorkdayBlockIndex(prodTodayIso);
@@ -1685,6 +1800,7 @@ window.syncCurrentBoardAs222Anchor = function() {
 setInterval(() => {
   if (!hasLoadedFromCloud || isDraggingCard) return;
   window.updateHeaderDateKw();
+  window.updateShiftApprovalUI();
   const autoChanged = checkScheduledAutomations();
   if (!autoChanged) {
     const zChanged = window.syncAbsentAndExtraZones();
@@ -1704,7 +1820,7 @@ setInterval(() => {
 }, 30000);
 
 /* ==========================================================================
-   7. INIT BOARD & KARTEN RENDERING (INKL. STAMM-BADGE & SAAS-LOOK)
+   7. INIT BOARD & KARTEN RENDERING (INKL. STAMM-BADGE & ROTES +EH)
    ========================================================================== */
 
 function getLineTotalTarget(line) {
@@ -1769,7 +1885,7 @@ window.initBoard = function() {
       const pCls = (pLow.indexOf("1") !== -1 || pLow.indexOf("2") !== -1) ? "prio-high" : "prio-mid";
       prioBadgeHtml = '<span class="line-prio ' + pCls + '">' + line.prio + '</span>';
     }
-    const mainOnlyBadgeHtml = line.mainOnly
+    const mainOnlyBadgeHtml = (isPlanner && line.mainOnly)
       ? '<span class="line-mainonly-tag" title="Nur Stammmitarbeiter (Ausnahme bei Personalmangel)">🛡️ Nur Stamm</span>'
       : '';
 
@@ -1813,7 +1929,7 @@ window.initBoard = function() {
       '<div class="shift-kpi-row" id="kpiRow_' + shift.id + '"></div>' +
       '<div class="shift-controls">' +
         '<div class="shift-load-row">' +
-          '<select id="teamSelect_' + shift.id + '" class="shift-team-select" style="border-left:4px solid ' + curObj.color + '; color:' + curObj.color + ';" onchange="onShiftTeamDropdownChange(\'' + shift.id + '\', this)">' + opts + '</select>' +
+          '<select id="teamSelect_' + shift.id + '" class="shift-team-select" title="' + curObj.name + '" style="border-left:4px solid ' + curObj.color + '; color:' + curObj.color + ';" onchange="onShiftTeamDropdownChange(\'' + shift.id + '\', this)">' + opts + '</select>' +
           '<button class="shift-load-btn" onclick="loadTeamToShift(\'' + shift.id + '\')" title="Team laden">📥</button>' +
           '<button class="shift-magic-btn" onclick="smartAssignShiftSlot(\'' + shift.id + '\')" title="Intelligente Auto-Zuweisung">🪄</button>' +
         '</div>' +
@@ -1871,6 +1987,8 @@ function renderEmployees() {
     });
   });
 
+  const todayIso = getLogicalDateIso();
+
   employees.forEach(emp => {
     const fName = fullName(emp);
     const pinNum = emp.pinnedZone ? getShortLineNumber(emp.pinnedZone) : "";
@@ -1912,6 +2030,10 @@ function renderEmployees() {
 
     const ersthelferHtml = emp.ersthelfer ? '<span class="ersthelfer-plus" title="Ersthelfer">+</span>' : '';
     const fixTagHtml = emp.noRotation ? '<span class="card-fix-tag" title="Anker / Feste Schicht">⚓ Fix</span>' : '';
+    const protInfo = window.getEmpTrainingProtectionInfo(emp, todayIso);
+    const traineeTagHtml = protInfo.active
+      ? '<span class="card-trainee-tag" title="Stamm-Schutz aktiv: ' + protInfo.mainPct + '% Stammlinie (noch ' + protInfo.remainingDays + ' Tage)">🛡️ ' + protInfo.mainPct + '%</span>'
+      : '';
 
     let qualWarnHtml = "";
     const lineIdPure = extractLineIdFromZone(emp.zone);
@@ -1919,8 +2041,9 @@ function renderEmployees() {
       const isMain = Array.isArray(emp.mainLines) && emp.mainLines.indexOf(lineIdPure) !== -1;
       const isSec = Array.isArray(emp.secLines) && emp.secLines.indexOf(lineIdPure) !== -1;
       const focusH = getActiveFocusLineHours(emp, lineIdPure);
+      const threshold = Number(shiftModelConfig.secondaryUnlockThresholdHours || 120);
       if (focusH > 0) {
-        qualWarnHtml = '<span class="card-qual-warn" style="color:#0284c7; font-weight:700;" title="🎯 Fokus-Einarbeitung: ' + focusH + 'h gesammelt">🎯 ' + focusH + 'h</span>';
+        qualWarnHtml = '<span class="card-qual-warn" style="color:#0284c7; font-weight:700;" title="🎯 Fokus-Einarbeitung: ' + focusH + 'h / ' + threshold + 'h gesammelt (noch ' + Math.max(0, threshold - focusH) + 'h bis Freischaltung)">🎯 ' + focusH + 'h</span>';
       } else if (!isMain && !isSec && extractLineIdFromZone(emp.pinnedZone) !== lineIdPure) {
         qualWarnHtml = '<span class="card-qual-warn" title="⚠️ Linie nicht in Qualifikation hinterlegt!">⚠️</span>';
       }
@@ -1945,6 +2068,7 @@ function renderEmployees() {
         '<div class="card-badges-left">' +
           '<span class="card-role">' + (emp.role || "Bediener") + '</span>' +
           fixTagHtml +
+          traineeTagHtml +
           qualWarnHtml +
         '</div>' +
         rightMetaHtml +
@@ -2009,7 +2133,7 @@ function renderEmployees() {
     const ehOk = sStat.eh >= 1;
     kpiEl.innerHTML =
       '<span class="shift-kpi-pill ' + (staffOk ? 'ok' : 'warn') + '" title="Eingeteilt / Gesamt-Soll">👥 ' + sStat.assigned + '/' + sStat.target + '</span>' +
-      '<span class="shift-kpi-pill ' + (ehOk ? 'ok' : 'warn') + '" title="Ersthelfer in dieser Schicht">➕ ' + sStat.eh + ' EH</span>';
+      '<span class="shift-kpi-pill ' + (ehOk ? 'ok' : 'warn eh-zero') + '" title="Ersthelfer in dieser Schicht"><span class="eh-plus-icon">+</span> ' + sStat.eh + ' EH</span>';
   });
 
   const pEl = document.getElementById("pool");
@@ -2101,7 +2225,6 @@ function initDragAndDrop() {
     }));
   });
 }
-
 /* ==========================================================================
    8. SCHICHTEN LEEREN, LADEN & ROTIEREN (TEIL 2 VON 2)
    ========================================================================== */
@@ -2389,7 +2512,7 @@ window.saveLineDetails = function(isAuto) {
 };
 
 /* ==========================================================================
-   11. DEZENTE "JA / NEIN"-BRINGSCHICHT-FREIGABE MIT TEAM- & RUHEZEIT-PRÜFUNG
+   11. SMARTE 3ER-SCHNELLAUSWAHL & "JA / NEIN"-BRINGSCHICHT-FREIGABE
    ========================================================================== */
 
 window.getCoverageTargetInfoForDay = function(dateIso, shiftId, reqRole) {
@@ -2432,14 +2555,15 @@ window.openCoverageReleaseModal = function(leaveId) {
   if (!modal || !listEl) return;
 
   const bulkBtns = modal.querySelectorAll("button[onclick*='setAllModalCoverageDaysStatus']");
-  if (bulkBtns.length === 2 && bulkBtns[0].parentElement) {
+  if (bulkBtns.length > 0 && bulkBtns[0].parentElement) {
     const bulkWrap = bulkBtns[0].parentElement;
-    bulkWrap.style.cssText = "display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid #f1f5f9;";
+    bulkWrap.style.cssText = "display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid #f1f5f9;";
     bulkWrap.innerHTML =
-      '<span style="font-size:0.74rem; font-weight:600; color:#64748b;">Schnellauswahl für alle Tage:</span>' +
-      '<div style="display:flex; gap:6px;">' +
-        '<button type="button" onclick="setAllModalCoverageDaysStatus(\'open\')" style="background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; border-radius:6px; padding:3px 9px; font-size:0.72rem; font-weight:700; cursor:pointer;">Alle Ja</button>' +
-        '<button type="button" onclick="setAllModalCoverageDaysStatus(\'rejected\')" style="background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:6px; padding:3px 9px; font-size:0.72rem; font-weight:700; cursor:pointer;">Alle Nein</button>' +
+      '<span style="font-size:0.74rem; font-weight:700; color:#475569;">Schnellauswahl:</span>' +
+      '<div style="display:flex; gap:5px; flex-wrap:wrap;">' +
+        '<button type="button" onclick="setAllModalCoverageDaysStatus(\'open_green\')" style="background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; border-radius:6px; padding:4px 9px; font-size:0.71rem; font-weight:700; cursor:pointer;" title="Schaltet nur Tage frei, an denen das freie Team ohne Ruhezeit-Konflikt fahren darf">🟢 Alle fahrbaren Tage (Ja)</button>' +
+        '<button type="button" onclick="setAllModalCoverageDaysStatus(\'open_all\')" style="background:#fffbeb; color:#b45309; border:1px solid #fde68a; border-radius:6px; padding:4px 9px; font-size:0.71rem; font-weight:700; cursor:pointer;" title="Schaltet alle Tage inkl. gelber Ruhezeit-Warnung fürs Portal frei">🟡 Alle inkl. Warnung (Ja)</button>' +
+        '<button type="button" onclick="setAllModalCoverageDaysStatus(\'rejected\')" style="background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:6px; padding:4px 9px; font-size:0.71rem; font-weight:700; cursor:pointer;" title="Lehnt alle Tage ab (im Portal gesperrt)">❌ Alle ablehnen (Nein)</button>' +
       '</div>';
   }
 
@@ -2452,7 +2576,7 @@ window.openCoverageReleaseModal = function(leaveId) {
     subEl.style.cssText = "font-size:0.8rem; color:#475569; margin-bottom:10px; line-height:1.4;";
     subEl.innerHTML =
       "Ausfall: <b style='color:#0f172a;'>" + nameTxt + "</b> <span style='color:#64748b;'>(" + roleTxt + probLineTxt + ")</span><br>" +
-      "<span style='font-size:0.74rem; color:#64748b;'>Freigegebene Schichten sehen im Portal <b>nur</b> Mitarbeiter des freien Teams, die laut Rolle & Ruhezeit einspringen dürfen.</span>";
+      "<span style='font-size:0.74rem; color:#64748b;'>Du kannst diese Auswahl jederzeit auch nachträglich im Postfach wieder öffnen und einzelne Tage auf <b>Ja</b> oder <b>Nein</b> umstellen.</span>";
   }
 
   const validDays = (req && Array.isArray(req.days)) ? req.days : [];
@@ -2469,6 +2593,7 @@ window.openCoverageReleaseModal = function(leaveId) {
       const wdShort = getWeekdayShortDe(d.date);
 
       const targetInfo = window.getCoverageTargetInfoForDay(d.date, d.shift, roleTxt);
+      const hasYellowWarning = !targetInfo.isPast && targetInfo.eligibleTotalCount === 0;
 
       let teamMetaHtml = "";
       if (targetInfo.isPast) {
@@ -2477,11 +2602,11 @@ window.openCoverageReleaseModal = function(leaveId) {
         const namesHint = targetInfo.eligibleNames.slice(0, 4).join(", ") + (targetInfo.eligibleNames.length > 4 ? "..." : "");
         teamMetaHtml =
           '<span style="color:' + targetInfo.freiTeamColor + '; font-weight:700;">■ ' + targetInfo.freiTeamName + ' (Frei)</span>' +
-          ' · <span style="color:#15803d; font-weight:600;" title="Mögliche Mitarbeiter: ' + namesHint + '">✓ ' + targetInfo.eligibleTotalCount + ' ' + roleTxt + ' verfügbar</span>';
+          ' · <span style="color:#15803d; font-weight:600;" title="Mögliche Mitarbeiter: ' + namesHint + '">🟢 ' + targetInfo.eligibleTotalCount + ' ' + roleTxt + ' regulär fahrbar</span>';
       } else {
         teamMetaHtml =
           '<span style="color:' + targetInfo.freiTeamColor + '; font-weight:600;">■ ' + targetInfo.freiTeamName + ' (Frei)</span>' +
-          ' · <span style="color:#d97706; font-weight:600;" title="Wegen Vor-/Nachschicht-Ruhezeit (z.B. Ausschlaftag nach Nachtschicht) aktuell kein passender ' + roleTxt + ' ohne Ruhezeit-Konflikt frei">⚠️ Ruhezeit-Sperre (0 regulär frei)</span>';
+          ' · <span style="color:#d97706; font-weight:700;" title="Wegen Vor-/Nachschicht-Ruhezeit (z.B. Ausschlaftag nach Nachtschicht) aktuell kein passender ' + roleTxt + ' ohne Ruhezeit-Warnung frei">🟡 Ruhezeit-Warnung (0 ohne Konflikt frei)</span>';
       }
 
       let rightControlHtml = "";
@@ -2492,7 +2617,9 @@ window.openCoverageReleaseModal = function(leaveId) {
           '</span>';
       } else {
         const yesStyle = isOpen
-          ? "background:#10b981; color:#ffffff; border-color:#10b981; box-shadow:0 1px 2px rgba(16,185,129,0.25);"
+          ? (hasYellowWarning
+              ? "background:#f59e0b; color:#ffffff; border-color:#f59e0b; box-shadow:0 1px 2px rgba(245,158,11,0.25);"
+              : "background:#10b981; color:#ffffff; border-color:#10b981; box-shadow:0 1px 2px rgba(16,185,129,0.25);")
           : "background:#ffffff; color:#64748b; border-color:#e2e8f0;";
         const noStyle = isRejected
           ? "background:#ef4444; color:#ffffff; border-color:#ef4444; box-shadow:0 1px 2px rgba(239,68,68,0.25);"
@@ -2505,9 +2632,9 @@ window.openCoverageReleaseModal = function(leaveId) {
           '</div>';
       }
 
-      const rowBorderColor = isTaken ? "#bae6fd" : (isOpen ? "#bbf7d0" : (isRejected ? "#fecaca" : "#e2e8f0"));
-      const rowBg = isOpen ? "#f0fdf4" : (isRejected ? "#fff1f2" : "#ffffff");
-      const statusDot = isOpen ? "🟢" : (isRejected ? "🔴" : "⚪");
+      const rowBorderColor = isTaken ? "#bae6fd" : (isOpen ? (hasYellowWarning ? "#fde68a" : "#bbf7d0") : (isRejected ? "#fecaca" : "#e2e8f0"));
+      const rowBg = isOpen ? (hasYellowWarning ? "#fffbeb" : "#f0fdf4") : (isRejected ? "#fff1f2" : "#ffffff");
+      const statusDot = isOpen ? (hasYellowWarning ? "🟡" : "🟢") : (isRejected ? "🔴" : "⚪");
 
       return (
         '<div style="display:flex; justify-content:space-between; align-items:center; background:' + rowBg + '; border:1px solid ' + rowBorderColor + '; padding:8px 11px; border-radius:10px; margin-bottom:6px; gap:10px; transition:all 0.15s ease;">' +
@@ -2532,8 +2659,15 @@ window.openCoverageReleaseModal = function(leaveId) {
 window.setCoverageDayDecision = function(leaveId, dayIdx, decisionStatus) {
   const req = (leaveRequests || []).find(r => r.leaveId === leaveId || r.id === leaveId || r.id === ("cov_" + leaveId));
   if (!req || !req.days || !req.days[dayIdx]) return;
-  req.days[dayIdx].dayStatus = decisionStatus;
-  req.days[dayIdx].explicitlyApproved = (decisionStatus === "open");
+  const d = req.days[dayIdx];
+  d.dayStatus = decisionStatus;
+  d.explicitlyApproved = (decisionStatus === "open");
+  if (decisionStatus === "open") {
+    const info = window.getCoverageTargetInfoForDay(d.date, d.shift, req.role || "Bediener");
+    d.allowWithRestWarning = (info.eligibleTotalCount === 0);
+  } else {
+    d.allowWithRestWarning = false;
+  }
   saveToFirebase();
   const modal = document.getElementById("coverageReleaseModal");
   if (modal && modal.style.display === "flex") {
@@ -2550,21 +2684,52 @@ window.toggleCoverageDayStatus = function(leaveId, dayIdx) {
   window.setCoverageDayDecision(leaveId, dayIdx, next);
 };
 
-window.setAllModalCoverageDaysStatus = function(targetStatus) {
+window.setAllModalCoverageDaysStatus = function(mode) {
   if (!activeCoverageReleaseLeaveId) return;
   const req = (leaveRequests || []).find(r => r.leaveId === activeCoverageReleaseLeaveId || r.id === activeCoverageReleaseLeaveId || r.id === ("cov_" + activeCoverageReleaseLeaveId));
   if (!req || !Array.isArray(req.days)) return;
-  const finalStatus = (targetStatus === "closed") ? "rejected" : targetStatus;
+
+  const reqRole = req.role || "Bediener";
+  let openCount = 0;
+
   req.days.forEach(d => {
-    if (!d.takenBy) {
-      d.dayStatus = finalStatus;
-      d.explicitlyApproved = (finalStatus === "open");
+    if (d.takenBy) return;
+    const info = window.getCoverageTargetInfoForDay(d.date, d.shift, reqRole);
+
+    if (mode === "open_green") {
+      if (!info.isPast && info.eligibleTotalCount > 0) {
+        d.dayStatus = "open";
+        d.explicitlyApproved = true;
+        d.allowWithRestWarning = false;
+        openCount++;
+      } else {
+        d.dayStatus = "rejected";
+        d.explicitlyApproved = false;
+        d.allowWithRestWarning = false;
+      }
+    } else if (mode === "open_all" || mode === "open") {
+      d.dayStatus = "open";
+      d.explicitlyApproved = true;
+      d.allowWithRestWarning = (info.eligibleTotalCount === 0);
+      openCount++;
+    } else {
+      d.dayStatus = "rejected";
+      d.explicitlyApproved = false;
+      d.allowWithRestWarning = false;
     }
   });
+
   saveToFirebase();
   window.openCoverageReleaseModal(req.leaveId);
   window.renderInboxLists();
-  showToast(finalStatus === "open" ? "✅ Alle Schichttage mit JA fürs Portal freigegeben!" : "❌ Alle Schichttage mit NEIN abgelehnt (gesperrt)");
+
+  if (mode === "open_green") {
+    showToast("🟢 " + openCount + " regulär fahrbare Tage mit JA freigegeben (Ruhezeit-Konflikte auf Nein)");
+  } else if (mode === "open_all" || mode === "open") {
+    showToast("🟡 Alle " + openCount + " Tage (inkl. Ruhezeit-Warnung) fürs Portal freigegeben!");
+  } else {
+    showToast("❌ Alle Schichttage mit NEIN abgelehnt (gesperrt)");
+  }
 };
 
 window.openSettingsModal = function() {
@@ -2712,6 +2877,7 @@ function renderSettingsLists() {
   ensureStrategicMatrixSettingsControls();
   const empListEl = document.getElementById("employeeList");
   if (empListEl) {
+    const todayIso = getLogicalDateIso();
     const filteredEmps = employees.filter(e => {
       if (settingsEmpSearchQuery) {
         const hay = (fullName(e) + " " + (e.password || "") + " " + (e.role || "")).toLowerCase();
@@ -2737,12 +2903,17 @@ function renderSettingsLists() {
         ? '<span style="font-size:0.65rem; font-weight:700; padding:1px 6px; border-radius:999px; background:#dcfce7; color:#166534; border:1px solid #86efac; white-space:nowrap;">✅ Onboarding abgeschlossen</span>'
         : '<span style="font-size:0.64rem; font-weight:600; padding:1px 6px; border-radius:999px; background:#f8fafc; color:#64748b; border:1px solid #cbd5e1; white-space:nowrap;">⏳ Onboarding offen</span>';
 
+      const protInfo = window.getEmpTrainingProtectionInfo(e, todayIso);
+      const traineeBadge = protInfo.active
+        ? '<span style="font-size:0.65rem; font-weight:700; padding:1px 6px; border-radius:999px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; white-space:nowrap;" title="Stamm-Schutz aktiv seit ' + formatDateDe(protInfo.startDate) + '">🛡️ Stamm-Schutz: ' + protInfo.mainPct + '% (noch ' + protInfo.remainingDays + ' Tg.)</span>'
+        : '';
+
       const onbResetAction = (plannerLevel >= 3 && isOnbDone)
         ? '<button class="btn btn-outline" style="padding:2px 6px; font-size:0.68rem; color:#b45309; border-color:#fde68a;" onclick="resetEmployeeOnboarding(\'' + e.id + '\')" title="Onboarding für diesen Mitarbeiter zurücksetzen">🔄 Onb.</button>'
         : '';
 
       return '<div class="item-row">' +
-        '<div class="emp-row-info"><span style="color:' + tObj.color + '; font-weight:700;">■</span> <b>' + fullName(e) + '</b>' + ehBadge + ' <small style="color:#64748b;">(' + e.role + ')</small> ' + pinBadge + ' ' + onbBadge + '</div>' +
+        '<div class="emp-row-info"><span style="color:' + tObj.color + '; font-weight:700;">■</span> <b>' + fullName(e) + '</b>' + ehBadge + ' <small style="color:#64748b;">(' + e.role + ')</small> ' + pinBadge + ' ' + onbBadge + ' ' + traineeBadge + '</div>' +
         '<div class="emp-row-actions">' + onbResetAction + pinAction +
           '<button class="btn btn-outline" style="padding:2px 7px; font-size:0.72rem;" onclick="editEmployee(\'' + e.id + '\')">✏️</button>' +
           '<button class="btn btn-outline" style="padding:2px 7px; font-size:0.72rem; color:#dc2626; border-color:#fca5a5;" onclick="deleteEmployee(\'' + e.id + '\')">🗑️</button>' +
@@ -2953,7 +3124,7 @@ window.autoSaveSecurityConfig = function() {
 };
 
 /* ==========================================================================
-   12. HISTORIE, BACKUPS, PROFIL & STAMMDATEN-VERWALTUNG
+   12. HISTORIE, BACKUPS, PROFIL & STAMMDATEN-VERWALTUNG (INKL. STAMM-SCHUTZ)
    ========================================================================== */
 
 window.setHistoryCatFilter = function(cat, btnEl) {
@@ -3242,6 +3413,17 @@ window.editEmployee = function(id) {
   if (anchorWrap) anchorWrap.style.display = emp.noRotation ? "block" : "none";
   window.renderAnchorDayButtons(Array.isArray(emp.fixDays) ? emp.fixDays : [1, 2, 3, 4, 5]);
 
+  const trChk = document.getElementById("newEmpInTrainingPhase");
+  const trWrap = document.getElementById("newEmpTrainingPhaseWrap");
+  const trDays = document.getElementById("newEmpTrainingDays");
+  const trPct = document.getElementById("newEmpTrainingMainPct");
+  const trStart = document.getElementById("newEmpTrainingStartDate");
+  if (trChk) trChk.checked = !!emp.inTrainingPhase;
+  if (trWrap) trWrap.style.display = emp.inTrainingPhase ? "block" : "none";
+  if (trDays) trDays.value = emp.trainingDays || 360;
+  if (trPct) trPct.value = emp.trainingMainPct || 90;
+  if (trStart) trStart.value = emp.trainingStartDate || getLogicalDateIso();
+
   window._tempEditEmpMainLines = Array.isArray(emp.mainLines) ? emp.mainLines.slice() : [];
   window._tempEditEmpSecLines = Array.isArray(emp.secLines) ? emp.secLines.slice() : [];
 
@@ -3260,6 +3442,18 @@ window.resetEmpForm = function() {
   document.getElementById("newEmpNoRotation").checked = false;
   const anchorWrap = document.getElementById("newEmpAnchorDaysWrap");
   if (anchorWrap) anchorWrap.style.display = "none";
+
+  const trChk = document.getElementById("newEmpInTrainingPhase");
+  const trWrap = document.getElementById("newEmpTrainingPhaseWrap");
+  const trDays = document.getElementById("newEmpTrainingDays");
+  const trPct = document.getElementById("newEmpTrainingMainPct");
+  const trStart = document.getElementById("newEmpTrainingStartDate");
+  if (trChk) trChk.checked = false;
+  if (trWrap) trWrap.style.display = "none";
+  if (trDays) trDays.value = 360;
+  if (trPct) trPct.value = 90;
+  if (trStart) trStart.value = getLogicalDateIso();
+
   currentAnchorDaysSelection = [1, 2, 3, 4, 5];
   window._tempEditEmpMainLines = [];
   window._tempEditEmpSecLines = [];
@@ -3283,6 +3477,15 @@ window.saveEmployee = function() {
   const ersthelferVal = document.getElementById("newEmpFirstAider").checked;
   const noRotVal = document.getElementById("newEmpNoRotation").checked;
 
+  const trChk = document.getElementById("newEmpInTrainingPhase");
+  const trDays = document.getElementById("newEmpTrainingDays");
+  const trPct = document.getElementById("newEmpTrainingMainPct");
+  const trStart = document.getElementById("newEmpTrainingStartDate");
+  const inTrainingVal = trChk ? trChk.checked : false;
+  const trainingDaysVal = trDays ? (Math.max(1, parseInt(trDays.value, 10) || 360)) : 360;
+  const trainingPctVal = trPct ? (Math.min(100, Math.max(50, parseInt(trPct.value, 10) || 90))) : 90;
+  const trainingStartVal = (trStart && trStart.value) ? trStart.value : getLogicalDateIso();
+
   if (id) {
     const emp = employees.find(e => e.id === id);
     if (emp) {
@@ -3295,11 +3498,15 @@ window.saveEmployee = function() {
         ersthelfer: ersthelferVal,
         noRotation: noRotVal,
         fixDays: noRotVal ? currentAnchorDaysSelection.slice() : [1, 2, 3, 4, 5],
+        inTrainingPhase: inTrainingVal,
+        trainingDays: trainingDaysVal,
+        trainingMainPct: trainingPctVal,
+        trainingStartDate: trainingStartVal,
         mainLines: mainChecked,
         secLines: secChecked
       });
       if (mainChecked.length > 0) emp.onboardingCompleted = true;
-      addHistoryLog("Mitarbeiter aktualisiert: " + fullName(emp), "EMP");
+      addHistoryLog("Mitarbeiter aktualisiert: " + fullName(emp) + (inTrainingVal ? " [Stamm-Schutz: " + trainingDaysVal + " Tg. / " + trainingPctVal + "%]" : ""), "EMP");
       showToast("Mitarbeiter gespeichert!");
     }
   } else {
@@ -3314,6 +3521,10 @@ window.saveEmployee = function() {
       ersthelfer: ersthelferVal,
       noRotation: noRotVal,
       fixDays: noRotVal ? currentAnchorDaysSelection.slice() : [1, 2, 3, 4, 5],
+      inTrainingPhase: inTrainingVal,
+      trainingDays: trainingDaysVal,
+      trainingMainPct: trainingPctVal,
+      trainingStartDate: trainingStartVal,
       mainLines: mainChecked,
       secLines: secChecked,
       onboardingCompleted: mainChecked.length > 0,
@@ -3581,17 +3792,21 @@ window.markAllSickLeavesRead = function() {
   showToast("Alle Meldungen bestätigt");
 };
 
-window.setInboxHistoryCatFilter = function(cat) {
+/* Beide Funktionsnamen registriert, damit die Filter-Pillen unten im Postfach garantiert greifen */
+window.setInboxHistoryCategoryFilter = function(cat) {
   window.activeInboxHistoryCategory = cat || "ALL";
   window.renderInboxLists();
 };
+window.setInboxHistoryCatFilter = window.setInboxHistoryCategoryFilter;
 
 window.classifyInboxActiveItem = function(sl) {
-  if (!sl) return "ALL";
+  if (!sl) return "EXTRA";
+  if (sl._isExtraShiftRecord) return "EXTRA";
   if (sl.isOnboardingNotice || sl.lineRequestData) return "ONBOARDING";
   const cLow = String(sl.category || "").toLowerCase();
   if (cLow.indexOf("urlaub") !== -1 || cLow.indexOf("freizeit") !== -1 || cLow.indexOf("gleittag") !== -1) return "URLAUB";
-  return "KRANK";
+  if (cLow.indexOf("krank") !== -1 || cLow.indexOf("arbeitsunfähig") !== -1 || cLow.indexOf("abwesen") !== -1 || cLow.indexOf("fortbildung") !== -1 || cLow.indexOf("dienstreise") !== -1 || cLow.indexOf("dienstgang") !== -1) return "KRANK";
+  return "EXTRA";
 };
 
 window.renderInboxLists = function() {
@@ -3783,11 +3998,27 @@ window.renderInboxLists = function() {
     }
   }
 
-  const filteredActive = sickLeaves.filter(sl => {
-    if (sl.status === "pending" && !sl.plannerUnreadInfo) return false;
+  /* Bearbeitete & aktive Einträge (inkl. Bringschichten, wenn "Alle" oder "Bringschicht / Info" gewählt ist) */
+  const processedLeaves = sickLeaves.filter(sl => !(sl.status === "pending" && !sl.plannerUnreadInfo));
+  const processedExtrasAsItems = extraShifts
+    .filter(es => es.status === "approved" || es.status === "rejected")
+    .map(es => ({
+      id: es.id,
+      empId: es.empId,
+      startDate: es.date,
+      endDate: es.date,
+      category: "➕ Bringschicht (" + (shiftsShortLabel[es.shift] || es.shift) + ")",
+      reason: es.note || "",
+      status: es.status,
+      _isExtraShiftRecord: true
+    }));
+
+  const allProcessedItems = [].concat(processedLeaves, processedExtrasAsItems);
+
+  const filteredActive = allProcessedItems.filter(sl => {
     if (curCatFilter !== "ALL" && window.classifyInboxActiveItem(sl) !== curCatFilter) return false;
     const emp = employees.find(e => e.id === sl.empId);
-    const txt = ((emp ? fullName(emp) : "") + " " + (sl.category || "") + " " + (sl.reason || "")).toLowerCase();
+    const txt = ((emp ? fullName(emp) : "") + " " + (sl.category || "") + " " + (sl.reason || "") + " " + formatDateDe(sl.startDate)).toLowerCase();
     if (globalQ && txt.indexOf(globalQ) === -1) return false;
     if (searchActive && txt.indexOf(searchActive) === -1) return false;
     return true;
@@ -3802,8 +4033,16 @@ window.renderInboxLists = function() {
       const stBadge = sl.status === "approved"
         ? '<span style="color:#166534; font-weight:700;">✅ Aktiv</span>'
         : '<span style="color:#b91c1c; font-weight:700;">❌ Abgelehnt</span>';
+
+      if (sl._isExtraShiftRecord) {
+        return '<div style="background:#fff; border:1px solid #e2e8f0; padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.82rem; display:flex; justify-content:space-between; align-items:center; gap:6px;">' +
+          '<div><b>' + eName + '</b> · <b>' + sl.category + '</b> (Am ' + formatDateDe(sl.startDate) + ')' + (sl.reason ? ' · ' + sl.reason : '') + ' ' + stBadge + '</div>' +
+          '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.72rem; color:#dc2626;" onclick="deleteExtraShift(\'' + sl.id + '\')">🗑️</button>' +
+        '</div>';
+      }
+
       const covBtn = (sl.status === "approved" && !sl.isOnboardingNotice && !sl.lineRequestData)
-        ? '<button class="btn btn-outline" style="padding:2px 7px; font-size:0.71rem; color:var(--bayer-blue); border-color:#bae6fd;" onclick="openCoverageReleaseModal(\'' + sl.id + '\')" title="Bringschichten für diesen Zeitraum mit Ja/Nein entscheiden">📢 Bringschichten (Ja/Nein)</button>'
+        ? '<button class="btn btn-outline" style="padding:2px 7px; font-size:0.71rem; color:var(--bayer-blue); border-color:#bae6fd;" onclick="openCoverageReleaseModal(\'' + sl.id + '\')" title="Bringschichten für diesen Zeitraum jederzeit nachträglich mit Ja/Nein rein- oder rausnehmen">📢 Bringschichten (Ja/Nein)</button>'
         : '';
       return '<div style="background:#fff; border:1px solid #e2e8f0; padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.82rem; display:flex; justify-content:space-between; align-items:center; gap:6px;">' +
         '<div><b>' + eName + '</b> · <b>' + (sl.category || 'Abwesend') + '</b> (' + formatDateDe(sl.startDate) + ' bis ' + formatDateDe(sl.endDate) + ')' + (sl.reason ? ' · ' + sl.reason : '') + ' ' + stBadge + '</div>' +
@@ -4017,8 +4256,8 @@ function applyIncomingDocData(d) {
 
     window.sanitizeTeamReferences();
     window.syncAbsentAndExtraZones();
+    window.updateShiftApprovalUI();
 
-    /* Direkt beim Laden prüfen, ob ein 05:00-Uhr-Tageswechsel oder 2-2-2-Blockwechsel nachgeholt werden muss */
     const autoDidRun = checkScheduledAutomations();
     if (!autoDidRun) {
       window.initBoard();
