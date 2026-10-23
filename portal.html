@@ -214,7 +214,6 @@
         </div>
       </div>
 
-      <!-- NEU: EINARBEITUNGS-FORTSCHRITT (Z.B. 16h / 120h BIS FREISCHALTUNG) & STAMM-SCHUTZ-STATUS -->
       <div id="portalMyTrainingProgressBox" class="training-progress-wrap" style="display:none;"></div>
 
       <div id="portalLineRequestRow" style="margin-top: 8px; border-top: 1px solid #f1f5f9; padding-top: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
@@ -343,7 +342,6 @@
       dEl.textContent = dateStr + (kw ? " · KW " + kw : "") + " · Aktuell: " + activeShiftName;
     }
 
-    /* Synchronisiert den oberen Portal-Balken UND den Status-Button mit der aktiven Schichtfreigabe des Planers */
     function updatePortalShiftApprovalBanner() {
       const approved = typeof isCurrentShiftApproved === "function" ? isCurrentShiftApproved() : false;
       const sundayFree = typeof isSundayDaytimeFree === "function" ? isSundayDaytimeFree() : false;
@@ -654,7 +652,6 @@
       document.getElementById("portalLoginModal").style.display = "flex";
     }
 
-    /* Zeigt dem Mitarbeiter seinen Einarbeitungs-Fortschritt (z. B. 16h / 120h) bis zur Linien-Freischaltung */
     function renderMyTrainingProgress(emp) {
       const box = document.getElementById("portalMyTrainingProgressBox");
       if (!box || !emp) return;
@@ -756,10 +753,19 @@
       }
 
       const assignEl = document.getElementById("empLiveAssignment"), noteEl = document.getElementById("empLiveApprovalNote");
-      const approved = typeof isCurrentShiftApproved === "function" ? isCurrentShiftApproved() : false;
       const sundayFree = typeof isSundayDaytimeFree === "function" ? isSundayDaytimeFree() : false;
-      const activeShiftId = typeof getCurrentActiveShiftId === "function" ? getCurrentActiveShiftId() : "frueh";
-      const activeShiftName = (typeof shiftsLabel !== "undefined" && shiftsLabel[activeShiftId]) ? shiftsLabel[activeShiftId] : "Aktuelle Schicht";
+
+      let empShiftId = "frueh";
+      if (emp.zone && ["pool", "review", "absent", "extra"].indexOf(emp.zone) === -1) {
+        empShiftId = extractShiftIdFromZone(emp.zone) || "frueh";
+      } else {
+        empShiftId = typeof getCurrentActiveShiftId === "function" ? getCurrentActiveShiftId() : "frueh";
+      }
+      const empShiftName = (typeof shiftsLabel !== "undefined" && shiftsLabel[empShiftId]) ? shiftsLabel[empShiftId] : "Schicht";
+
+      const prodTodayIso = typeof getLogicalDateIso === "function" ? getLogicalDateIso() : "";
+      const empShiftApprovalKey = prodTodayIso + "_" + empShiftId;
+      const isEmpShiftApproved = (typeof approvedShiftKey !== "undefined" && approvedShiftKey === empShiftApprovalKey);
 
       if (sundayFree && (!emp.zone || emp.zone === "pool" || emp.zone === "review")) assignEl.textContent = "☀️ Sonntag – Regulär Schichtfrei (im Pool)";
       else if (!emp.zone || emp.zone === "pool" || emp.zone === "review") assignEl.textContent = "📋 Aktuell im Pool / Noch in Einteilung";
@@ -771,17 +777,14 @@
         assignEl.textContent = "🏭 " + (lineObj ? lineObj.name : lId) + " (" + ((typeof shiftsLabel !== "undefined" && shiftsLabel[sId]) ? shiftsLabel[sId] : sId) + ")";
       }
 
-      noteEl.style.color = approved ? "#166534" : (sundayFree ? "#0369a1" : "#b91c1c");
-      noteEl.textContent = sundayFree
-        ? "☀️ Wochenend-Ruhe bis Montag 05:00 Uhr"
-        : (approved ? ("✅ " + activeShiftName + " ist vom Planer bestätigt") : ("⏳ " + activeShiftName + " noch nicht bestätigt"));
+      noteEl.style.color = isEmpShiftApproved ? "#166534" : (sundayFree ? "#0369a1" : "#b91c1c");
+      noteEl.textContent = sundayFree ? "☀️ Wochenend-Ruhe bis Montag 05:00 Uhr" : (isEmpShiftApproved ? ("✅ " + empShiftName + " ist vom Planer bestätigt") : ("⏳ " + empShiftName + " noch nicht bestätigt"));
 
       renderOpenCoverageRequests(emp);
       renderMyRequestsList(emp.id);
       updateExtraShiftPreviewHint();
     }
 
-    /* Zeigt vom Planer freigegebene Bringschichten an (inkl. vom Planer bewusst übersteuerter Ruhezeit-Tage) */
     function renderOpenCoverageRequests(emp) {
       const sec = document.getElementById("openCoverageSection"), listEl = document.getElementById("openCoverageList"), badgeEl = document.getElementById("openCovBadge");
       if (!sec || !listEl) return;
