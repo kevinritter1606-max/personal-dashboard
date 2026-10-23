@@ -672,7 +672,7 @@
       updateExtraShiftPreviewHint();
     }
 
-    /* Zeigt nur offene Bringschichten an, wenn Freischicht UND alle Vor-/Nachschicht-Ruhezeiten zu 100 % erfüllt sind */
+    /* Zeigt nur vom Planer freigegebene Bringschichten an, wenn der Mitarbeiter zum freien Team gehört und die Ruhezeit passt */
     function renderOpenCoverageRequests(emp) {
       const sec = document.getElementById("openCoverageSection"), listEl = document.getElementById("openCoverageList"), badgeEl = document.getElementById("openCovBadge");
       if (!sec || !listEl) return;
@@ -682,7 +682,7 @@
         if (r.empId === emp.id) return false;
         const reqRole = (r.role || "Bediener").toLowerCase(), myRole = (emp.role || "Bediener").toLowerCase();
         if (reqRole !== myRole && myRole !== "admin" && myRole !== "schichtexperte") return false;
-        return (r.days || []).some(d => d.date >= today && !d.takenBy && d.dayStatus === "open");
+        return (r.days || []).some(d => d.date >= today && !d.takenBy && d.dayStatus === "open" && d.explicitlyApproved);
       });
 
       if (!openReqs.length) { sec.style.display = "none"; if (badgeEl) badgeEl.style.display = "none"; return; }
@@ -694,7 +694,13 @@
         const probLinesTxt = cov.probableLines || (absentEmp && typeof window.getEmpProbableLinesText === "function" ? window.getEmpProbableLinesText(absentEmp) : "");
 
         const availDays = (cov.days || []).filter(d => {
-          if (d.date < today || d.takenBy || d.dayStatus !== "open") return false;
+          if (d.date < today || d.takenBy || d.dayStatus !== "open" || !d.explicitlyApproved) return false;
+          
+          /* Strikte Team-Prüfung: Gehört der Mitarbeiter zum freien Team an diesem Tag? */
+          const rot = getRotationForDate(d.date);
+          if (emp.team !== rot.frei) return false;
+
+          /* Ruhezeit-Prüfung */
           if (typeof window.checkExtraShiftPlausibility === "function") {
             const check = window.checkExtraShiftPlausibility(emp.id, d.date, d.shift);
             if (!check.ok) return false;
@@ -710,7 +716,7 @@
 
           return '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:#fff; border:1px solid #cbd5e1; border-radius:6px; margin-top:4px; gap:6px; flex-wrap:wrap;">' +
             '<div><b>' + formatDateDe(d.date) + '</b> · <b>' + (shiftsLabel[d.shift] || d.shift) + '</b> ' +
-            '<span style="background:#dcfce7; color:#166534; padding:1px 6px; border-radius:4px; font-size:0.7rem; font-weight:700; margin-left:4px;">✅ Plausibel (Freischicht)</span>' +
+            '<span style="background:#dcfce7; color:#166534; padding:1px 6px; border-radius:4px; font-size:0.7rem; font-weight:700; margin-left:4px;">✅ Freigeschaltet & Passend</span>' +
             (probLinesTxt ? ' <span style="background:#e0f2fe; color:#0369a1; padding:1px 6px; border-radius:4px; font-size:0.72rem; font-weight:700; margin-left:4px;">🏭 ' + probLinesTxt + '</span>' : '') +
             '</div>' + actionHtml + '</div>';
         }).join("");
