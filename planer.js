@@ -1,9 +1,10 @@
 /* ==========================================================================
-   PLANER-BOARD MASTER-LOGIK (planer.js) - Version 4.9.63 (TEIL 1 VON 2)
-   Clean-Code Refactoring · SaaS-UI · Ja/Nein-Freigabe · Fairness- & Lern-Matrix
+   PLANER-BOARD MASTER-LOGIK (planer.js) - Version 4.9.64 (TEIL 1 VON 2)
+   Vollständiger Original-Funktionsumfang + SaaS-UI + Dezente Ja/Nein-Freigabe
+   + Team-/Ruhezeit-Prüfung + Stammmitarbeiter-Schutz + Fokus- & Fairness-Matrix
    ========================================================================== */
 
-window.PLANER_JS_VERSION = "4.9.63";
+window.PLANER_JS_VERSION = "4.9.64";
 
 try {
   firebase.initializeApp({
@@ -111,6 +112,7 @@ let poolSearchQuery = "";
 let settingsEmpSearchQuery = "";
 let inboxSearchQuery = "";
 let activeHistoryCategory = "ALL";
+let activeInboxHistoryCategory = "ALL";
 
 let selectedManualSickEmpId = null;
 let selectedManualExtraEmpId = null;
@@ -144,7 +146,7 @@ function injectModernSaaSStyles() {
       letter-spacing: -0.01em;
     }
     header, .top-bar, .app-header {
-      background: rgba(255, 255, 255, 0.92) !important;
+      background: rgba(255, 255, 255, 0.94) !important;
       backdrop-filter: blur(10px);
       border-bottom: 1px solid #e2e8f0 !important;
       box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03) !important;
@@ -647,7 +649,7 @@ window.toggleAutoTimedCombinedQuick = function() {
 };
 
 /* ==========================================================================
-   3. HISTORIE, ABWESENHEITS- & 2-2-2 BRINGSCHICHT-PLAUSIBILITÄT
+   3. HISTORIE, ABWESENHEITS-, TEAM- & 2-2-2 BRINGSCHICHT-PLAUSIBILITÄT
    ========================================================================== */
 
 function addHistoryLog(text, category) {
@@ -806,10 +808,29 @@ window.formatConflictForPlanner = function(reasonText, empName) {
     .replace(/deine /g, "die ");
 };
 
+/* Prüft, ob eine Schicht am heutigen Tag zeitlich bereits vorbei ist */
+window.isShiftOnDateAlreadyPast = function(dateIso, shiftId) {
+  const todayIso = getTodayIso();
+  if (!dateIso || dateIso < todayIso) return true;
+  if (dateIso > todayIso) return false;
+  const curHour = new Date().getHours();
+  if (shiftId === "frueh" && curHour >= 14) return true;
+  if (shiftId === "spaet" && curHour >= 22) return true;
+  return false;
+};
+
 window.checkExtraShiftPlausibility = function(empId, dateIso, shiftId, ignoreExtraId) {
   const emp = employees.find(e => e.id === empId);
   if (!emp || !dateIso || !shiftId) {
     return { ok: false, isWorkingConflict: false, reason: "Ungültige Eingabe." };
+  }
+
+  if (window.isShiftOnDateAlreadyPast(dateIso, shiftId)) {
+    return {
+      ok: false,
+      isWorkingConflict: false,
+      reason: "Diese Schicht am " + formatDateDe(dateIso) + " liegt bereits in der Vergangenheit."
+    };
   }
 
   const existingExtra = extraShifts.find(es => es.id !== ignoreExtraId && es.empId === emp.id && es.date === dateIso && es.status !== "rejected");
@@ -876,6 +897,43 @@ function checkExtraShiftConflict(emp, dateIso, shiftId, ignoreExtraId) {
   return (!res.ok && res.reason) ? window.formatConflictForPlanner(res.reason, fullName(emp)) : null;
 }
 
+/* Zentrale Prüf-Weiche: Darf Mitarbeiter `emp` diesen ausgeschriebenen Bringschicht-Tag sehen & übernehmen? */
+window.isCoverageDayEligibleForEmp = function(cov, dayObj, emp) {
+  if (!cov || !dayObj || !emp) return false;
+  if (dayObj.takenBy || dayObj.dayStatus !== "open" || !dayObj.explicitlyApproved) return false;
+  if (window.isShiftOnDateAlreadyPast(dayObj.date, dayObj.shift)) return false;
+  if (emp.id === cov.empId) return false;
+  if ((emp.role || "Bediener") !== (cov.role || "Bediener")) return false;
+  const check = window.checkExtraShiftPlausibility(emp.id, dayObj.date, dayObj.shift);
+  return !!check.ok;
+};
+
+/* Berechnet für den Planer im Freigabe-Modal und Postfach das freie Ziel-Team & die Anzahl verfügbarer Mitarbeiter */
+window.getCoverageTargetInfoForDay = function(dateIso, shiftId, reqRole, absentEmpId) {
+  const isPast = window.isShiftOnDateAlreadyPast(dateIso, shiftId);
+  const rot = getRotationForDate(dateIso);
+  const freiTeamKey = rot.frei || "";
+  const freiTeamObj = teamsConfig[freiTeamKey] || { name: "Freischicht-Team", color: "#0284c7" };
+
+  const eligibleEmps = employees.filter(emp => {
+    if (absentEmpId && emp.id === absentEmpId) return false;
+    if ((emp.role || "Bediener") !== (reqRole || "Bediener")) return false;
+    return window.checkExtraShiftPlausibility(emp.id, dateIso, shiftId).ok;
+  });
+
+  const eligibleFromFreiTeam = eligibleEmps.filter(e => e.team === freiTeamKey);
+
+  return {
+    isPast: isPast,
+    freiTeamKey: freiTeamKey,
+    freiTeamName: freiTeamObj.name,
+    freiTeamColor: freiTeamObj.color,
+    eligibleTotalCount: eligibleEmps.length,
+    eligibleFreiTeamCount: eligibleFromFreiTeam.length,
+    eligibleNames: eligibleEmps.map(fullName)
+  };
+};
+
 window.addPortalLeaveRequest = function(empId, startIso, endIso, category, reason) {
   const emp = employees.find(e => e.id === empId);
   if (!emp || !startIso || !endIso || startIso > endIso) return false;
@@ -906,12 +964,10 @@ window.applyForCoverageDay = function(covId, dateIso, empId) {
   const cov = (leaveRequests || []).find(r => r.id === covId);
   const emp = employees.find(e => e.id === empId);
   if (!cov || !emp) return false;
-  const dayObj = (cov.days || []).find(d => d.date === dateIso && !d.takenBy && d.dayStatus === "open");
+  const dayObj = (cov.days || []).find(d => d.date === dateIso && !d.takenBy && d.dayStatus === "open" && d.explicitlyApproved);
   if (!dayObj) return false;
 
-  if (extraShifts.some(es => es.empId === emp.id && es.date === dateIso && es.status !== "rejected")) return false;
-  const check = window.checkExtraShiftPlausibility(emp.id, dateIso, dayObj.shift);
-  if (!check.ok) return false;
+  if (!window.isCoverageDayEligibleForEmp(cov, dayObj, emp)) return false;
 
   const probTxt = cov.probableLines ? (" · " + cov.probableLines) : "";
   extraShifts.push({
@@ -1184,7 +1240,6 @@ window.undoLastAutoAssignment = function() {
   showToast("↩️ Änderungen erfolgreich zurückkorrigiert!");
 };
 
-/* Vergleicht 2 Sekundär-Kandidaten nach Fairness & Gleichgewichts-Modus (wer war am längsten nicht mehr auf lineId?) */
 function compareSecondaryFairness(empA, empB, lineId, todayIso) {
   if (shiftModelConfig.fairnessBalanceEnabled === false) return 0;
   const lastA = (empA.lineHistory && empA.lineHistory[lineId]) ? empA.lineHistory[lineId] : "2000-01-01";
@@ -1198,7 +1253,6 @@ function compareSecondaryFairness(empA, empB, lineId, todayIso) {
   return (empA.foreignAssignCount || 0) - (empB.foreignAssignCount || 0);
 }
 
-/* Prüft, ob ein Mitarbeiter eine aktive Einarbeitung (Fokus-Modus > 0h und < 120h) an einer Linie hat */
 function getActiveFocusLineHours(emp, lineId) {
   if (!emp || !emp.trainingHoursByLine) return 0;
   const isMain = Array.isArray(emp.mainLines) && emp.mainLines.indexOf(lineId) !== -1;
@@ -1209,7 +1263,6 @@ function getActiveFocusLineHours(emp, lineId) {
   return (h > 0 && h < threshold) ? h : 0;
 }
 
-/* Prüft, ob ein Stammlinien-Mitarbeiter laut X-Monats-Zyklus für eine Lern-Rotation fällig ist */
 function isEmpDueForRotationLearning(emp, todayIso) {
   const cycleMonths = Number(shiftModelConfig.rotationCycleMonths || 0);
   if (cycleMonths <= 0) return false;
@@ -1342,7 +1395,6 @@ window.smartAssignShiftSlot = function(shiftId) {
       while (getLineEmps(line.id).length < totalSoll && getRoleDeficitForLine(line, rName) > 0) {
         let cand = null;
 
-        /* 2a) Fokus-Modus: Mitarbeiter, die an dieser Linie bereits >0h und <120h in Einarbeitung sind (max. 1 Azubi pro Linie/Rolle, damit erfahrene Kollegen vor Ort sind) */
         const existingTraineeOnLine = getLineEmps(line.id).some(e => getActiveFocusLineHours(e, line.id) > 0);
         if (shiftModelConfig.focusModeEnabled !== false && !existingTraineeOnLine && getLineEmps(line.id).length >= 1) {
           const focusCands = slotCandidates.filter(e =>
@@ -1358,7 +1410,6 @@ window.smartAssignShiftSlot = function(shiftId) {
           }
         }
 
-        /* 2b) Pinned + Stammlinie */
         cand = slotCandidates.find(e =>
           isAvailableInPool(e) &&
           (e.role || "Bediener") === rName &&
@@ -1366,7 +1417,6 @@ window.smartAssignShiftSlot = function(shiftId) {
           Array.isArray(e.mainLines) && e.mainLines.indexOf(line.id) !== -1
         );
 
-        /* 2c) Reguläre Stammlinie */
         if (!cand) {
           cand = slotCandidates.find(e =>
             isAvailableInPool(e) &&
@@ -1375,7 +1425,6 @@ window.smartAssignShiftSlot = function(shiftId) {
           );
         }
 
-        /* 2d) Sekundärlinie mit Fairness- & Gleichgewichts-Sortierung (wer war am längsten nicht an dieser Linie?) */
         if (!cand) {
           const secPool = slotCandidates.filter(e =>
             isAvailableInPool(e) &&
@@ -1407,7 +1456,7 @@ window.smartAssignShiftSlot = function(shiftId) {
     });
   });
 
-  /* PHASE 4: Intelligenter Ringtausch (Stammlinien-Besetzer macht Platz für Kollegen mit weniger Alternativen) */
+  /* PHASE 4: Intelligenter Ringtausch */
   if (shiftModelConfig.smartAllowSwap !== false) {
     const unplaced = slotCandidates.filter(isAvailableInPool);
     unplaced.forEach(cand => {
@@ -1459,7 +1508,7 @@ window.smartAssignShiftSlot = function(shiftId) {
     });
   }
 
-  /* PHASE 5: Förder-Zyklus (Mitarbeiter ohne/mit wenigen Sekundärlinien alle X Monate gezielt an offene Linien rotieren, außer Linie ist mainOnly) */
+  /* PHASE 5: Förder-Zyklus (alle X Monate an neue Linie heranführen, außer Linie ist mainOnly) */
   sortedLines.filter(l => !l.mainOnly).forEach(line => {
     const totalSoll = getLineTotalTarget(line);
     roles.forEach(rName => {
@@ -2265,8 +2314,36 @@ window.saveLineDetails = function(isAuto) {
 };
 
 /* ==========================================================================
-   11. MANUELLE "JA / NEIN"-ENTSCHEIDUNG FÜR BRINGSCHICHTEN & EINSTELLUNGEN
+   11. DEZENTE "JA / NEIN"-BRINGSCHICHT-FREIGABE MIT TEAM- & RUHEZEIT-PRÜFUNG
    ========================================================================== */
+
+/* Berechnet für jedes Datum + Schicht das Freischicht-Team und prüft,
+   wie viele Mitarbeiter (passende Rolle + Freischicht + Ruhezeit) real einspringen dürfen */
+window.getCoverageTargetInfoForDay = function(dateIso, shiftId, reqRole) {
+  const todayIso = getTodayIso();
+  const isPast = dateIso < todayIso;
+  const rot = getRotationForDate(dateIso);
+  const freiTeamKey = rot.frei || "";
+  const freiTeamObj = teamsConfig[freiTeamKey] || { name: "Freischicht-Team", color: "#0284c7" };
+
+  const eligibleEmps = employees.filter(emp => {
+    if ((emp.role || "Bediener") !== (reqRole || "Bediener")) return false;
+    const check = window.checkExtraShiftPlausibility(emp.id, dateIso, shiftId);
+    return check.ok;
+  });
+
+  const eligibleFromFreiTeam = eligibleEmps.filter(e => e.team === freiTeamKey);
+
+  return {
+    isPast: isPast,
+    freiTeamKey: freiTeamKey,
+    freiTeamName: freiTeamObj.name,
+    freiTeamColor: freiTeamObj.color,
+    eligibleTotalCount: eligibleEmps.length,
+    eligibleFreiTeamCount: eligibleFromFreiTeam.length,
+    eligibleNames: eligibleEmps.map(fullName)
+  };
+};
 
 window.openCoverageReleaseModal = function(leaveId) {
   activeCoverageReleaseLeaveId = leaveId;
@@ -2281,21 +2358,37 @@ window.openCoverageReleaseModal = function(leaveId) {
   const listEl = document.getElementById("coverageReleaseDaysList");
   if (!modal || !listEl) return;
 
+  /* Sammel-Buttons oben im Modal dezent als schlanke Schnellauswahl stylen */
+  const bulkBtns = modal.querySelectorAll("button[onclick*='setAllModalCoverageDaysStatus']");
+  if (bulkBtns.length === 2 && bulkBtns[0].parentElement) {
+    const bulkWrap = bulkBtns[0].parentElement;
+    bulkWrap.style.cssText = "display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid #f1f5f9;";
+    bulkWrap.innerHTML =
+      '<span style="font-size:0.74rem; font-weight:600; color:#64748b;">Schnellauswahl für alle Tage:</span>' +
+      '<div style="display:flex; gap:6px;">' +
+        '<button type="button" onclick="setAllModalCoverageDaysStatus(\'open\')" style="background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; border-radius:6px; padding:3px 9px; font-size:0.72rem; font-weight:700; cursor:pointer;">Alle Ja</button>' +
+        '<button type="button" onclick="setAllModalCoverageDaysStatus(\'rejected\')" style="background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:6px; padding:3px 9px; font-size:0.72rem; font-weight:700; cursor:pointer;">Alle Nein</button>' +
+      '</div>';
+  }
+
   const emp = sl ? employees.find(e => e.id === sl.empId) : (req ? employees.find(e => e.id === req.empId) : null);
   const nameTxt = emp ? fullName(emp) : "Mitarbeiter";
   const roleTxt = (req && req.role) ? req.role : (emp ? emp.role : "Bediener");
   const probLineTxt = (req && req.probableLines) ? (" · " + req.probableLines) : "";
 
   if (subEl) {
+    subEl.style.cssText = "font-size:0.8rem; color:#475569; margin-bottom:10px; line-height:1.4;";
     subEl.innerHTML =
-      "Abwesenheit von <b>" + nameTxt + "</b> (" + roleTxt + probLineTxt + ").<br>" +
-      "Bitte entscheide für jeden Schichttag mit <b>Ja (Freigeben)</b> oder <b>Nein (Ablehnen)</b>, ob dieser Tag als gesuchte Bringschicht im Portal ausgeschrieben werden soll:";
+      "Ausfall: <b style='color:#0f172a;'>" + nameTxt + "</b> <span style='color:#64748b;'>(" + roleTxt + probLineTxt + ")</span><br>" +
+      "<span style='font-size:0.74rem; color:#64748b;'>Freigegebene Schichten sehen im Portal <b>nur</b> Mitarbeiter des freien Teams, die laut Rolle & Ruhezeit einspringen dürfen.</span>";
   }
 
-  if (!req || !Array.isArray(req.days) || !req.days.length) {
-    listEl.innerHTML = '<p style="font-size:0.82rem; color:#64748b; padding:8px;">In diesem Zeitraum fallen laut 2-2-2-Schichtplan keine regulären Arbeitstage für ' + nameTxt + ' an (bereits regulär Freischicht/Sonntag).</p>';
+  const validDays = (req && Array.isArray(req.days)) ? req.days : [];
+
+  if (!validDays.length) {
+    listEl.innerHTML = '<p style="font-size:0.8rem; color:#64748b; padding:8px;">In diesem Zeitraum fallen laut 2-2-2-Schichtplan keine regulären Arbeitstage für ' + nameTxt + ' an (bereits regulär Freischicht/Sonntag).</p>';
   } else {
-    listEl.innerHTML = req.days.map((d, dIdx) => {
+    listEl.innerHTML = validDays.map((d, dIdx) => {
       const st = d.dayStatus || "pending";
       const isOpen = (st === "open");
       const isRejected = (st === "rejected" || st === "closed");
@@ -2303,37 +2396,61 @@ window.openCoverageReleaseModal = function(leaveId) {
       const takenEmp = isTaken ? employees.find(x => x.id === d.takenBy) : null;
       const wdShort = getWeekdayShortDe(d.date);
 
-      let statusBadge = "";
-      let borderCol = "#f59e0b";
-      if (isTaken) {
-        borderCol = "#0284c7";
-        statusBadge = '<span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:999px; font-size:0.7rem; font-weight:700;">🤝 Übernommen von ' + (takenEmp ? fullName(takenEmp) : 'Kollege') + '</span>';
-      } else if (isOpen) {
-        borderCol = "#16a34a";
-        statusBadge = '<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:999px; font-size:0.7rem; font-weight:700;">✅ JA – Im Portal ausgeschrieben</span>';
-      } else if (isRejected) {
-        borderCol = "#dc2626";
-        statusBadge = '<span style="background:#fee2e2; color:#b91c1c; padding:2px 8px; border-radius:999px; font-size:0.7rem; font-weight:700;">❌ NEIN – Abgelehnt (Kein Ersatz nötig)</span>';
+      const targetInfo = window.getCoverageTargetInfoForDay(d.date, d.shift, roleTxt);
+
+      let teamMetaHtml = "";
+      if (targetInfo.isPast) {
+        teamMetaHtml = '<span style="color:#94a3b8;">⌛ Datum bereits vergangen</span>';
+      } else if (targetInfo.eligibleTotalCount > 0) {
+        const namesHint = targetInfo.eligibleNames.slice(0, 4).join(", ") + (targetInfo.eligibleNames.length > 4 ? "..." : "");
+        teamMetaHtml =
+          '<span style="color:' + targetInfo.freiTeamColor + '; font-weight:700;">■ ' + targetInfo.freiTeamName + ' (Frei)</span>' +
+          ' · <span style="color:#15803d; font-weight:600;" title="Mögliche Mitarbeiter: ' + namesHint + '">✓ ' + targetInfo.eligibleTotalCount + ' ' + roleTxt + ' verfügbar</span>';
       } else {
-        statusBadge = '<span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:999px; font-size:0.7rem; font-weight:700;">⏳ Offen – Wartet auf Ja/Nein-Entscheidung</span>';
+        teamMetaHtml =
+          '<span style="color:' + targetInfo.freiTeamColor + '; font-weight:600;">■ ' + targetInfo.freiTeamName + ' (Frei)</span>' +
+          ' · <span style="color:#d97706; font-weight:600;" title="Wegen Vor-/Nachschicht-Ruhezeit (z.B. Ausschlaftag nach Nachtschicht) aktuell kein passender ' + roleTxt + ' ohne Ruhezeit-Konflikt frei">⚠️ Ruhezeit-Sperre (0 regulär frei)</span>';
       }
 
-      let btnAction = "";
-      if (!isTaken) {
-        btnAction =
-          '<div style="display:flex; gap:6px; flex-wrap:wrap;">' +
-            '<button type="button" class="btn ' + (isOpen ? 'btn-primary' : 'btn-outline') + '" style="padding:4px 10px; font-size:0.74rem; ' + (isOpen ? 'background:#16a34a; border-color:#16a34a; color:#fff;' : 'color:#166534; border-color:#86efac; background:#f0fdf4;') + '" onclick="setCoverageDayDecision(\'' + req.leaveId + '\', ' + dIdx + ', \'open\')">✅ Ja (Freigeben)</button>' +
-            '<button type="button" class="btn ' + (isRejected ? 'btn-primary' : 'btn-outline') + '" style="padding:4px 10px; font-size:0.74rem; ' + (isRejected ? 'background:#dc2626; border-color:#dc2626; color:#fff;' : 'color:#b91c1c; border-color:#fca5a5; background:#fef2f2;') + '" onclick="setCoverageDayDecision(\'' + req.leaveId + '\', ' + dIdx + ', \'rejected\')">❌ Nein (Ablehnen)</button>' +
+      let rightControlHtml = "";
+      if (isTaken) {
+        rightControlHtml =
+          '<span style="background:#f0f9ff; color:#0369a1; border:1px solid #bae6fd; padding:3px 9px; border-radius:999px; font-size:0.7rem; font-weight:700; white-space:nowrap;">' +
+            '🤝 ' + (takenEmp ? fullName(takenEmp) : 'Übernommen') +
+          '</span>';
+      } else {
+        const yesStyle = isOpen
+          ? "background:#10b981; color:#ffffff; border-color:#10b981; box-shadow:0 1px 2px rgba(16,185,129,0.25);"
+          : "background:#ffffff; color:#64748b; border-color:#e2e8f0;";
+        const noStyle = isRejected
+          ? "background:#ef4444; color:#ffffff; border-color:#ef4444; box-shadow:0 1px 2px rgba(239,68,68,0.25);"
+          : "background:#ffffff; color:#64748b; border-color:#e2e8f0;";
+
+        rightControlHtml =
+          '<div style="display:inline-flex; background:#f8fafc; padding:2px; border-radius:8px; border:1px solid #e2e8f0; gap:3px; flex-shrink:0;">' +
+            '<button type="button" onclick="setCoverageDayDecision(\'' + req.leaveId + '\', ' + dIdx + ', \'open\')" style="border:1px solid transparent; border-radius:6px; padding:4px 10px; font-size:0.73rem; font-weight:700; cursor:pointer; transition:all 0.15s ease; ' + yesStyle + '">Ja</button>' +
+            '<button type="button" onclick="setCoverageDayDecision(\'' + req.leaveId + '\', ' + dIdx + ', \'rejected\')" style="border:1px solid transparent; border-radius:6px; padding:4px 10px; font-size:0.73rem; font-weight:700; cursor:pointer; transition:all 0.15s ease; ' + noStyle + '">Nein</button>' +
           '</div>';
       }
 
-      return '<div style="display:flex; justify-content:space-between; align-items:center; background:#fff; border:1px solid #e2e8f0; border-left:4px solid ' + borderCol + '; padding:10px 12px; border-radius:8px; margin-bottom:6px; gap:8px; flex-wrap:wrap;">' +
-        '<div>' +
-          '<b>' + (wdShort ? wdShort + ', ' : '') + formatDateDe(d.date) + '</b> · <b>' + (shiftsLabel[d.shift] || d.shift) + '</b>' +
-          '<div style="margin-top:4px;">' + statusBadge + '</div>' +
-        '</div>' +
-        btnAction +
-      '</div>';
+      const rowBorderColor = isTaken ? "#bae6fd" : (isOpen ? "#bbf7d0" : (isRejected ? "#fecaca" : "#e2e8f0"));
+      const rowBg = isOpen ? "#f0fdf4" : (isRejected ? "#fff1f2" : "#ffffff");
+      const statusDot = isOpen ? "🟢" : (isRejected ? "🔴" : "⚪");
+
+      return (
+        '<div style="display:flex; justify-content:space-between; align-items:center; background:' + rowBg + '; border:1px solid ' + rowBorderColor + '; padding:8px 11px; border-radius:10px; margin-bottom:6px; gap:10px; transition:all 0.15s ease;">' +
+          '<div style="min-width:0; flex:1;">' +
+            '<div style="font-size:0.84rem; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:5px;">' +
+              '<span style="font-size:0.65rem;">' + statusDot + '</span>' +
+              '<span>' + (wdShort ? wdShort + ', ' : '') + formatDateDe(d.date) + ' · ' + (shiftsShortLabel[d.shift] || d.shift) + '</span>' +
+            '</div>' +
+            '<div style="font-size:0.71rem; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
+              teamMetaHtml +
+            '</div>' +
+          '</div>' +
+          rightControlHtml +
+        '</div>'
+      );
     }).join("");
   }
 
@@ -3505,6 +3622,7 @@ window.renderInboxLists = function() {
         const name = emp ? fullName(emp) : "Mitarbeiter";
         const probLine = cov.probableLines ? (" · " + cov.probableLines) : "";
         const leaveIdKey = sl ? sl.id : cov.leaveId;
+        const reqRole = cov.role || "Bediener";
 
         const dayPills = (cov.days || []).map((d, dIdx) => {
           if (d.date < todayIso) return "";
@@ -3513,24 +3631,26 @@ window.renderInboxLists = function() {
           const isRejected = (st === "rejected" || st === "closed");
           const isTaken = !!d.takenBy;
           const wd = getWeekdayShortDe(d.date);
+          const targetInfo = window.getCoverageTargetInfoForDay(d.date, d.shift, reqRole);
           const dateLabel = (wd ? wd + ' ' : '') + formatDateDe(d.date).slice(0, 6) + ' (' + (shiftsShortLabel[d.shift] || d.shift) + ')';
 
           if (isTaken) {
             const tEmp = employees.find(x => x.id === d.takenBy);
-            return '<span style="display:inline-flex; align-items:center; gap:4px; padding:4px 9px; border-radius:8px; font-size:0.73rem; font-weight:700; background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">🤝 ' + dateLabel + ': ' + (tEmp ? fullName(tEmp) : 'Besetzt') + '</span>';
+            return '<span style="display:inline-flex; align-items:center; gap:4px; padding:4px 9px; border-radius:8px; font-size:0.72rem; font-weight:700; background:#f0f9ff; color:#0369a1; border:1px solid #bae6fd;">🤝 ' + dateLabel + ': ' + (tEmp ? fullName(tEmp) : 'Besetzt') + '</span>';
           }
 
-          return '<div style="display:inline-flex; align-items:center; gap:4px; padding:3px 7px; border-radius:8px; font-size:0.72rem; font-weight:700; border:1px solid ' + (isOpen ? '#86efac' : (isRejected ? '#fecaca' : '#fde68a')) + '; background:' + (isOpen ? '#f0fdf4' : (isRejected ? '#fef2f2' : '#fffbeb')) + ';">' +
-            '<span style="color:#0f172a;">' + dateLabel + ':</span>' +
-            '<button type="button" onclick="setCoverageDayDecision(\'' + leaveIdKey + '\', ' + dIdx + ', \'open\')" style="padding:1px 6px; border-radius:5px; font-size:0.68rem; font-weight:700; cursor:pointer; border:1px solid #16a34a; background:' + (isOpen ? '#16a34a' : '#fff') + '; color:' + (isOpen ? '#fff' : '#16a34a') + ';" title="Ja – Im Portal ausschreiben">Ja</button>' +
-            '<button type="button" onclick="setCoverageDayDecision(\'' + leaveIdKey + '\', ' + dIdx + ', \'rejected\')" style="padding:1px 6px; border-radius:5px; font-size:0.68rem; font-weight:700; cursor:pointer; border:1px solid #dc2626; background:' + (isRejected ? '#dc2626' : '#fff') + '; color:' + (isRejected ? '#fff' : '#dc2626') + ';" title="Nein – Kein Ersatz nötig">Nein</button>' +
+          return '<div style="display:inline-flex; align-items:center; gap:5px; padding:3px 7px; border-radius:8px; font-size:0.72rem; font-weight:600; border:1px solid ' + (isOpen ? '#bbf7d0' : (isRejected ? '#fecaca' : '#e2e8f0')) + '; background:' + (isOpen ? '#f0fdf4' : (isRejected ? '#fff1f2' : '#ffffff')) + ';" title="Geht an ' + targetInfo.freiTeamName + ' (' + targetInfo.eligibleTotalCount + ' passende ' + reqRole + ' ohne Ruhezeit-Konflikt verfügbar)">' +
+            '<span style="color:#0f172a; font-weight:700;">' + dateLabel + '</span>' +
+            '<span style="font-size:0.66rem; color:' + targetInfo.freiTeamColor + '; font-weight:700;">[' + targetInfo.freiTeamName + ']</span>' +
+            '<button type="button" onclick="setCoverageDayDecision(\'' + leaveIdKey + '\', ' + dIdx + ', \'open\')" style="padding:1px 6px; border-radius:5px; font-size:0.67rem; font-weight:700; cursor:pointer; border:1px solid ' + (isOpen ? '#10b981' : '#cbd5e1') + '; background:' + (isOpen ? '#10b981' : '#fff') + '; color:' + (isOpen ? '#fff' : '#64748b') + ';">Ja</button>' +
+            '<button type="button" onclick="setCoverageDayDecision(\'' + leaveIdKey + '\', ' + dIdx + ', \'rejected\')" style="padding:1px 6px; border-radius:5px; font-size:0.67rem; font-weight:700; cursor:pointer; border:1px solid ' + (isRejected ? '#ef4444' : '#cbd5e1') + '; background:' + (isRejected ? '#ef4444' : '#fff') + '; color:' + (isRejected ? '#fff' : '#64748b') + ';">Nein</button>' +
           '</div>';
         }).filter(Boolean).join("");
 
-        return '<div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #0284c7; padding:10px 12px; border-radius:8px; margin-bottom:8px; font-size:0.82rem;">' +
+        return '<div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #0284c7; padding:9px 11px; border-radius:10px; margin-bottom:7px; font-size:0.8rem;">' +
           '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px;">' +
-            '<div><b>Ersatzbedarf für ' + name + '</b> <span style="color:#475569;">(' + (cov.role || 'Bediener') + probLine + ')</span></div>' +
-            '<button type="button" class="btn btn-outline" style="padding:2px 8px; font-size:0.72rem; color:var(--bayer-blue); border-color:var(--bayer-blue);" onclick="openCoverageReleaseModal(\'' + leaveIdKey + '\')">📋 Ja/Nein-Liste öffnen</button>' +
+            '<div><b>' + name + '</b> <span style="color:#64748b;">(' + reqRole + probLine + ')</span></div>' +
+            '<button type="button" class="btn btn-outline" style="padding:2px 8px; font-size:0.71rem; color:var(--bayer-blue); border-color:#bae6fd;" onclick="openCoverageReleaseModal(\'' + leaveIdKey + '\')">📋 Details & Team-Prüfung</button>' +
           '</div>' +
           '<div style="display:flex; gap:6px; flex-wrap:wrap;">' + dayPills + '</div>' +
         '</div>';
@@ -3783,7 +3903,6 @@ function applyIncomingDocData(d) {
     if (typeof d.approvedShiftKey === "string") approvedShiftKey = d.approvedShiftKey;
     if (Array.isArray(d.employees)) employees = d.employees;
 
-    /* Einmalige Bereinigung alter Test-Ausschreibungen ohne explizite Ja-Entscheidung */
     let migratedCoverage = false;
     if (!shiftModelConfig.coverageExplicitMigratedV2) {
       (leaveRequests || []).forEach(cov => {
