@@ -129,7 +129,7 @@
       <div style="height: 6px; background: linear-gradient(90deg, #0091df 0%, #00bcff 50%, #89d329 100%); width: 100%;"></div>
       <div style="padding: 24px;">
         <div style="text-align: center; margin-bottom: 12px;">
-          <img src="logo.png" alt="Bayer Logo" style="width: 52px; height: 52px; object-fit: contain; margin-bottom: 6px;" onerror="this.style.display='none'">
+          <img src="logo.png" alt="Bayer Logo" style="width: 52px; height: 52px; object-fit: contain; margin-bottom: 6px;" onerror="if(this.src.indexOf('IMG-20261023-WA0008.jpg')===-1){this.src='IMG-20261023-WA0008.jpg';}else{this.style.display='none';}">
           <h3 style="color: var(--bayer-blue); font-size: 1.2rem; margin: 0;">👤 Mitarbeiter-Portal Login</h3>
         </div>
         <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 14px; text-align:center;">Bitte wähle deinen Namen aus und gib deine PIN ein.</p>
@@ -168,7 +168,7 @@
 
   <header>
     <div class="header-left">
-      <img src="logo.png" alt="Bayer Logo" class="bayer-logo" onerror="this.style.display='none'">
+      <img src="logo.png" alt="Bayer Logo" class="bayer-logo" onerror="if(this.src.indexOf('IMG-20261023-WA0008.jpg')===-1){this.src='IMG-20261023-WA0008.jpg';}else{this.style.display='none';}">
       <div class="header-title">
         <h1>Mitarbeiter Portal</h1>
         <div id="headerDate" class="header-meta">Lade Datum...</div>
@@ -256,7 +256,7 @@
           </select>
         </div>
         <div class="form-group"><label>Notiz / Hinweis (optional)</label><input type="text" id="portalVacReason" class="form-control" placeholder="Optionaler Kommentar..."></div>
-        <button class="btn btn-primary" style="width:100%;" onclick="submitPortalVacation()">Urlaubsantrag absenden</button>
+        <button id="btnSubmitPortalVac" class="btn btn-primary" style="width:100%;" onclick="submitPortalVacation()">Urlaubsantrag absenden</button>
       </div>
 
       <div id="tabSick" class="portal-tab-section">
@@ -274,7 +274,7 @@
           </select>
         </div>
         <div class="form-group"><label>Notiz / Hinweis (optional)</label><input type="text" id="portalSickReason" class="form-control" placeholder="z.B. Uhrzeit bei Dienstgang / Hinweis..."></div>
-        <button class="btn btn-primary" style="width:100%;" onclick="submitPortalSick()">Abwesenheit im System eintragen & Planer informieren</button>
+        <button id="btnSubmitPortalSick" class="btn btn-primary" style="width:100%;" onclick="submitPortalSick()">Abwesenheit im System eintragen & Planer informieren</button>
       </div>
 
       <div id="tabExtra" class="portal-tab-section">
@@ -299,7 +299,7 @@
           </div>
           <div id="extraShiftPlausibilityHint" style="display:none; padding:8px 10px; border-radius:6px; font-size:0.78rem; font-weight:700; margin-bottom:10px; line-height:1.4;"></div>
           <div class="form-group"><label>Bemerkung / Linie (optional)</label><input type="text" id="portalExtraNote" class="form-control" placeholder="z.B. bevorzugte Linie oder Zeitfenster..."></div>
-          <button class="btn btn-primary" style="width:100%;" onclick="submitPortalExtraShift()">Bringschicht eintragen</button>
+          <button id="btnSubmitPortalExtra" class="btn btn-primary" style="width:100%;" onclick="submitPortalExtraShift()">Bringschicht eintragen</button>
         </div>
       </div>
     </div>
@@ -329,8 +329,14 @@
   <script>
     let loggedInPortalEmpId = null, selectedLoginPortalEmpId = null, initialSessionChecked = false, pendingExtraSubmission = null, pendingForceEmp = null;
     let activeMyRequestsCategory = "ALL";
+    let isSubmittingPortalAction = false;
     window._tempOnboardingRole = null;
     window._tempOnboardingMain = [];
+
+    function lockPortalSubmitBriefly() {
+      isSubmittingPortalAction = true;
+      setTimeout(() => { isSubmittingPortalAction = false; }, 900);
+    }
 
     function updatePortalHeaderClock() {
       const dEl = document.getElementById("headerDate"); if (!dEl) return;
@@ -614,7 +620,7 @@
     };
 
     window.submitPortalLineRequest = function() {
-      if (!loggedInPortalEmpId) return;
+      if (!loggedInPortalEmpId || isSubmittingPortalAction) return;
       const targetLineId = document.getElementById("portalLineRequestTarget").value;
       const reqType = document.getElementById("portalLineRequestType").value;
       const emp = employees.find(e => e.id === loggedInPortalEmpId);
@@ -623,6 +629,18 @@
       if (!emp || !lineObj) return;
 
       if (typeof sickLeaves !== "undefined") {
+        const alreadyPending = sickLeaves.some(sl =>
+          sl.empId === emp.id &&
+          sl.status === "pending" &&
+          sl.lineRequestData &&
+          sl.lineRequestData.lineId === targetLineId
+        );
+        if (alreadyPending) {
+          showPortalInlineMsg("⏳ Für " + lineObj.name + " liegt bereits eine offene Linien-Anfrage beim Planer vor.", false);
+          return;
+        }
+
+        lockPortalSubmitBriefly();
         sickLeaves.push({
           id: "sl_" + Date.now(),
           empId: emp.id,
@@ -754,16 +772,17 @@
 
       const assignEl = document.getElementById("empLiveAssignment"), noteEl = document.getElementById("empLiveApprovalNote");
       const sundayFree = typeof isSundayDaytimeFree === "function" ? isSundayDaytimeFree() : false;
+      const prodTodayIso = typeof getLogicalDateIso === "function" ? getLogicalDateIso() : getTodayIso();
 
       let empShiftId = "frueh";
       if (emp.zone && ["pool", "review", "absent", "extra"].indexOf(emp.zone) === -1) {
         empShiftId = extractShiftIdFromZone(emp.zone) || "frueh";
       } else {
-        empShiftId = typeof getCurrentActiveShiftId === "function" ? getCurrentActiveShiftId() : "frueh";
+        const regShift = typeof window.getEmpRegularShiftOnDate === "function" ? window.getEmpRegularShiftOnDate(emp, prodTodayIso) : null;
+        empShiftId = regShift || (typeof getCurrentActiveShiftId === "function" ? getCurrentActiveShiftId() : "frueh");
       }
       const empShiftName = (typeof shiftsLabel !== "undefined" && shiftsLabel[empShiftId]) ? shiftsLabel[empShiftId] : "Schicht";
 
-      const prodTodayIso = typeof getLogicalDateIso === "function" ? getLogicalDateIso() : "";
       const empShiftApprovalKey = prodTodayIso + "_" + empShiftId;
       const isEmpShiftApproved = (typeof approvedShiftKey !== "undefined" && approvedShiftKey === empShiftApprovalKey);
 
@@ -850,7 +869,8 @@
     }
 
     window.volunteerForCoverageDay = function(covId, dateIso) {
-      if (!loggedInPortalEmpId || typeof window.applyForCoverageDay !== "function") return;
+      if (!loggedInPortalEmpId || isSubmittingPortalAction || typeof window.applyForCoverageDay !== "function") return;
+      lockPortalSubmitBriefly();
       if (window.applyForCoverageDay(covId, dateIso, loggedInPortalEmpId)) {
         showPortalInlineMsg("✅ Deine Meldung für die Bringschicht am " + formatDateDe(dateIso) + " wurde an den Planer gesendet!", true);
         renderPortalView();
@@ -906,7 +926,7 @@
     };
 
     window.confirmPlausibilityExtraSubmit = function() {
-      if (!pendingExtraSubmission) return;
+      if (!pendingExtraSubmission || isSubmittingPortalAction) return;
       const d = pendingExtraSubmission;
       pendingExtraSubmission = null;
       document.getElementById("plausibilityConfirmModal").style.display = "none";
@@ -914,6 +934,7 @@
     };
 
     function finalizePortalExtraShiftSubmission(dateVal, shiftVal, noteVal, hasWarning, isNightConflict, conflictReason) {
+      lockPortalSubmitBriefly();
       extraShifts.push({
         id: "es_" + Date.now(),
         empId: loggedInPortalEmpId,
@@ -939,7 +960,7 @@
     }
 
     function submitPortalExtraShift() {
-      if (!loggedInPortalEmpId) return;
+      if (!loggedInPortalEmpId || isSubmittingPortalAction) return;
       const dateVal = document.getElementById("portalExtraDate").value;
       const shiftVal = document.getElementById("portalExtraShift").value;
       const noteVal = document.getElementById("portalExtraNote").value.trim();
@@ -1106,10 +1127,11 @@
     }
 
     function submitPortalVacation() {
-      if (!loggedInPortalEmpId) return;
+      if (!loggedInPortalEmpId || isSubmittingPortalAction) return;
       const start = document.getElementById("portalVacStart").value, end = document.getElementById("portalVacEnd").value;
       const cat = document.getElementById("portalVacCategory").value, reason = document.getElementById("portalVacReason").value.trim();
       if (!start || !end) { showPortalInlineMsg("Bitte Von- und Bis-Datum auswählen.", false); return; }
+      if (start > end) { showPortalInlineMsg("⛔ Das Bis-Datum darf nicht vor dem Von-Datum liegen.", false); return; }
 
       // Strenge Prüfung: Existiert bereits ein aktiver oder offener Antrag mit Überschneidung?
       if (typeof window.hasLeaveOverlap === "function" && window.hasLeaveOverlap(loggedInPortalEmpId, start, end)) {
@@ -1117,17 +1139,22 @@
         return;
       }
 
+      lockPortalSubmitBriefly();
       if (typeof window.addPortalLeaveRequest === "function" && window.addPortalLeaveRequest(loggedInPortalEmpId, start, end, cat, reason)) {
+        document.getElementById("portalVacStart").value = "";
+        document.getElementById("portalVacEnd").value = "";
+        document.getElementById("portalVacReason").value = "";
         showPortalInlineMsg("✅ Urlaubsantrag übermittelt.", true);
         renderPortalView();
       }
     }
 
     function submitPortalSick() {
-      if (!loggedInPortalEmpId) return;
+      if (!loggedInPortalEmpId || isSubmittingPortalAction) return;
       const start = document.getElementById("portalSickStart").value, end = document.getElementById("portalSickEnd").value;
       const cat = document.getElementById("portalSickCategory").value, reason = document.getElementById("portalSickReason").value.trim();
       if (!start || !end) { showPortalInlineMsg("Bitte Von- und Bis-Datum auswählen.", false); return; }
+      if (start > end) { showPortalInlineMsg("⛔ Das Bis-Datum darf nicht vor dem Von-Datum liegen.", false); return; }
 
       // Strenge Prüfung: Existiert bereits ein aktiver oder offener Antrag mit Überschneidung?
       if (typeof window.hasLeaveOverlap === "function" && window.hasLeaveOverlap(loggedInPortalEmpId, start, end)) {
@@ -1135,7 +1162,11 @@
         return;
       }
 
+      lockPortalSubmitBriefly();
       if (typeof window.addPortalLeaveRequest === "function" && window.addPortalLeaveRequest(loggedInPortalEmpId, start, end, cat, reason)) {
+        document.getElementById("portalSickStart").value = "";
+        document.getElementById("portalSickEnd").value = "";
+        document.getElementById("portalSickReason").value = "";
         showPortalInlineMsg("✅ Abwesenheitsmeldung übermittelt.", true);
         renderPortalView();
       }
