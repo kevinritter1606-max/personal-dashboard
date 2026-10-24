@@ -325,7 +325,7 @@
     </div>
   </main>
 
-  <script src="planer.js?v=4.9.66"></script>
+  <script src="planer.js?v=4.9.67"></script>
   <script>
     let loggedInPortalEmpId = null, selectedLoginPortalEmpId = null, initialSessionChecked = false, pendingExtraSubmission = null, pendingForceEmp = null;
     let activeMyRequestsCategory = "ALL";
@@ -338,19 +338,27 @@
       setTimeout(() => { isSubmittingPortalAction = false; }, 1000);
     }
 
+    function normIsoLocal(dStr) {
+      if (typeof window.normalizeDateIso === "function") return window.normalizeDateIso(dStr);
+      return String(dStr || "").trim().slice(0, 10);
+    }
+
     /* Lokale + globale Sicherheitsprüfung gegen doppelte Urlaubs-/Krankheits-Zeiträume */
     function hasPortalLeaveOverlapLocal(empId, startIso, endIso) {
       if (!empId || !startIso || !endIso) return false;
-      const sIso = startIso <= endIso ? startIso : endIso;
-      const eIso = startIso <= endIso ? endIso : startIso;
+      const nA = normIsoLocal(startIso), nB = normIsoLocal(endIso);
+      if (!nA || !nB) return false;
+      const sIso = nA <= nB ? nA : nB;
+      const eIso = nA <= nB ? nB : nA;
       if (typeof window.hasLeaveOverlap === "function" && window.hasLeaveOverlap(empId, sIso, eIso)) {
         return true;
       }
       if (typeof sickLeaves === "undefined" || !Array.isArray(sickLeaves)) return false;
       return sickLeaves.some(sl => {
-        if (!sl || sl.empId !== empId || sl.status === "rejected" || sl.isOnboardingNotice || sl.lineRequestData) return false;
-        if (!sl.startDate || !sl.endDate) return false;
-        return !(sl.endDate < sIso || sl.startDate > eIso);
+        if (!sl || String(sl.empId) !== String(empId) || sl.status === "rejected" || sl.isOnboardingNotice || sl.lineRequestData) return false;
+        const slS = normIsoLocal(sl.startDate), slE = normIsoLocal(sl.endDate);
+        if (!slS || !slE) return false;
+        return !(slE < sIso || slS > eIso);
       });
     }
 
@@ -799,7 +807,7 @@
       const todayExtraShift = (typeof extraShifts !== "undefined" ? extraShifts : []).find(es =>
         es.empId === emp.id &&
         es.status === "approved" &&
-        (es.date === prodTodayIso || (typeof isExtraShiftInActiveWindow === "function" && isExtraShiftInActiveWindow(es, nowObj)))
+        (normIsoLocal(es.date) === prodTodayIso || (typeof isExtraShiftInActiveWindow === "function" && isExtraShiftInActiveWindow(es, nowObj)))
       );
 
       if (emp.zone === "absent" || activeLeaveToday) {
@@ -826,7 +834,7 @@
         const noteSuffix = todayExtraShift.note ? (" · " + todayExtraShift.note) : "";
         assignEl.textContent = "➕ Bringschicht: " + shiftName + (emp.zone === "extra" ? " (Bereitgestellt)" : " (Noch in Einteilung)") + noteSuffix;
 
-        const extraApprovalKey = (todayExtraShift.date || prodTodayIso) + "_" + sId;
+        const extraApprovalKey = (normIsoLocal(todayExtraShift.date) || prodTodayIso) + "_" + sId;
         const isExtraApproved = (typeof approvedShiftKey !== "undefined" && approvedShiftKey === extraApprovalKey);
         noteEl.style.color = isExtraApproved ? "#166534" : "#b91c1c";
         noteEl.textContent = isExtraApproved
@@ -862,13 +870,17 @@
     function renderOpenCoverageRequests(emp) {
       const sec = document.getElementById("openCoverageSection"), listEl = document.getElementById("openCoverageList"), badgeEl = document.getElementById("openCovBadge");
       if (!sec || !listEl) return;
-      const today = getTodayIso();
+      const today = typeof getLogicalDateIso === "function" ? getLogicalDateIso() : getTodayIso();
 
       const openReqs = (typeof leaveRequests !== "undefined" ? leaveRequests : []).filter(r => {
-        if (r.empId === emp.id) return false;
+        if (!r || r.empId === emp.id) return false;
+        /* Prüfen, ob die zugehörige Abwesenheit noch aktiv & genehmigt existiert */
+        const parentLeave = (typeof sickLeaves !== "undefined" ? sickLeaves : []).find(sl => sl && (sl.id === r.leaveId || ("cov_" + sl.id) === r.id));
+        if (!parentLeave || parentLeave.status !== "approved") return false;
+
         const reqRole = (r.role || "Bediener").toLowerCase(), myRole = (emp.role || "Bediener").toLowerCase();
         if (reqRole !== myRole && myRole !== "admin" && myRole !== "schichtexperte") return false;
-        return (r.days || []).some(d => d.date >= today && !d.takenBy && d.dayStatus === "open" && d.explicitlyApproved);
+        return (r.days || []).some(d => normIsoLocal(d.date) >= today && !d.takenBy && d.dayStatus === "open" && d.explicitlyApproved);
       });
 
       if (!openReqs.length) { sec.style.display = "none"; if (badgeEl) badgeEl.style.display = "none"; return; }
@@ -880,13 +892,24 @@
         const probLinesTxt = cov.probableLines || (absentEmp && typeof window.getEmpProbableLinesText === "function" ? window.getEmpProbableLinesText(absentEmp) : "");
 
         const availDays = (cov.days || []).filter(d => {
-          if (d.date < today || d.takenBy || d.dayStatus !== "open" || !d.explicitlyApproved) return false;
+          const dNorm = normIsoLocal(d.date);
+          if (dNorm < today || d.takenBy || d.dayStatus !== "open" || !d.explicitlyApproved) return false;
           
-          const rot = getRotationForDate(d.date);
+          const rot = getRotationForDate(dNorm);
           if (emp.team !== rot.frei) return false;
 
+          /* Hat sich dieser Mitarbeiter für genau diesen Tag bereits beworben (pending/approved)? */
+          const myExistingForDay = (typeof extraShifts !== "undefined" ? extraShifts : []).find(es =>
+            es.empId === emp.id &&
+            normIsoLocal(es.date) === dNorm &&
+            es.status !== "rejected"
+          );
+          if (myExistingForDay) {
+            return myExistingForDay.shift === d.shift;
+          }
+
           if (typeof window.checkExtraShiftPlausibility === "function" && !d.allowWithRestWarning) {
-            const check = window.checkExtraShiftPlausibility(emp.id, d.date, d.shift);
+            const check = window.checkExtraShiftPlausibility(emp.id, dNorm, d.shift);
             if (!check.ok) return false;
           }
           return true;
@@ -895,15 +918,34 @@
         if (!availDays.length) return;
 
         const daysHtml = availDays.map(d => {
+          const dNorm = normIsoLocal(d.date);
+          const myExistingForDay = (typeof extraShifts !== "undefined" ? extraShifts : []).find(es =>
+            es.empId === emp.id &&
+            normIsoLocal(es.date) === dNorm &&
+            es.status !== "rejected"
+          );
+
+          if (myExistingForDay) {
+            const stateTxt = myExistingForDay.status === "approved"
+              ? "✅ Bereits für dich genehmigt"
+              : "⏳ Bereits angefragt (wartet auf Planer)";
+            return '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; margin-top:4px; gap:6px; flex-wrap:wrap;">' +
+              '<div><b>' + formatDateDe(dNorm) + '</b> · <b>' + (shiftsLabel[d.shift] || d.shift) + '</b>' +
+              (probLinesTxt ? ' <span style="background:#e0f2fe; color:#0369a1; padding:1px 6px; border-radius:4px; font-size:0.72rem; font-weight:700; margin-left:4px;">🏭 ' + probLinesTxt + '</span>' : '') +
+              '</div>' +
+              '<span style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; padding:4px 10px; border-radius:6px; font-size:0.73rem; font-weight:700;">' + stateTxt + '</span>' +
+            '</div>';
+          }
+
           availableCount++;
-          const check = (typeof window.checkExtraShiftPlausibility === "function") ? window.checkExtraShiftPlausibility(emp.id, d.date, d.shift) : { ok: true };
+          const check = (typeof window.checkExtraShiftPlausibility === "function") ? window.checkExtraShiftPlausibility(emp.id, dNorm, d.shift) : { ok: true };
           const statusTag = check.ok
             ? '<span style="background:#dcfce7; color:#166534; padding:1px 6px; border-radius:4px; font-size:0.7rem; font-weight:700; margin-left:4px;">✅ Freigeschaltet & Passend</span>'
             : '<span style="background:#fef3c7; color:#b45309; padding:1px 6px; border-radius:4px; font-size:0.7rem; font-weight:700; margin-left:4px;">🟡 Vom Planer mit Ruhezeit-Hinweis freigegeben</span>';
-          const actionHtml = '<button class="btn btn-primary" style="padding:4px 10px; font-size:0.74rem; background:#16a34a;" onclick="volunteerForCoverageDay(\'' + cov.id + '\', \'' + d.date + '\')">✋ Übernehmen</button>';
+          const actionHtml = '<button class="btn btn-primary" style="padding:4px 10px; font-size:0.74rem; background:#16a34a;" onclick="volunteerForCoverageDay(\'' + cov.id + '\', \'' + dNorm + '\')">✋ Übernehmen</button>';
 
           return '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:#fff; border:1px solid #cbd5e1; border-radius:6px; margin-top:4px; gap:6px; flex-wrap:wrap;">' +
-            '<div><b>' + formatDateDe(d.date) + '</b> · <b>' + (shiftsLabel[d.shift] || d.shift) + '</b> ' +
+            '<div><b>' + formatDateDe(dNorm) + '</b> · <b>' + (shiftsLabel[d.shift] || d.shift) + '</b> ' +
             statusTag +
             (probLinesTxt ? ' <span style="background:#e0f2fe; color:#0369a1; padding:1px 6px; border-radius:4px; font-size:0.72rem; font-weight:700; margin-left:4px;">🏭 ' + probLinesTxt + '</span>' : '') +
             '</div>' + actionHtml + '</div>';
@@ -936,14 +978,15 @@
 
     window.updateExtraShiftPreviewHint = function() {
       const hintEl = document.getElementById("extraShiftPlausibilityHint");
-      const dateVal = document.getElementById("portalExtraDate") ? document.getElementById("portalExtraDate").value : "";
+      const rawDateVal = document.getElementById("portalExtraDate") ? document.getElementById("portalExtraDate").value : "";
+      const dateVal = normIsoLocal(rawDateVal);
       const shiftVal = document.getElementById("portalExtraShift") ? document.getElementById("portalExtraShift").value : "frueh";
       if (!hintEl || !loggedInPortalEmpId || !dateVal || typeof window.checkExtraShiftPlausibility !== "function") {
         if (hintEl) hintEl.style.display = "none";
         return;
       }
 
-      const existingSameDay = extraShifts.find(es => es.empId === loggedInPortalEmpId && es.date === dateVal && es.status !== "rejected");
+      const existingSameDay = extraShifts.find(es => es.empId === loggedInPortalEmpId && normIsoLocal(es.date) === dateVal && es.status !== "rejected");
       if (existingSameDay) {
         hintEl.style.background = "#fee2e2";
         hintEl.style.color = "#991b1b";
@@ -990,10 +1033,11 @@
 
     function finalizePortalExtraShiftSubmission(dateVal, shiftVal, noteVal, hasWarning, isNightConflict, conflictReason) {
       lockPortalSubmitBriefly();
+      const normDate = normIsoLocal(dateVal);
       extraShifts.push({
         id: "es_" + Date.now(),
         empId: loggedInPortalEmpId,
-        date: dateVal,
+        date: normDate,
         shift: shiftVal,
         note: noteVal,
         plausibilityWarning: !!hasWarning,
@@ -1006,7 +1050,7 @@
       });
       if (typeof addHistoryLog === "function") {
         const emp = employees.find(x => x.id === loggedInPortalEmpId);
-        addHistoryLog((emp ? fullName(emp) : "") + " bietet Bringschicht am " + formatDateDe(dateVal) + " (" + shiftsShortLabel[shiftVal] + ") an" + (hasWarning ? " [⚠️ Warnung: " + conflictReason + "]" : ""), "ABSENCE");
+        addHistoryLog((emp ? fullName(emp) : "") + " bietet Bringschicht am " + formatDateDe(normDate) + " (" + shiftsShortLabel[shiftVal] + ") an" + (hasWarning ? " [⚠️ Warnung: " + conflictReason + "]" : ""), "ABSENCE");
       }
       saveToFirebase();
       document.getElementById("portalExtraNote").value = "";
@@ -1016,12 +1060,12 @@
 
     function submitPortalExtraShift() {
       if (!loggedInPortalEmpId || isSubmittingPortalAction) return;
-      const dateVal = document.getElementById("portalExtraDate").value;
+      const dateVal = normIsoLocal(document.getElementById("portalExtraDate").value);
       const shiftVal = document.getElementById("portalExtraShift").value;
       const noteVal = document.getElementById("portalExtraNote").value.trim();
       if (!dateVal) { showPortalInlineMsg("Bitte ein Datum für die Bringschicht auswählen.", false); return; }
 
-      const existingSameDay = extraShifts.find(es => es.empId === loggedInPortalEmpId && es.date === dateVal && es.status !== "rejected");
+      const existingSameDay = extraShifts.find(es => es.empId === loggedInPortalEmpId && normIsoLocal(es.date) === dateVal && es.status !== "rejected");
       if (existingSameDay) {
         showPortalInlineMsg("⛔ Du hast für den " + formatDateDe(dateVal) + " bereits eine Bringschicht (" + (shiftsLabel[existingSameDay.shift] || existingSameDay.shift) + ") eingetragen. Doppelte Bringschichten am selben Tag sind nicht möglich.", false);
         return;
@@ -1060,6 +1104,7 @@
       const msg = sl.status === "rejected" ? "Möchtest du diesen abgelehnten Eintrag endgültig aus deiner Liste löschen?" : "Möchtest du diesen offenen Antrag wirklich stornieren und löschen?";
       if (!confirm(msg)) return;
       sickLeaves = sickLeaves.filter(x => x.id !== slId);
+      if (typeof window.removeCoveragePromptForLeave === "function") window.removeCoveragePromptForLeave(slId);
       if (typeof saveToFirebase === "function") saveToFirebase();
       renderPortalView();
       showPortalInlineMsg("🗑️ Eintrag wurde gelöscht.", true);
@@ -1183,7 +1228,7 @@
 
     function submitPortalVacation() {
       if (!loggedInPortalEmpId || isSubmittingPortalAction) return;
-      const start = document.getElementById("portalVacStart").value, end = document.getElementById("portalVacEnd").value;
+      const start = normIsoLocal(document.getElementById("portalVacStart").value), end = normIsoLocal(document.getElementById("portalVacEnd").value);
       const cat = document.getElementById("portalVacCategory").value, reason = document.getElementById("portalVacReason").value.trim();
       if (!start || !end) { showPortalInlineMsg("Bitte Von- und Bis-Datum auswählen.", false); return; }
       if (start > end) { showPortalInlineMsg("⛔ Das Bis-Datum darf nicht vor dem Von-Datum liegen.", false); return; }
@@ -1207,7 +1252,7 @@
 
     function submitPortalSick() {
       if (!loggedInPortalEmpId || isSubmittingPortalAction) return;
-      const start = document.getElementById("portalSickStart").value, end = document.getElementById("portalSickEnd").value;
+      const start = normIsoLocal(document.getElementById("portalSickStart").value), end = normIsoLocal(document.getElementById("portalSickEnd").value);
       const cat = document.getElementById("portalSickCategory").value, reason = document.getElementById("portalSickReason").value.trim();
       if (!start || !end) { showPortalInlineMsg("Bitte Von- und Bis-Datum auswählen.", false); return; }
       if (start > end) { showPortalInlineMsg("⛔ Das Bis-Datum darf nicht vor dem Von-Datum liegen.", false); return; }
