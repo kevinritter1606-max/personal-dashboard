@@ -343,6 +343,12 @@
       return String(dStr || "").trim().slice(0, 10);
     }
 
+    function getPortalProdDateIso() {
+      if (typeof getLogicalDateIso === "function") return getLogicalDateIso();
+      if (typeof getTodayIso === "function") return getTodayIso();
+      return new Date().toISOString().slice(0, 10);
+    }
+
     /* Lokale + globale Sicherheitsprüfung gegen doppelte Urlaubs-/Krankheits-Zeiträume */
     function hasPortalLeaveOverlapLocal(empId, startIso, endIso) {
       if (!empId || !startIso || !endIso) return false;
@@ -619,13 +625,14 @@
 
       const mainNames = (emp.mainLines && emp.mainLines.length) ? emp.mainLines.map(id => { const l = lines.find(x => x.id === id); return l ? l.name : id; }).join(", ") : (requiresLines ? "Keine" : "Keine (Rolle benötigt keine Anlage)");
       const secNames = (emp.secLines && emp.secLines.length) ? emp.secLines.map(id => { const l = lines.find(x => x.id === id); return l ? l.name : id; }).join(", ") : "Keine";
+      const prodToday = getPortalProdDateIso();
 
       if (typeof sickLeaves !== "undefined") {
         sickLeaves.unshift({
           id: "onb_" + Date.now(),
           empId: emp.id,
-          startDate: getTodayIso(),
-          endDate: getTodayIso(),
+          startDate: prodToday,
+          endDate: prodToday,
           category: "✅ Onboarding abgeschlossen (" + fullName(emp) + ")",
           reason: "Rolle: " + emp.role + " | Primärlinie: " + mainNames + " | Sekundärlinie: " + secNames + " — Benötigt es hierzu eine Änderung?",
           status: "pending",
@@ -665,11 +672,12 @@
         }
 
         lockPortalSubmitBriefly();
+        const prodToday = getPortalProdDateIso();
         sickLeaves.push({
           id: "sl_" + Date.now(),
           empId: emp.id,
-          startDate: getTodayIso(),
-          endDate: getTodayIso(),
+          startDate: prodToday,
+          endDate: prodToday,
           category: "Linien-Änderung (" + (reqType === 'prio' ? 'Stammlinie' : 'Sekundärlinie') + ": " + lineObj.name + ")",
           reason: "Mitarbeiter hat neue Linien-Qualifikation gemeldet",
           status: "pending",
@@ -797,8 +805,8 @@
       const assignEl = document.getElementById("empLiveAssignment"), noteEl = document.getElementById("empLiveApprovalNote");
       const sundayFree = typeof isSundayDaytimeFree === "function" ? isSundayDaytimeFree() : false;
       const nowObj = new Date();
-      const prodTodayIso = typeof getLogicalDateIso === "function" ? getLogicalDateIso(nowObj) : getTodayIso(nowObj);
-      const calTodayIso = getTodayIso(nowObj);
+      const prodTodayIso = getPortalProdDateIso();
+      const calTodayIso = typeof getTodayIso === "function" ? getTodayIso(nowObj) : prodTodayIso;
 
       const isOnLine = !!(emp.zone && ["pool", "review", "absent", "extra"].indexOf(emp.zone) === -1);
       const activeLeaveToday = (typeof getActiveLeaveForEmpOnDate === "function")
@@ -834,7 +842,7 @@
         const noteSuffix = todayExtraShift.note ? (" · " + todayExtraShift.note) : "";
         assignEl.textContent = "➕ Bringschicht: " + shiftName + (emp.zone === "extra" ? " (Bereitgestellt)" : " (Noch in Einteilung)") + noteSuffix;
 
-        const extraApprovalKey = (normIsoLocal(todayExtraShift.date) || prodTodayIso) + "_" + sId;
+        const extraApprovalKey = prodTodayIso + "_" + sId;
         const isExtraApproved = (typeof approvedShiftKey !== "undefined" && approvedShiftKey === extraApprovalKey);
         noteEl.style.color = isExtraApproved ? "#166534" : "#b91c1c";
         noteEl.textContent = isExtraApproved
@@ -870,11 +878,10 @@
     function renderOpenCoverageRequests(emp) {
       const sec = document.getElementById("openCoverageSection"), listEl = document.getElementById("openCoverageList"), badgeEl = document.getElementById("openCovBadge");
       if (!sec || !listEl) return;
-      const today = typeof getLogicalDateIso === "function" ? getLogicalDateIso() : getTodayIso();
+      const today = getPortalProdDateIso();
 
       const openReqs = (typeof leaveRequests !== "undefined" ? leaveRequests : []).filter(r => {
         if (!r || r.empId === emp.id) return false;
-        /* Prüfen, ob die zugehörige Abwesenheit noch aktiv & genehmigt existiert */
         const parentLeave = (typeof sickLeaves !== "undefined" ? sickLeaves : []).find(sl => sl && (sl.id === r.leaveId || ("cov_" + sl.id) === r.id));
         if (!parentLeave || parentLeave.status !== "approved") return false;
 
@@ -898,7 +905,6 @@
           const rot = getRotationForDate(dNorm);
           if (emp.team !== rot.frei) return false;
 
-          /* Hat sich dieser Mitarbeiter für genau diesen Tag bereits beworben (pending/approved)? */
           const myExistingForDay = (typeof extraShifts !== "undefined" ? extraShifts : []).find(es =>
             es.empId === emp.id &&
             normIsoLocal(es.date) === dNorm &&
@@ -1294,7 +1300,7 @@
       updatePortalHeaderClock();
       if (typeof updateShiftApprovalUI === "function") updateShiftApprovalUI();
       updatePortalShiftApprovalBanner();
-      const todayIso = typeof getTodayIso === "function" ? getTodayIso() : "";
+      const todayIso = getPortalProdDateIso();
       if (document.getElementById("portalExtraDate") && todayIso) document.getElementById("portalExtraDate").value = todayIso;
     });
   </script>
