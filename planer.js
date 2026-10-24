@@ -2270,12 +2270,41 @@ function initDragAndDrop() {
    8. SCHICHTEN LEEREN, LADEN & ROTIEREN (TEIL 2 VON 2)
    ========================================================================== */
 
+function ensureUniqueShiftRotationTeams() {
+  const slots = ["frueh", "spaet", "nacht", "frei"];
+  const allTeamKeys = Object.keys(teamsConfig).sort();
+  if (allTeamKeys.length < 4) return false;
+
+  const rotatingKeys = allTeamKeys.filter(k => isTeamRotating(k));
+  const targetPool = rotatingKeys.length >= 4 ? rotatingKeys.slice(0, 4) : allTeamKeys.slice(0, 4);
+
+  const used = new Set();
+  const duplicateSlots = [];
+
+  slots.forEach(s => {
+    const tKey = shiftRotation[s];
+    if (!tKey || !teamsConfig[tKey] || used.has(tKey)) {
+      duplicateSlots.push(s);
+    } else {
+      used.add(tKey);
+    }
+  });
+
+  if (!duplicateSlots.length) return false;
+
+  const missingTeams = targetPool.filter(k => !used.has(k));
+  duplicateSlots.forEach((slotName, idx) => {
+    shiftRotation[slotName] = missingTeams[idx] || targetPool[idx % targetPool.length];
+  });
+  return true;
+}
+
 window.clearEntireBoard = function() {
   lastBoardSnapshotForUndo = createBoardSnapshotForUndo();
   activateUndoButtons();
   const todayIso = getLogicalDateIso();
   employees.forEach(e => {
-    if (e.zone && ["pool", "review", "absent", "extra"].indexOf(e.zone) === -1 && !isEmpAnchorActiveToday(e, todayIso)) {
+    if (e.zone && ["pool", "absent", "extra"].indexOf(e.zone) === -1 && !isEmpAnchorActiveToday(e, todayIso)) {
       e.zone = "pool";
     }
   });
@@ -2352,7 +2381,15 @@ window.loadTeamToShift = function(slotKey) {
   lastBoardSnapshotForUndo = createBoardSnapshotForUndo();
   activateUndoButtons(slotKey);
 
+  const oldTeam = shiftRotation[slotKey];
+  ["frueh", "spaet", "nacht", "frei"].forEach(sKey => {
+    if (sKey !== slotKey && shiftRotation[sKey] === teamKey) {
+      shiftRotation[sKey] = oldTeam;
+    }
+  });
   shiftRotation[slotKey] = teamKey;
+  ensureUniqueShiftRotationTeams();
+
   shiftModelConfig.lastRotationBlockIndex = getWorkdayBlockIndex(getLogicalDateIso());
   distributeTeamToSlotInternal(teamKey, slotKey);
   const tName = teamsConfig[teamKey] ? teamsConfig[teamKey].name : teamKey;
@@ -2366,6 +2403,7 @@ window.loadTeamToShift = function(slotKey) {
    Beim Wechsel nach 2 Werktagen rückt jedes Team exakt eine Station im Zyklus vor:
    Früh -> Spät -> Nacht -> Frei -> Früh */
 window.performShiftRotationLogic = function(silent) {
+  ensureUniqueShiftRotationTeams();
   const slotOrder = (shiftModelConfig && shiftModelConfig.model === "dreierschicht") ? ["frueh", "spaet", "nacht"] : ["frueh", "spaet", "nacht", "frei"];
   const activeSlots = slotOrder.filter(s => shiftRotation[s] && isTeamRotating(shiftRotation[s]));
   if (activeSlots.length < 2) return;
@@ -2387,15 +2425,26 @@ window.performShiftRotationLogic = function(silent) {
 window.rotateAllShifts = function() {
   lastBoardSnapshotForUndo = createBoardSnapshotForUndo();
   activateUndoButtons();
+  const todayIso = getLogicalDateIso();
+
+  /* Alle rotierenden Mitarbeiter (auch aus 'review') vor der Rotation sauber in den Pool holen */
+  employees.forEach(e => {
+    if (e.zone && ["pool", "absent", "extra"].indexOf(e.zone) === -1 && !isEmpAnchorActiveToday(e, todayIso)) {
+      e.zone = "pool";
+    }
+  });
+
   window.performShiftRotationLogic(true);
-  if (shiftModelConfig.smartAssignEnabled !== false && !isIsoDateSunday(getLogicalDateIso())) {
+  if (shiftModelConfig.smartAssignEnabled !== false && !isIsoDateSunday(todayIso)) {
     shifts.forEach(s => {
       window.smartAssignShiftSlot(s.id, true);
     });
   }
   saveToFirebase();
   window.initBoard();
-  showToast("🔄 Schichten rotiert & für aktuellen Block zugewiesen!");
+  const freiTeamKey = shiftRotation.frei;
+  const freiName = (freiTeamKey && teamsConfig[freiTeamKey]) ? teamsConfig[freiTeamKey].name : "Freischicht";
+  showToast("🔄 Schichten rotiert (" + freiName + " jetzt im Frei-Pool)!");
 };
 
 /* ==========================================================================
@@ -2413,6 +2462,7 @@ function applyTeamStyles() {
 }
 
 function updateTeamDropdowns() {
+  ensureUniqueShiftRotationTeams();
   const keys = Object.keys(teamsConfig).sort();
   const freiSel = document.getElementById("teamSelect_frei");
   if (freiSel) {
@@ -2420,16 +2470,31 @@ function updateTeamDropdowns() {
     shiftRotation.frei = curFreiKey;
     freiSel.innerHTML = keys.map(k => '<option value="' + k + '" ' + (curFreiKey === k ? 'selected' : '') + '>Frei: ' + teamsConfig[k].name + '</option>').join("");
     freiSel.onchange = function() {
-      shiftRotation.frei = this.value;
+      const newTeam = this.value;
+      const oldTeam = shiftRotation.frei;
+      ["frueh", "spaet", "nacht"].forEach(sKey => {
+        if (shiftRotation[sKey] === newTeam) shiftRotation[sKey] = oldTeam;
+      });
+      shiftRotation.frei = newTeam;
+      ensureUniqueShiftRotationTeams();
       shiftModelConfig.lastRotationBlockIndex = getWorkdayBlockIndex(getLogicalDateIso());
       saveToFirebase();
+      window.initBoard();
     };
   }
 }
 
 window.onShiftTeamDropdownChange = function(shiftId, selEl) {
   if (!selEl) return;
-  shiftRotation[shiftId] = selEl.value;
+  const newTeam = selEl.value;
+  const oldTeam = shiftRotation[shiftId];
+  ["frueh", "spaet", "nacht", "frei"].forEach(sKey => {
+    if (sKey !== shiftId && shiftRotation[sKey] === newTeam) {
+      shiftRotation[sKey] = oldTeam;
+    }
+  });
+  shiftRotation[shiftId] = newTeam;
+  ensureUniqueShiftRotationTeams();
   shiftModelConfig.lastRotationBlockIndex = getWorkdayBlockIndex(getLogicalDateIso());
   saveToFirebase();
   window.initBoard();
@@ -3143,6 +3208,7 @@ window.toggleNewTeamForm = function() {
 window.toggleTeamRotationSetting = function(key, val) {
   if (teamsConfig[key]) {
     teamsConfig[key].rotates = val;
+    ensureUniqueShiftRotationTeams();
     saveToFirebase();
     showToast("Team-Rotation aktualisiert");
   }
@@ -3288,6 +3354,7 @@ window.restoreBackup = function(id) {
     if (parsed.shiftRotation) shiftRotation = parsed.shiftRotation;
     if (Array.isArray(parsed.sickLeaves)) sickLeaves = parsed.sickLeaves;
     if (Array.isArray(parsed.extraShifts)) extraShifts = parsed.extraShifts;
+    ensureUniqueShiftRotationTeams();
     addHistoryLog("Backup wiederhergestellt vom " + dStr, "BACKUP");
     saveToFirebase();
     window.initBoard();
@@ -3420,6 +3487,7 @@ window.deleteTeam = function(k) {
   delete teamsConfig[k];
   delete activeTeamFilters[k];
   window.sanitizeTeamReferences();
+  ensureUniqueShiftRotationTeams();
   addHistoryLog("Team gelöscht: " + tName, "EMP");
   saveToFirebase();
   window.initBoard();
@@ -3648,6 +3716,7 @@ window.addTeam = function() {
     activeTeamFilters[key] = true;
     const wrap = document.getElementById("newTeamFormWrapper");
     if (wrap) wrap.style.display = "none";
+    ensureUniqueShiftRotationTeams();
     addHistoryLog("Neues Team angelegt: " + val, "EMP");
     saveToFirebase();
     window.initBoard();
@@ -3733,8 +3802,8 @@ window.addManualSickLeave = function() {
   }
   if (!selectedManualSickEmpId) return showToast("Bitte Mitarbeiter auswählen", true);
 
-  const start = document.getElementById("manualSickStart").value;
-  const end = document.getElementById("manualSickEnd").value;
+  const start = window.normalizeDateIso(document.getElementById("manualSickStart").value);
+  const end = window.normalizeDateIso(document.getElementById("manualSickEnd").value);
   const cat = document.getElementById("manualSickCategory").value;
   const reason = document.getElementById("manualSickReason").value.trim();
   if (!start || !end || start > end) return showToast("Bitte gültigen Zeitraum auswählen", true);
@@ -3755,7 +3824,7 @@ window.addManualSickLeave = function() {
     reviewedBy: currentPlannerName || "Planer",
     reviewedAt: new Date().toISOString()
   };
-  sickLeaves.push(newLeave);
+  sickLeaves.unshift(newLeave);
   window.generateCoveragePromptForLeave(newLeave, "pending");
 
   addHistoryLog("Abwesenheit (" + cat + ") für " + (emp ? fullName(emp) : "") + " eingetragen", "ABSENCE");
@@ -3781,12 +3850,12 @@ window.addManualExtraShift = function() {
   }
   if (!selectedManualExtraEmpId) return showToast("Bitte Mitarbeiter auswählen", true);
 
-  const dateVal = document.getElementById("manualExtraDate").value;
+  const dateVal = window.normalizeDateIso(document.getElementById("manualExtraDate").value);
   const shiftVal = document.getElementById("manualExtraShift").value;
   const noteVal = document.getElementById("manualExtraNote").value.trim();
   if (!dateVal) return showToast("Bitte Datum auswählen", true);
 
-  const existingSameDay = extraShifts.find(es => es.empId === selectedManualExtraEmpId && es.date === dateVal && es.status !== "rejected");
+  const existingSameDay = extraShifts.find(es => es.empId === selectedManualExtraEmpId && window.normalizeDateIso(es.date) === dateVal && es.status !== "rejected");
   if (existingSameDay) {
     return showToast("⛔ Für diesen Mitarbeiter ist am " + formatDateDe(dateVal) + " bereits eine Bringschicht (" + (shiftsLabel[existingSameDay.shift] || existingSameDay.shift) + ") eingetragen!", true);
   }
@@ -4283,9 +4352,11 @@ function deduplicateLeaveAndExtraRecords() {
         keepIds.add(sl.id);
         return;
       }
+      const sNorm = window.normalizeDateIso ? window.normalizeDateIso(sl.startDate) : sl.startDate;
+      const eNorm = window.normalizeDateIso ? window.normalizeDateIso(sl.endDate) : sl.endDate;
       const key = sl.lineRequestData
         ? ("LINE_" + sl.empId + "_" + sl.lineRequestData.lineId + "_" + sl.lineRequestData.type)
-        : ("LEAVE_" + sl.empId + "_" + sl.startDate + "_" + sl.endDate);
+        : ("LEAVE_" + sl.empId + "_" + sNorm + "_" + eNorm);
       if (!seenLeaveKeys[key]) {
         seenLeaveKeys[key] = true;
         keepIds.add(sl.id);
@@ -4318,7 +4389,8 @@ function deduplicateLeaveAndExtraRecords() {
         keepExtraIds.add(es.id);
         return;
       }
-      const key = "EXTRA_" + es.empId + "_" + es.date;
+      const dNorm = window.normalizeDateIso ? window.normalizeDateIso(es.date) : es.date;
+      const key = "EXTRA_" + es.empId + "_" + dNorm;
       if (!seenExtraKeys[key]) {
         seenExtraKeys[key] = true;
         keepExtraIds.add(es.id);
@@ -4388,13 +4460,14 @@ function applyIncomingDocData(d) {
     const deduplicatedAny = deduplicateLeaveAndExtraRecords();
 
     window.sanitizeTeamReferences();
+    const fixedDuplicateTeams = ensureUniqueShiftRotationTeams();
     window.syncAbsentAndExtraZones();
     window.updateShiftApprovalUI();
 
     const autoDidRun = checkScheduledAutomations();
     if (!autoDidRun) {
       window.initBoard();
-      if (migratedCoverage || deduplicatedAny) saveToFirebase();
+      if (migratedCoverage || deduplicatedAny || fixedDuplicateTeams) saveToFirebase();
     }
   } catch (err) {
     console.error("Fehler beim Verarbeiten der Cloud-Daten:", err);
@@ -4422,6 +4495,7 @@ window.forceRefreshFromServer = function() {
 function saveToFirebase() {
   if (!hasLoadedFromCloud) return;
   window.sanitizeTeamReferences();
+  ensureUniqueShiftRotationTeams();
   const payload = {
     lines,
     roles,
@@ -4555,6 +4629,7 @@ window.addEventListener("DOMContentLoaded", function() {
   injectModernSaaSStyles();
   Object.keys(teamsConfig).forEach(k => { activeTeamFilters[k] = true; });
   roles.forEach(r => { activeRoleFilters[r] = true; });
+  ensureUniqueShiftRotationTeams();
   window.updateHeaderDateKw();
   window.updateShiftApprovalUI();
   window.updateAutoRotationUI();
