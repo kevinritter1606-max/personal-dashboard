@@ -1,7 +1,7 @@
 /* ==========================================================================
    PLANER-BOARD MASTER-LOGIK (planer.js) - Version 4.9.67 (TEIL 1 VON 2)
    Vollständige Original-Struktur · Bayer 2-2-2 (Sonntag frei) Automatik ab 05:00 Uhr
-   1h-Schicht-Vorlauf · "Nur Stamm" (Planer-Only) · Rotes +EH · Stamm-Schutz-Modus
+   1h-Schicht-Vorlauf · Prio/Sek-Kartenanzeige · 5%-100% Fokus-Quote · Stamm-Schutz
    ========================================================================== */
 
 window.PLANER_JS_VERSION = "4.9.67";
@@ -73,6 +73,7 @@ var shiftModelConfig = {
   smartRespectFloorTL: true,
   smartAllowSwap: true,
   focusModeEnabled: true,
+  focusModePercent: 20,
   fairnessBalanceEnabled: true,
   rotationCycleMonths: 3,
   coverageExplicitMigratedV2: false,
@@ -140,7 +141,7 @@ var planerLastActivityTime = Date.now();
 var lastLeaveSubmitTimestamp = 0;
 
 /* ==========================================================================
-   0. ULTRA-CLEAN & MODERN SAAS LOOK (AUTOMATISCHE CSS-ENGINE)
+   0. ULTRA-CLEAN & MODERN SAAS LOOK (AUTOMATISCHE CSS-ENGINE INKL. PRIO/SEK)
    ========================================================================== */
 
 function injectModernSaaSStyles() {
@@ -287,8 +288,8 @@ function injectModernSaaSStyles() {
       background: #ffffff !important;
       border: 1px solid #e2e8f0 !important;
       border-radius: 8px !important;
-      padding: 5px 8px !important;
-      margin-bottom: 4px !important;
+      padding: 4px 7px !important;
+      margin-bottom: 3px !important;
       box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03) !important;
       transition: transform 0.16s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.16s ease, border-color 0.16s ease !important;
     }
@@ -315,6 +316,44 @@ function injectModernSaaSStyles() {
       border: 1px solid #bae6fd !important;
       border-radius: 999px !important;
       padding: 0 6px !important;
+    }
+    .card-quals-row {
+      display: none;
+      flex-wrap: wrap;
+      gap: 3px;
+      margin-top: 2px;
+      padding-top: 2px;
+      border-top: 1px dashed #f1f5f9;
+      line-height: 1.1;
+    }
+    body.planner-active .card-quals-row {
+      display: flex !important;
+    }
+    .card-qual-prio {
+      font-size: 0.53rem;
+      font-weight: 700;
+      color: #0369a1;
+      background: #e0f2fe;
+      border: 1px solid #bae6fd;
+      padding: 0px 4px;
+      border-radius: 4px;
+      white-space: nowrap;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .card-qual-sec {
+      font-size: 0.53rem;
+      font-weight: 600;
+      color: #475569;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      padding: 0px 4px;
+      border-radius: 4px;
+      white-space: nowrap;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .shift-kpi-pill.ok {
       background: #f0fdf4 !important;
@@ -517,6 +556,15 @@ function getWorkdayBlockIndex(isoDateStr) {
   return weeks * 3 + Math.floor(Math.min(dayInWeek, 5) / 2);
 }
 
+/* Fortlaufender Werktags-Zähler (Mo-Sa) für gleichmäßige Prozent-Verteilung */
+function getWorkdaySerialIndex(isoDateStr) {
+  const p = String(isoDateStr || getLogicalDateIso()).split("-");
+  const diffDays = Math.floor((Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2])) - Date.UTC(2026, 0, 12)) / 86400000);
+  const weeks = Math.floor(diffDays / 7);
+  const dayInWeek = ((diffDays % 7) + 7) % 7;
+  return weeks * 6 + Math.min(dayInWeek, 5);
+}
+
 function getBlockDayInfo(isoDateStr) {
   const d = parseIsoToLocalDate(isoDateStr || getLogicalDateIso());
   const jsDay = d.getDay();
@@ -683,7 +731,6 @@ window.updateHeaderDateKw = function() {
   }
 };
 
-/* Aktualisiert sowohl den Planer-Button als auch den Portal-Header-Status für die aktuell aktive Schicht */
 window.updateShiftApprovalUI = function() {
   const approved = isCurrentShiftApproved();
   const sundayFree = isSundayDaytimeFree();
@@ -845,7 +892,6 @@ function getRotationForDate(targetIso) {
     ? shiftModelConfig.lastRotationBlockIndex
     : getWorkdayBlockIndex(getLogicalDateIso());
   const diff = getWorkdayBlockIndex(targetIso) - anchorBlock;
-  /* Feste 4-Slot-Rotation für 2-2-2 (Früh, Spät, Nacht, Frei) */
   const slotOrder = ["frueh", "spaet", "nacht", "frei"];
   const activeSlots = slotOrder.filter(s => shiftRotation[s] && isTeamRotating(shiftRotation[s]));
   const res = Object.assign({}, shiftRotation);
@@ -897,7 +943,6 @@ function getActiveLeaveForEmpOnDate(empId, isoDate) {
   });
 }
 
-/* Strikte Doppel-Antrags-Sperre mit automatischer Datums-Normalisierung */
 window.hasLeaveOverlap = function(empId, startIso, endIso, ignoreLeaveId) {
   if (!empId || !startIso || !endIso) return false;
   const normA = window.normalizeDateIso(startIso);
@@ -1155,6 +1200,7 @@ window.syncAbsentAndExtraZones = function() {
   const now = new Date();
   const prodToday = getLogicalDateIso(now);
   const calToday = getTodayIso(now);
+  const activeShiftNow = getCurrentActiveShiftId(now);
   let changed = false;
 
   employees.forEach(emp => {
@@ -1177,6 +1223,16 @@ window.syncAbsentAndExtraZones = function() {
       emp.zone = "extra"; changed = true;
     } else if (!activeExtraInWindow && emp.zone === "extra") {
       emp.zone = "pool"; changed = true;
+    } else if (!activeExtraInWindow && emp.zone && ["pool", "review", "absent", "extra"].indexOf(emp.zone) === -1) {
+      /* Falls ein Gast-Bringschichtler nach Ende seiner Bringschicht noch auf einer fremden Schicht-Linie sitzt, zurück in den Pool holen */
+      const zShift = extractShiftIdFromZone(emp.zone);
+      if (zShift && shiftRotation[zShift] !== emp.team && !emp.noRotation && zShift !== activeShiftNow) {
+        const hadPastExtra = extraShifts.some(es => es.empId === emp.id && es.status === "approved" && es.shift === zShift);
+        if (hadPastExtra) {
+          emp.zone = "pool";
+          changed = true;
+        }
+      }
     }
   });
 
@@ -1317,6 +1373,8 @@ function renderUnqualifiedHoursOverview() {
   if (!container) return;
 
   const threshold = (shiftModelConfig && typeof shiftModelConfig.secondaryUnlockThresholdHours === "number") ? shiftModelConfig.secondaryUnlockThresholdHours : 120;
+  const focusQuote = Math.min(100, Math.max(5, Math.round((Number(shiftModelConfig.focusModePercent) || 20) / 5) * 5));
+  const focusActive = shiftModelConfig.focusModeEnabled !== false;
   const rows = [];
 
   employees.forEach(emp => {
@@ -1327,9 +1385,10 @@ function renderUnqualifiedHoursOverview() {
       if (!isMain && !isSec && hours > 0) {
         const remaining = Math.max(0, threshold - hours);
         const pct = Math.min(100, Math.round((hours / threshold) * 100));
+        const quoteTxt = focusActive ? (" · 🎯 Fokus-Quote: " + focusQuote + "%") : " · Fokus AUS";
         rows.push(
-          '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #f1f5f9; gap:8px;">' +
-            '<span><b>' + fullName(emp) + '</b> ➔ ' + getLineNameById(lineId) + ' <small style="color:#0284c7; font-weight:700;">(' + pct + '% Fokus)</small></span>' +
+          '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #f1f5f9; gap:8px; flex-wrap:wrap;">' +
+            '<span><b>' + fullName(emp) + '</b> ➔ ' + getLineNameById(lineId) + ' <small style="color:#0284c7; font-weight:700;">(' + pct + '% gelernt' + quoteTxt + ')</small></span>' +
             '<span style="display:inline-flex; align-items:center; gap:6px;">' +
               '<span>' + hours + 'h / ' + threshold + 'h (noch ' + remaining + 'h)</span>' +
               '<button type="button" class="btn btn-outline" style="padding:1px 6px; font-size:0.68rem; color:#dc2626; border-color:#fca5a5;" onclick="resetEmployeeTrainingHours(\'' + emp.id + '\', \'' + lineId + '\')" title="Gesammelte Stunden für diesen Mitarbeiter an dieser Linie auf 0 zurücksetzen">🔄 Reset</button>' +
@@ -1346,7 +1405,7 @@ function renderUnqualifiedHoursOverview() {
 }
 
 /* ==========================================================================
-   5. STRATEGISCHE QUALIFIKATIONS- & ROTATIONS-MATRIX (INKL. STAMM-SCHUTZ)
+   5. STRATEGISCHE QUALIFIKATIONS- & ROTATIONS-MATRIX (INKL. 5%-100% FOKUS)
    ========================================================================== */
 
 function createBoardSnapshotForUndo() {
@@ -1414,6 +1473,25 @@ function getActiveFocusLineHours(emp, lineId) {
   return (h > 0 && h < threshold) ? h : 0;
 }
 
+/* Prüft anhand der eingestellten Fokus-Prozente (5% bis 100% in 5er-Schritten),
+   ob der Mitarbeiter am heutigen Produktionstag für seine Fokus-Lernlinie gezogen wird */
+window.shouldApplyTrainingFocusToday = function(emp, lineId, todayIso) {
+  if (!emp || shiftModelConfig.focusModeEnabled === false) return false;
+  if (getActiveFocusLineHours(emp, lineId) <= 0) return false;
+  const pct = Math.min(100, Math.max(5, Math.round((Number(shiftModelConfig.focusModePercent) || 20) / 5) * 5));
+  if (pct >= 100) return true;
+
+  const wdSerial = getWorkdaySerialIndex(todayIso || getLogicalDateIso());
+  let empHash = 0;
+  const idStr = String(emp.id || "");
+  for (let i = 0; i < idStr.length; i++) {
+    empHash = (empHash + idStr.charCodeAt(i) * (i + 1)) % 20;
+  }
+  const slot20 = (((wdSerial * 7) + empHash) % 20 + 20) % 20;
+  const bucketPct = slot20 * 5;
+  return bucketPct < pct;
+};
+
 function isEmpDueForRotationLearning(emp, todayIso) {
   if (window.shouldHoldEmpOnMainLineToday(emp, todayIso)) return false;
   const cycleMonths = Number(shiftModelConfig.rotationCycleMonths || 0);
@@ -1425,24 +1503,45 @@ function isEmpDueForRotationLearning(emp, todayIso) {
   return daysBetweenIso(lastLearn, todayIso) >= cycleDays;
 }
 
-/* Stellt sicher, dass aktive "⚓ Fix (Anker)"-Mitarbeiter nach einem freien Sonntag oder Urlaub automatisch wieder auf ihre Anker-Position gesetzt werden */
+/* Stellt sicher, dass aktive "⚓ Fix (Anker)"-Mitarbeiter an Arbeitstagen unter Beachtung des Rollen-Solls
+   gesetzt werden und an ihren freien Tagen sauber in den Pool zurückkehren */
 function restoreActiveAnchorEmployeesForShift(shiftId, todayIso) {
   employees.forEach(emp => {
-    if (!emp || !emp.noRotation || !isEmpAnchorActiveToday(emp, todayIso)) return;
+    if (!emp || !emp.noRotation) return;
     if (emp.zone === "absent" || getActiveLeaveForEmpOnDate(emp.id, todayIso)) return;
+
+    const currentZoneShift = extractShiftIdFromZone(emp.zone);
+    if (!isEmpAnchorActiveToday(emp, todayIso)) {
+      if (currentZoneShift === shiftId) emp.zone = "pool";
+      return;
+    }
+
     if (!window.canRoleBeAssignedToLine(emp.role || "Bediener")) return;
 
     const anchorShift = extractShiftIdFromZone(emp.pinnedZone) || emp.lastShiftId || (shiftRotation[shiftId] === emp.team ? shiftId : null);
     if (anchorShift !== shiftId) return;
 
-    if (emp.zone && ["pool", "review", "absent", "extra"].indexOf(emp.zone) === -1 && extractShiftIdFromZone(emp.zone) === shiftId) {
+    if (emp.zone && ["pool", "review", "absent", "extra"].indexOf(emp.zone) === -1 && currentZoneShift === shiftId) {
       return;
     }
 
+    const empRole = emp.role || "Bediener";
+    const canFitLine = (lObj) => {
+      if (!lObj || lObj.ausgeplant) return false;
+      const roleSoll = Number((lObj.roleTargets || {})[empRole] || 0);
+      if (roleSoll <= 0) return false;
+      const curEmps = employees.filter(e => extractLineIdFromZone(e.zone) === lObj.id && extractShiftIdFromZone(e.zone) === shiftId);
+      if (curEmps.length >= getLineTotalTarget(lObj)) return false;
+      const curRoleCnt = curEmps.filter(e => (e.role || "Bediener") === empRole).length;
+      return curRoleCnt < roleSoll;
+    };
+
     let targetLineId = extractLineIdFromZone(emp.pinnedZone);
-    let lineObj = targetLineId ? lines.find(l => l.id === targetLineId && !l.ausgeplant) : null;
+    let lineObj = targetLineId ? lines.find(l => l.id === targetLineId) : null;
+    if (!canFitLine(lineObj)) lineObj = null;
+
     if (!lineObj && Array.isArray(emp.mainLines) && emp.mainLines.length > 0) {
-      lineObj = lines.find(l => emp.mainLines.indexOf(l.id) !== -1 && !l.ausgeplant) || null;
+      lineObj = lines.find(l => emp.mainLines.indexOf(l.id) !== -1 && canFitLine(l)) || null;
     }
 
     if (lineObj) {
@@ -1460,7 +1559,8 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     return;
   }
 
-  const todayIso = getLogicalDateIso();
+  const nowObj = new Date();
+  const todayIso = getLogicalDateIso(nowObj);
   if (isIsoDateSunday(todayIso)) {
     if (!silentBatch) showToast("☀️ Sonntag ist regulär schichtfrei", false);
     return;
@@ -1482,7 +1582,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     }
   });
 
-  /* Aktive Anker-Mitarbeiter ("⚓ Fix") nach Sonntag/Urlaub wieder auf ihre Stamm-Linie setzen */
+  window.syncAbsentAndExtraZones();
   restoreActiveAnchorEmployeesForShift(shiftId, todayIso);
 
   const slotCandidates = employees.filter(emp => {
@@ -1491,7 +1591,15 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     if (emp.noRotation && isEmpAnchorActiveToday(emp, todayIso)) return false;
     if (!window.canRoleBeAssignedToLine(emp.role || "Bediener")) return false;
     const isTeamMember = (emp.team === teamKey);
-    const hasExtra = extraShifts.some(es => es.empId === emp.id && window.normalizeDateIso(es.date) === todayIso && es.shift === shiftId && es.status === "approved");
+    /* Bringschichtler bei stiller 05:00-Uhr-Automatik nur einplanen, wenn ihr 1h-Vorlauf bereits aktiv ist;
+       beim manuellen Klick auf den Zauberstab 🪄 der jeweiligen Schicht immer mit einplanen */
+    const hasExtra = extraShifts.some(es =>
+      es.empId === emp.id &&
+      window.normalizeDateIso(es.date) === todayIso &&
+      es.shift === shiftId &&
+      es.status === "approved" &&
+      (!silentBatch || isExtraShiftInActiveWindow(es, nowObj))
+    );
     return isTeamMember || hasExtra;
   });
 
@@ -1547,7 +1655,6 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
   function placeEmpOnLine(emp, line, countTrainingHours) {
     const isRegularTeamMember = (emp.team === teamKey);
     emp.zone = line.id + "_" + shiftId;
-    /* Nur bei regulärer Schicht (oder wenn noch keine Nadel existiert) die Stamm-PIN-Nadel aktualisieren */
     if (isRegularTeamMember || !emp.pinnedZone) {
       emp.pinnedZone = emp.zone;
       emp.lastShiftId = shiftId;
@@ -1602,7 +1709,22 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     });
   });
 
-  /* PHASE 2: Reguläre Linien (nicht mainOnly) mit Fokus-Modus, Stammpersonal & fairer Sekundär-Balance besetzen */
+  /* Mitarbeiter markieren, die heute laut eingestellter 5%-100% Fokus-Quote ihren Lerntag an einer bestimmten Linie haben */
+  const todaysFocusMap = {};
+  if (shiftModelConfig.focusModeEnabled !== false) {
+    slotCandidates.forEach(e => {
+      if (!isAvailableInPool(e) || window.shouldHoldEmpOnMainLineToday(e, todayIso)) return;
+      for (let i = 0; i < sortedLines.length; i++) {
+        const l = sortedLines[i];
+        if (!l.mainOnly && window.shouldApplyTrainingFocusToday(e, l.id, todayIso)) {
+          todaysFocusMap[e.id] = l.id;
+          break;
+        }
+      }
+    });
+  }
+
+  /* PHASE 2: Reguläre Linien (nicht mainOnly) mit 5%-100% Fokus-Quote, Stammpersonal & fairer Sekundär-Balance besetzen */
   sortedLines.filter(l => !l.mainOnly).forEach(line => {
     const totalSoll = getLineTotalTarget(line);
     roles.forEach(rName => {
@@ -1613,9 +1735,8 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
         if (shiftModelConfig.focusModeEnabled !== false && !existingTraineeOnLine && getLineEmps(line.id).length >= 1) {
           const focusCands = slotCandidates.filter(e =>
             isAvailableInPool(e) &&
-            !window.shouldHoldEmpOnMainLineToday(e, todayIso) &&
-            (e.role || "Bediener") === rName &&
-            getActiveFocusLineHours(e, line.id) > 0
+            todaysFocusMap[e.id] === line.id &&
+            (e.role || "Bediener") === rName
           ).sort((a, b) => getActiveFocusLineHours(b, line.id) - getActiveFocusLineHours(a, line.id));
           if (focusCands.length > 0) {
             cand = focusCands[0];
@@ -1625,8 +1746,10 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
           }
         }
 
+        /* Reguläres Stammpersonal bevorzugen, das heute keinen reservierten Fokus-Tag auf einer anderen Linie hat */
         cand = slotCandidates.find(e =>
           isAvailableInPool(e) &&
+          !todaysFocusMap[e.id] &&
           (e.role || "Bediener") === rName &&
           extractLineIdFromZone(e.pinnedZone) === line.id &&
           Array.isArray(e.mainLines) && e.mainLines.indexOf(line.id) !== -1
@@ -1635,6 +1758,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
         if (!cand) {
           cand = slotCandidates.find(e =>
             isAvailableInPool(e) &&
+            !todaysFocusMap[e.id] &&
             (e.role || "Bediener") === rName &&
             Array.isArray(e.mainLines) && e.mainLines.indexOf(line.id) !== -1
           );
@@ -1643,11 +1767,21 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
         if (!cand) {
           const secPool = slotCandidates.filter(e =>
             isAvailableInPool(e) &&
+            !todaysFocusMap[e.id] &&
             !window.shouldHoldEmpOnMainLineToday(e, todayIso) &&
             (e.role || "Bediener") === rName &&
             Array.isArray(e.secLines) && e.secLines.indexOf(line.id) !== -1
           ).sort((a, b) => compareSecondaryFairness(a, b, line.id, todayIso));
           if (secPool.length > 0) cand = secPool[0];
+        }
+
+        /* Falls sonst niemand frei ist, darf auch ein für später vorgemerkter Fokus-Mitarbeiter seine Stammlinie absichern */
+        if (!cand) {
+          cand = slotCandidates.find(e =>
+            isAvailableInPool(e) &&
+            (e.role || "Bediener") === rName &&
+            Array.isArray(e.mainLines) && e.mainLines.indexOf(line.id) !== -1
+          );
         }
 
         if (!cand) break;
@@ -1673,7 +1807,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     });
   });
 
-  /* PHASE 4: Intelligenter Ringtausch (Stamm-Schutz-Mitarbeiter werden nicht von ihrer Stammlinie wegrotiert) */
+  /* PHASE 4: Intelligenter Ringtausch */
   if (shiftModelConfig.smartAllowSwap !== false) {
     const unplaced = slotCandidates.filter(isAvailableInPool);
     unplaced.forEach(cand => {
@@ -1730,7 +1864,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     });
   }
 
-  /* PHASE 5: Förder-Zyklus (alle X Monate an neue Linien heranführen, außer Linie ist mainOnly oder Mitarbeiter im Stamm-Schutz) */
+  /* PHASE 5: Förder-Zyklus & anteiliger Fokus (5%-100%) für noch offene Linien-Plätze */
   sortedLines.filter(l => !l.mainOnly).forEach(line => {
     const totalSoll = getLineTotalTarget(line);
     roles.forEach(rName => {
@@ -1739,7 +1873,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
           isAvailableInPool(e) &&
           !window.shouldHoldEmpOnMainLineToday(e, todayIso) &&
           (e.role || "Bediener") === rName &&
-          (getActiveFocusLineHours(e, line.id) > 0 || isEmpDueForRotationLearning(e, todayIso))
+          (window.shouldApplyTrainingFocusToday(e, line.id, todayIso) || isEmpDueForRotationLearning(e, todayIso))
         );
         if (!learner) break;
         focusCount++;
@@ -1784,8 +1918,44 @@ window.runAllShiftsAutoAssignment = function(silent) {
 };
 
 /* ==========================================================================
-   6. KUGELSICHERE 05:00-UHR-AUTOMATIK (INKL. CATCH-UP & 2-2-2 SONNTAG FREI)
+   6. KUGELSICHERE 05:00-UHR-AUTOMATIK (INKL. 1H-BRINGSCHICHT-EINPLANUNG)
    ========================================================================== */
+
+/* Teilt beim untertägigen Schichtfenster-Wechsel (13:00 Spät / 21:00 Nacht) neu im "extra"-Fach
+   bereitgestellte Bringschichtler automatisch auf noch offene Linienplätze der aktiven Schicht zu */
+function autoAssignWaitingExtraWorkersForActiveShift(shiftId, todayIso) {
+  if (shiftModelConfig.smartAssignEnabled === false || isIsoDateSunday(todayIso)) return false;
+  const waitingExtras = employees.filter(emp =>
+    emp.zone === "extra" &&
+    window.canRoleBeAssignedToLine(emp.role || "Bediener") &&
+    extraShifts.some(es => es.empId === emp.id && window.normalizeDateIso(es.date) === todayIso && es.shift === shiftId && es.status === "approved")
+  );
+  if (!waitingExtras.length) return false;
+
+  const activeLines = lines.filter(l => !l.ausgeplant);
+  let placedAny = false;
+
+  waitingExtras.forEach(emp => {
+    const rName = emp.role || "Bediener";
+    const prefIds = [].concat(emp.mainLines || [], emp.secLines || []);
+    const candidateLines = prefIds.map(id => activeLines.find(l => l.id === id)).filter(Boolean).concat(activeLines);
+
+    for (let i = 0; i < candidateLines.length; i++) {
+      const line = candidateLines[i];
+      const curEmps = employees.filter(e => extractLineIdFromZone(e.zone) === line.id && extractShiftIdFromZone(e.zone) === shiftId);
+      const roleSoll = Number((line.roleTargets || {})[rName] || 0);
+      const curRoleCnt = curEmps.filter(e => (e.role || "Bediener") === rName).length;
+      if (curEmps.length < getLineTotalTarget(line) && curRoleCnt < roleSoll) {
+        emp.zone = line.id + "_" + shiftId;
+        trackEmployeeLineAssignment(emp, line.id, todayIso);
+        placedAny = true;
+        break;
+      }
+    }
+  });
+
+  return placedAny;
+}
 
 function checkScheduledAutomations() {
   if (!hasLoadedFromCloud || isDraggingCard || isRunningAutoTransition) return false;
@@ -1851,10 +2021,12 @@ function checkScheduledAutomations() {
       }
     }
 
-    const activeShiftWindowKey = prodTodayIso + "_" + getCurrentActiveShiftId(now);
+    const activeShiftIdNow = getCurrentActiveShiftId(now);
+    const activeShiftWindowKey = prodTodayIso + "_" + activeShiftIdNow;
     if (shiftModelConfig.lastActiveShiftWindowKey !== activeShiftWindowKey) {
       shiftModelConfig.lastActiveShiftWindowKey = activeShiftWindowKey;
       window.syncAbsentAndExtraZones();
+      autoAssignWaitingExtraWorkersForActiveShift(activeShiftIdNow, prodTodayIso);
       window.updateShiftApprovalUI();
       didChange = true;
     }
@@ -1914,7 +2086,7 @@ setInterval(() => {
 }, 30000);
 
 /* ==========================================================================
-   7. INIT BOARD & KARTEN RENDERING (INKL. STAMM-BADGE & ROTES +EH)
+   7. INIT BOARD & KARTEN RENDERING (INKL. PRIO/SEK-LINIEN & ROTES +EH)
    ========================================================================== */
 
 function getLineTotalTarget(line) {
@@ -2151,8 +2323,16 @@ function renderEmployees() {
         ? '<span class="pin-remove-x" title="PIN-Nadel löschen" onclick="clickPinButton(\'' + emp.id + '\', event)">✕</span>'
         : '';
       rightMetaHtml = '<div class="card-pin-info" title="Gespeicherte Linie ' + pinNum + '"><span>📌 ' + pinNum + '</span>' + removeXHtml + '</div>';
-    } else if (isInSidebar && mainNums) {
-      rightMetaHtml = '<span class="card-prio-hint" title="Stammlinie">Prio: ' + mainNums + '</span>';
+    }
+
+    /* Direkte optische Übersicht der Prio-Linien (Stammlinien) & Sek-Linien (Zweitlinien) auf jeder Karte */
+    let qualsRowHtml = "";
+    if (mainNums || secNums) {
+      qualsRowHtml =
+        '<div class="card-quals-row">' +
+          (mainNums ? '<span class="card-qual-prio" title="Prio-Linien (Stammlinien): ' + mainNums + '">★ Prio: ' + mainNums + '</span>' : '') +
+          (secNums ? '<span class="card-qual-sec" title="Sekundär-Linien (Zweitlinien): ' + secNums + '">Sek: ' + secNums + '</span>' : '') +
+        '</div>';
     }
 
     card.innerHTML =
@@ -2166,7 +2346,8 @@ function renderEmployees() {
           qualWarnHtml +
         '</div>' +
         rightMetaHtml +
-      '</div>';
+      '</div>' +
+      qualsRowHtml;
 
     let targetZone = document.getElementById(emp.zone);
     if (!targetZone) {
@@ -2305,7 +2486,6 @@ function initDragAndDrop() {
           if (["pool", "review", "absent", "extra"].indexOf(newZone) === -1) {
             const targetShiftId = extractShiftIdFromZone(newZone);
             const isRegTeam = targetShiftId && shiftRotation[targetShiftId] === emp.team;
-            /* Bei einmaliger Bringschicht die Stamm-Nadel nicht überschreiben */
             if (isRegTeam || !emp.pinnedZone) {
               emp.pinnedZone = newZone;
               emp.lastShiftId = targetShiftId || emp.lastShiftId;
@@ -2439,6 +2619,7 @@ window.loadTeamToShift = function(slotKey) {
   lastBoardSnapshotForUndo = createBoardSnapshotForUndo();
   activateUndoButtons(slotKey);
 
+  const todayIso = getLogicalDateIso();
   const oldTeam = shiftRotation[slotKey];
   ["frueh", "spaet", "nacht", "frei"].forEach(sKey => {
     if (sKey !== slotKey && shiftRotation[sKey] === teamKey) {
@@ -2448,7 +2629,17 @@ window.loadTeamToShift = function(slotKey) {
   shiftRotation[slotKey] = teamKey;
   ensureUniqueShiftRotationTeams();
 
-  shiftModelConfig.lastRotationBlockIndex = getWorkdayBlockIndex(getLogicalDateIso());
+  /* Bisherige Mitarbeiter dieser Schicht-Zeile sowie des neu zu ladenden Teams zuerst sauber in den Pool räumen */
+  employees.forEach(emp => {
+    if (emp.zone === "absent" || emp.zone === "extra") return;
+    if (emp.noRotation && isEmpAnchorActiveToday(emp, todayIso)) return;
+    const zShift = extractShiftIdFromZone(emp.zone);
+    if ((slotKey !== "frei" && zShift === slotKey) || emp.team === teamKey || (oldTeam && emp.team === oldTeam && shiftRotation.frei === oldTeam)) {
+      emp.zone = "pool";
+    }
+  });
+
+  shiftModelConfig.lastRotationBlockIndex = getWorkdayBlockIndex(todayIso);
   distributeTeamToSlotInternal(teamKey, slotKey);
   const tName = teamsConfig[teamKey] ? teamsConfig[teamKey].name : teamKey;
   addHistoryLog(tName + " in " + (shiftsLabel[slotKey] || "Pool") + " geladen", "SHIFT");
@@ -3010,9 +3201,20 @@ function ensureStrategicMatrixSettingsControls() {
       "Nächster automatischer 2-2-2 Block-Wechsel: <b>" + getWeekdayShortDe(bInfo.nextChangeIso) + ", " + formatDateDe(bInfo.nextChangeIso) + " um 05:00 Uhr</b>";
   }
 
+  const threshLblEl = document.getElementById("focusThresholdDynamicLbl");
+  const curThresh = (shiftModelConfig && typeof shiftModelConfig.secondaryUnlockThresholdHours === "number") ? shiftModelConfig.secondaryUnlockThresholdHours : 120;
+  if (threshLblEl) threshLblEl.textContent = curThresh + "h";
+
   if (document.getElementById("cfgFocusModeEnabled")) return;
   const swapChk = document.getElementById("cfgSmartAllowSwap");
   if (!swapChk || !swapChk.parentElement || !swapChk.parentElement.parentElement) return;
+
+  const pctOptionsHtml = [];
+  for (let p = 5; p <= 100; p += 5) {
+    const daysOf7 = ((p / 100) * 7).toFixed(1).replace(".", ",");
+    pctOptionsHtml.push('<option value="' + p + '">' + p + '% (ca. ' + daysOf7 + ' von 7 Arbeitstagen)</option>');
+  }
+
   const box = document.createElement("div");
   box.style.cssText = "margin-top:10px; padding:10px 12px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:10px; display:flex; flex-direction:column; gap:8px;";
   box.innerHTML =
@@ -3022,10 +3224,18 @@ function ensureStrategicMatrixSettingsControls() {
       'Nächster automatischer 2-2-2 Block-Wechsel: <b>' + getWeekdayShortDe(bInfo.nextChangeIso) + ', ' + formatDateDe(bInfo.nextChangeIso) + ' um 05:00 Uhr</b>' +
     '</div>' +
     '<button type="button" class="btn btn-primary" style="padding:6px 10px; font-size:0.74rem; align-self:flex-start;" onclick="syncCurrentBoardAs222Anchor()">🔄 Aktuelle Team-Aufstellung als heutigen 2-2-2 Start-Anker speichern & neu verteilen</button>' +
-    '<label style="font-size:0.76rem; display:flex; align-items:center; gap:6px; cursor:pointer;">' +
-      '<input type="checkbox" id="cfgFocusModeEnabled" onchange="saveShiftModelSettings()"> ' +
-      '<span><b>Fokus-Modus:</b> Angefangene Einarbeitung (>0h bis 120h) an einer Linie priorisiert zu Ende lernen</span>' +
-    '</label>' +
+    '<div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; background:#ffffff; padding:7px 10px; border-radius:8px; border:1px solid #bae6fd;">' +
+      '<label style="font-size:0.76rem; display:flex; align-items:center; gap:6px; cursor:pointer; flex:1; min-width:220px;">' +
+        '<input type="checkbox" id="cfgFocusModeEnabled" onchange="saveShiftModelSettings()"> ' +
+        '<span><b>Fokus-Modus:</b> Angefangene Einarbeitung (>0h bis <span id="focusThresholdDynamicLbl">' + curThresh + 'h</span>) anteilig einplanen</span>' +
+      '</label>' +
+      '<div style="display:flex; align-items:center; gap:6px; font-size:0.75rem; font-weight:700; color:#0369a1;">' +
+        '<span>Einsatz-Quote:</span>' +
+        '<select id="cfgFocusModePercent" class="form-control" style="width:auto; padding:4px 8px; font-size:0.75rem; font-weight:700; color:#0f172a;" onchange="saveShiftModelSettings()">' +
+          pctOptionsHtml.join("") +
+        '</select>' +
+      '</div>' +
+    '</div>' +
     '<label style="font-size:0.76rem; display:flex; align-items:center; gap:6px; cursor:pointer;">' +
       '<input type="checkbox" id="cfgFairnessBalanceEnabled" onchange="saveShiftModelSettings()"> ' +
       '<span><b>Fairness & Gleichgewicht:</b> Bei Sekundärlinien fair abwechseln (Einsatz-Gedächtnis)</span>' +
@@ -3073,12 +3283,20 @@ function renderSettingsLists() {
         ? '<span style="font-size:0.65rem; font-weight:700; padding:1px 6px; border-radius:999px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; white-space:nowrap;" title="Stamm-Schutz aktiv seit ' + formatDateDe(protInfo.startDate) + '">🛡️ Stamm-Schutz: ' + protInfo.mainPct + '% (noch ' + protInfo.remainingDays + ' Tg.)</span>'
         : '';
 
+      const mList = Array.isArray(e.mainLines) ? e.mainLines.map(getShortLineNumber).filter(Boolean).join(", ") : "";
+      const sList = Array.isArray(e.secLines) ? e.secLines.map(getShortLineNumber).filter(Boolean).join(", ") : "";
+      const linesMiniInfo = (mList || sList)
+        ? '<span style="font-size:0.64rem; font-weight:600; color:#0369a1; background:#f0f9ff; border:1px solid #bae6fd; padding:1px 6px; border-radius:999px; white-space:nowrap;">' +
+            (mList ? '★ Prio: ' + mList : '') + (mList && sList ? ' · ' : '') + (sList ? 'Sek: ' + sList : '') +
+          '</span>'
+        : '';
+
       const onbResetAction = (plannerLevel >= 3 && isOnbDone)
         ? '<button class="btn btn-outline" style="padding:2px 6px; font-size:0.68rem; color:#b45309; border-color:#fde68a;" onclick="resetEmployeeOnboarding(\'' + e.id + '\')" title="Onboarding für diesen Mitarbeiter zurücksetzen">🔄 Onb.</button>'
         : '';
 
       return '<div class="item-row">' +
-        '<div class="emp-row-info"><span style="color:' + tObj.color + '; font-weight:700;">■</span> <b>' + fullName(e) + '</b>' + ehBadge + ' <small style="color:#64748b;">(' + e.role + ')</small> ' + pinBadge + ' ' + onbBadge + ' ' + traineeBadge + '</div>' +
+        '<div class="emp-row-info"><span style="color:' + tObj.color + '; font-weight:700;">■</span> <b>' + fullName(e) + '</b>' + ehBadge + ' <small style="color:#64748b;">(' + e.role + ')</small> ' + linesMiniInfo + ' ' + pinBadge + ' ' + onbBadge + ' ' + traineeBadge + '</div>' +
         '<div class="emp-row-actions">' + onbResetAction + pinAction +
           '<button class="btn btn-outline" style="padding:2px 7px; font-size:0.72rem;" onclick="editEmployee(\'' + e.id + '\')">✏️</button>' +
           '<button class="btn btn-outline" style="padding:2px 7px; font-size:0.72rem; color:#dc2626; border-color:#fca5a5;" onclick="deleteEmployee(\'' + e.id + '\')">🗑️</button>' +
@@ -3204,11 +3422,14 @@ window.syncShiftModelSettingsUI = function() {
   const setChk = (id, val) => { const el = document.getElementById(id); if (el) el.checked = val; };
   const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = String(val); };
 
+  const normFocusPct = Math.min(100, Math.max(5, Math.round((Number(shiftModelConfig.focusModePercent) || 20) / 5) * 5));
+
   setChk("cfgAutoRotate", shiftModelConfig.autoRotate !== false);
   setChk("cfgSmartAssignEnabled", shiftModelConfig.smartAssignEnabled !== false);
   setChk("cfgSmartRespectFloorTL", shiftModelConfig.smartRespectFloorTL !== false);
   setChk("cfgSmartAllowSwap", shiftModelConfig.smartAllowSwap !== false);
   setChk("cfgFocusModeEnabled", shiftModelConfig.focusModeEnabled !== false);
+  setVal("cfgFocusModePercent", normFocusPct);
   setChk("cfgFairnessBalanceEnabled", shiftModelConfig.fairnessBalanceEnabled !== false);
   setVal("cfgRotationCycleMonths", shiftModelConfig.rotationCycleMonths ?? 3);
 
@@ -3233,6 +3454,12 @@ window.saveShiftModelSettings = function() {
   shiftModelConfig.smartRespectFloorTL = getChk("cfgSmartRespectFloorTL", true);
   shiftModelConfig.smartAllowSwap = getChk("cfgSmartAllowSwap", true);
   shiftModelConfig.focusModeEnabled = getChk("cfgFocusModeEnabled", true);
+
+  const focusPctEl = document.getElementById("cfgFocusModePercent");
+  if (focusPctEl) {
+    shiftModelConfig.focusModePercent = Math.min(100, Math.max(5, Math.round((parseInt(focusPctEl.value, 10) || 20) / 5) * 5));
+  }
+
   shiftModelConfig.fairnessBalanceEnabled = getChk("cfgFairnessBalanceEnabled", true);
 
   const rotMonthsEl = document.getElementById("cfgRotationCycleMonths");
@@ -3249,6 +3476,9 @@ window.saveShiftModelSettings = function() {
   const threshInp = document.getElementById("cfgSecondaryUnlockHours");
   if (threshInp) shiftModelConfig.secondaryUnlockThresholdHours = Math.max(6, parseInt(threshInp.value, 10) || 120);
 
+  const threshLblEl = document.getElementById("focusThresholdDynamicLbl");
+  if (threshLblEl) threshLblEl.textContent = shiftModelConfig.secondaryUnlockThresholdHours + "h";
+
   const hoursInp = document.getElementById("cfgDefaultShiftHours");
   if (hoursInp) shiftModelConfig.defaultShiftHours = Math.max(1, parseFloat(hoursInp.value) || 8);
 
@@ -3256,7 +3486,7 @@ window.saveShiftModelSettings = function() {
   window.updateAutoRotationUI();
   renderEmployees();
   renderUnqualifiedHoursOverview();
-  showToast("Einstellungen & Förder-Matrix gespeichert!");
+  showToast("Einstellungen & Fokus-Quote (" + (shiftModelConfig.focusModePercent || 20) + "%) gespeichert!");
 };
 
 window.toggleNewTeamForm = function() {
@@ -3557,11 +3787,28 @@ window.deleteTeam = function(k) {
 window.deleteEmployee = function(id) {
   const emp = employees.find(e => e.id === id);
   if (!emp || !confirm("Sind Sie sicher, dass Sie den Mitarbeiter '" + fullName(emp) + "' dauerhaft löschen möchten?")) return;
+  const delName = fullName(emp);
   employees = employees.filter(e => e.id !== id);
-  addHistoryLog("Mitarbeiter gelöscht: " + fullName(emp), "EMP");
+
+  /* Verknüpfte Abwesenheiten, Bringschichten und Ersatz-Tage restlos bereinigen */
+  sickLeaves = (Array.isArray(sickLeaves) ? sickLeaves : []).filter(sl => sl && sl.empId !== id);
+  extraShifts = (Array.isArray(extraShifts) ? extraShifts : []).filter(es => es && es.empId !== id);
+  leaveRequests = (Array.isArray(leaveRequests) ? leaveRequests : []).filter(r => r && r.empId !== id);
+  leaveRequests.forEach(cov => {
+    (cov.days || []).forEach(d => {
+      if (d.takenBy === id) {
+        d.takenBy = null;
+        d.dayStatus = d.explicitlyApproved ? "open" : "pending";
+      }
+    });
+  });
+
+  addHistoryLog("Mitarbeiter inkl. Anträgen gelöscht: " + delName, "EMP");
   saveToFirebase();
   renderEmployees();
   renderSettingsLists();
+  window.renderInboxLists();
+  window.updateInboxBadge();
   showToast("Mitarbeiter gelöscht");
 };
 
@@ -3884,15 +4131,21 @@ window.addManualSickLeave = function() {
     reviewedAt: new Date().toISOString()
   };
   sickLeaves.unshift(newLeave);
-  window.generateCoveragePromptForLeave(newLeave, "pending");
+  const generatedCov = window.generateCoveragePromptForLeave(newLeave, "pending");
 
   addHistoryLog("Abwesenheit (" + cat + ") für " + (emp ? fullName(emp) : "") + " eingetragen", "ABSENCE");
   saveToFirebase();
   window.syncAbsentAndExtraZones();
   renderEmployees();
   window.renderInboxLists();
-  window.openCoverageReleaseModal(newLeave.id);
-  showToast("Abwesenheit eingetragen – bitte Bringschichten mit Ja / Nein prüfen!");
+
+  const isShortErrand = String(cat || "").toLowerCase().indexOf("dienstgang") !== -1;
+  if (!isShortErrand && generatedCov) {
+    window.openCoverageReleaseModal(newLeave.id);
+    showToast("Abwesenheit eingetragen – bitte Bringschichten mit Ja / Nein prüfen!");
+  } else {
+    showToast("Abwesenheit eingetragen!");
+  }
 
   document.getElementById("manualSickStart").value = "";
   document.getElementById("manualSickEnd").value = "";
@@ -4014,7 +4267,6 @@ window.markAllSickLeavesRead = function() {
   showToast("Alle Meldungen bestätigt");
 };
 
-/* Beide Funktionsnamen registriert, damit die Filter-Pillen unten im Postfach garantiert greifen */
 window.setInboxHistoryCategoryFilter = function(cat) {
   window.activeInboxHistoryCategory = cat || "ALL";
   window.renderInboxLists();
@@ -4221,7 +4473,6 @@ window.renderInboxLists = function() {
     }
   }
 
-  /* Bearbeitete & aktive Einträge (inkl. Bringschichten, wenn "Alle" oder "Bringschicht / Info" gewählt ist) */
   const processedLeaves = sickLeaves.filter(sl => !(sl.status === "pending" && !sl.plannerUnreadInfo));
   const processedExtrasAsItems = extraShifts
     .filter(es => es.status === "approved" || es.status === "rejected")
@@ -4329,16 +4580,31 @@ window.approveExtraShiftRequest = function(id) {
   es.plausibilityWarning = !!liveConflict;
   es.conflictDetails = liveConflict || "";
 
+  const normDate = window.normalizeDateIso(es.date);
+  let filledCovId = null;
+
   if (Array.isArray(leaveRequests)) {
-    const normDate = window.normalizeDateIso(es.date);
     leaveRequests.forEach(cov => {
       if (es.coverageId && cov.id !== es.coverageId) return;
       (cov.days || []).forEach(d => {
         if (window.normalizeDateIso(d.date) === normDate && d.shift === es.shift && !d.takenBy) {
           d.takenBy = es.empId;
           d.dayStatus = "taken";
+          filledCovId = cov.id;
         }
       });
+    });
+  }
+
+  /* Falls sich mehrere Mitarbeiter auf exakt denselben ausgeschriebenen Ersatz-Tag beworben haben,
+     werden die übrigen offenen Bewerbungen für diesen bereits besetzten Slot automatisch geschlossen */
+  if (filledCovId) {
+    extraShifts.forEach(other => {
+      if (other.id !== es.id && other.status === "pending" && other.coverageId === filledCovId && window.normalizeDateIso(other.date) === normDate && other.shift === es.shift) {
+        other.status = "rejected";
+        other.plannerUnreadInfo = false;
+        other.note = (other.note ? other.note + " · " : "") + "Schicht wurde bereits vergeben";
+      }
     });
   }
 
@@ -4537,6 +4803,9 @@ function applyIncomingDocData(d) {
     if (d.shiftModelConfig && typeof d.shiftModelConfig === "object") {
       shiftModelConfig = Object.assign(shiftModelConfig, d.shiftModelConfig);
       shiftModelConfig.model = "vollkonti_sonntag_frei";
+      if (typeof shiftModelConfig.focusModePercent !== "number") {
+        shiftModelConfig.focusModePercent = 20;
+      }
       if (!shiftModelConfig.roleAllowLineAssign) {
         shiftModelConfig.roleAllowLineAssign = {
           "Bediener": true,
