@@ -218,7 +218,7 @@
 
       <div id="portalLineRequestRow" style="margin-top: 8px; border-top: 1px solid #f1f5f9; padding-top: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
         <select id="portalLineRequestTarget" class="form-control" style="padding: 6px 8px; font-size: 0.8rem; flex: 1; min-width: 120px;"></select>
-        <select id="portalLineRequestType" class="form-control" style="padding: 6px 8px; font-size: 0.8rem; width: 130px;">
+        <select id="portalLineRequestType" class="form-control" style="padding: 6px 8px; font-size: 0.8rem; width: 130px;" onchange="updatePortalLineRequestOptions()">
           <option value="sec">Sek-Linie</option>
           <option value="prio">Primär-Linie</option>
         </select>
@@ -650,6 +650,34 @@
       renderPortalView();
     };
 
+    window.updatePortalLineRequestOptions = function() {
+      const lineSel = document.getElementById("portalLineRequestTarget");
+      const typeSel = document.getElementById("portalLineRequestType");
+      if (!lineSel || typeof lines === "undefined" || !loggedInPortalEmpId) return;
+      const emp = employees.find(x => x.id === loggedInPortalEmpId);
+      if (!emp) return;
+
+      const reqType = typeSel ? typeSel.value : "sec";
+      const mainList = Array.isArray(emp.mainLines) ? emp.mainLines : [];
+      const secList = Array.isArray(emp.secLines) ? emp.secLines : [];
+
+      const availableLines = lines.filter(l => {
+        if (reqType === "prio") return mainList.indexOf(l.id) === -1;
+        return mainList.indexOf(l.id) === -1 && secList.indexOf(l.id) === -1;
+      });
+
+      if (availableLines.length > 0) {
+        lineSel.innerHTML = availableLines.map(l => {
+          const isUpgrade = (reqType === "prio" && secList.indexOf(l.id) !== -1);
+          return '<option value="' + l.id + '">' + l.name + (isUpgrade ? ' (Hochstufung von Sek-Linie)' : '') + '</option>';
+        }).join("");
+        lineSel.disabled = false;
+      } else {
+        lineSel.innerHTML = '<option value="">Alle passenden Linien bereits zugeordnet</option>';
+        lineSel.disabled = true;
+      }
+    };
+
     window.submitPortalLineRequest = function() {
       if (!loggedInPortalEmpId || isSubmittingPortalAction) return;
       const targetLineId = document.getElementById("portalLineRequestTarget").value;
@@ -788,19 +816,7 @@
       if (secBox) secBox.innerHTML = (emp.secLines && emp.secLines.length) ? emp.secLines.map(id => { const l = lines.find(x => x.id === id); return (l ? l.name : id); }).join(", ") : "Keine";
 
       renderMyTrainingProgress(emp);
-
-      const lineSel = document.getElementById("portalLineRequestTarget");
-      if (lineSel && typeof lines !== "undefined") {
-        const alreadyHas = [].concat(emp.mainLines || [], emp.secLines || []);
-        const availableLines = lines.filter(l => alreadyHas.indexOf(l.id) === -1);
-        if (availableLines.length > 0) {
-          lineSel.innerHTML = availableLines.map(l => '<option value="' + l.id + '">' + l.name + '</option>').join("");
-          lineSel.disabled = false;
-        } else {
-          lineSel.innerHTML = '<option value="">Alle Linien bereits zugeordnet</option>';
-          lineSel.disabled = true;
-        }
-      }
+      window.updatePortalLineRequestOptions();
 
       const assignEl = document.getElementById("empLiveAssignment"), noteEl = document.getElementById("empLiveApprovalNote");
       const sundayFree = typeof isSundayDaytimeFree === "function" ? isSundayDaytimeFree() : false;
@@ -902,8 +918,11 @@
           const dNorm = normIsoLocal(d.date);
           if (dNorm < today || d.takenBy || d.dayStatus !== "open" || !d.explicitlyApproved) return false;
           
-          const rot = getRotationForDate(dNorm);
-          if (emp.team !== rot.frei) return false;
+          /* Prüft sowohl reguläre 2-2-2 Freischichten als auch freie Wochentage von ⚓ Fix-Mitarbeitern */
+          const regShiftOnDay = (typeof window.getEmpRegularShiftOnDate === "function")
+            ? window.getEmpRegularShiftOnDate(emp, dNorm)
+            : ((emp.team === getRotationForDate(dNorm).frei) ? null : "working");
+          if (regShiftOnDay) return false;
 
           const myExistingForDay = (typeof extraShifts !== "undefined" ? extraShifts : []).find(es =>
             es.empId === emp.id &&
