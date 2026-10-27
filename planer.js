@@ -673,6 +673,10 @@ window.sanitizeTeamReferences = function() {
     if (!emp.trainingCreditedDates) emp.trainingCreditedDates = {};
     if (!emp.lineHistory) emp.lineHistory = {};
     if (!emp.lineAssignCounts) emp.lineAssignCounts = {};
+    /* Doppelte Einträge zwischen Prio- und Sekundär-Linien automatisch bereinigen */
+    if (Array.isArray(emp.mainLines) && Array.isArray(emp.secLines) && emp.mainLines.length > 0) {
+      emp.secLines = emp.secLines.filter(id => emp.mainLines.indexOf(id) === -1);
+    }
     if (emp.inTrainingPhase) {
       if (!emp.trainingDays) emp.trainingDays = 360;
       if (!emp.trainingMainPct) emp.trainingMainPct = 90;
@@ -887,6 +891,7 @@ function addHistoryLog(text, category) {
 }
 window.logHistory = function(cat, text) { addHistoryLog(text, cat); };
 
+/* Berechnet die 2-2-2 Rotation für beliebige Kalenderdaten (auch für künftige Urlaubs-/Bringschicht-Berechnungen) */
 function getRotationForDate(targetIso) {
   const anchorBlock = (typeof shiftModelConfig.lastRotationBlockIndex === "number")
     ? shiftModelConfig.lastRotationBlockIndex
@@ -895,7 +900,7 @@ function getRotationForDate(targetIso) {
   const slotOrder = ["frueh", "spaet", "nacht", "frei"];
   const activeSlots = slotOrder.filter(s => shiftRotation[s] && isTeamRotating(shiftRotation[s]));
   const res = Object.assign({}, shiftRotation);
-  if (activeSlots.length >= 2 && shiftModelConfig.autoRotate !== false && diff !== 0) {
+  if (activeSlots.length >= 2 && diff !== 0) {
     const len = activeSlots.length;
     activeSlots.forEach((fromSlot, idx) => {
       res[activeSlots[((idx + diff) % len + len) % len]] = shiftRotation[fromSlot];
@@ -1282,27 +1287,50 @@ window.recordManualAssignmentHours = function(empId, lineId, plannedHours, skipS
   if (!emp) return;
 
   const todayKey = getLogicalDateIso();
+  if (!emp.trainingHoursByLine) emp.trainingHoursByLine = {};
+  if (!emp.trainingCreditedDates) emp.trainingCreditedDates = {};
+
+  const prevCredit = emp.trainingCreditedDates[todayKey];
+
+  /* Falls der Mitarbeiter heute bereits Stunden an einer anderen Fremdlinie gutgeschrieben bekommen hatte
+     und nun auf seine Stammlinie, eine Sekundärlinie oder zurück in den Pool gezogen wird: Buchung sauber stornieren! */
+  if (prevCredit && prevCredit.lineId && prevCredit.lineId !== lineId) {
+    if (prevCredit.hours) {
+      emp.trainingHoursByLine[prevCredit.lineId] = Math.max(0, (emp.trainingHoursByLine[prevCredit.lineId] || 0) - prevCredit.hours);
+      if (emp.trainingHoursByLine[prevCredit.lineId] <= 0) {
+        delete emp.trainingHoursByLine[prevCredit.lineId];
+      }
+    }
+    delete emp.trainingCreditedDates[todayKey];
+  }
+
+  if (!lineId) {
+    if (!skipSave) {
+      saveToFirebase();
+      renderUnqualifiedHoursOverview();
+    }
+    return;
+  }
+
   trackEmployeeLineAssignment(emp, lineId, todayKey);
 
   if (!window.doesRoleRequireLines(emp.role) || !window.canRoleBeAssignedToLine(emp.role)) return;
 
   const isMain = Array.isArray(emp.mainLines) && emp.mainLines.indexOf(lineId) !== -1;
   const isSec = Array.isArray(emp.secLines) && emp.secLines.indexOf(lineId) !== -1;
-  if (isMain || isSec) return;
+  if (isMain || isSec) {
+    if (!skipSave) {
+      saveToFirebase();
+      renderUnqualifiedHoursOverview();
+    }
+    return;
+  }
 
   const hours = parseFloat(plannedHours) || (shiftModelConfig && shiftModelConfig.defaultShiftHours) || 8;
   const minRequired = (shiftModelConfig && typeof shiftModelConfig.minDailyHoursForCounting === "number") ? shiftModelConfig.minDailyHoursForCounting : 6;
   if (hours < minRequired) return;
 
-  if (!emp.trainingHoursByLine) emp.trainingHoursByLine = {};
-  if (!emp.trainingCreditedDates) emp.trainingCreditedDates = {};
-
-  const prevCredit = emp.trainingCreditedDates[todayKey];
-
   if (prevCredit && prevCredit.lineId === lineId) return;
-  if (prevCredit && prevCredit.lineId && prevCredit.hours) {
-    emp.trainingHoursByLine[prevCredit.lineId] = Math.max(0, (emp.trainingHoursByLine[prevCredit.lineId] || 0) - prevCredit.hours);
-  }
 
   emp.trainingHoursByLine[lineId] = (emp.trainingHoursByLine[lineId] || 0) + hours;
   emp.trainingCreditedDates[todayKey] = { lineId: lineId, hours: hours };
@@ -1413,7 +1441,13 @@ function createBoardSnapshotForUndo() {
     id: e.id,
     zone: e.zone,
     pinnedZone: e.pinnedZone,
-    lastShiftId: e.lastShiftId
+    lastShiftId: e.lastShiftId,
+    foreignAssignCount: e.foreignAssignCount || 0,
+    lastRotationLearnDate: e.lastRotationLearnDate || "",
+    trainingHoursByLine: JSON.parse(JSON.stringify(e.trainingHoursByLine || {})),
+    trainingCreditedDates: JSON.parse(JSON.stringify(e.trainingCreditedDates || {})),
+    lineHistory: JSON.parse(JSON.stringify(e.lineHistory || {})),
+    lineAssignCounts: JSON.parse(JSON.stringify(e.lineAssignCounts || {}))
   }));
 }
 
@@ -1437,6 +1471,12 @@ window.undoLastAutoAssignment = function() {
       emp.zone = snap.zone;
       emp.pinnedZone = snap.pinnedZone;
       emp.lastShiftId = snap.lastShiftId;
+      emp.foreignAssignCount = snap.foreignAssignCount || 0;
+      emp.lastRotationLearnDate = snap.lastRotationLearnDate || "";
+      emp.trainingHoursByLine = JSON.parse(JSON.stringify(snap.trainingHoursByLine || {}));
+      emp.trainingCreditedDates = JSON.parse(JSON.stringify(snap.trainingCreditedDates || {}));
+      emp.lineHistory = JSON.parse(JSON.stringify(snap.lineHistory || {}));
+      emp.lineAssignCounts = JSON.parse(JSON.stringify(snap.lineAssignCounts || {}));
     }
   });
   lastBoardSnapshotForUndo = null;
@@ -1446,8 +1486,8 @@ window.undoLastAutoAssignment = function() {
 
   saveToFirebase();
   window.initBoard();
-  addHistoryLog("Letzte Schicht-Zuweisung per 'Zurück korrigieren' widerrufen", "AUTO");
-  showToast("↩️ Änderungen erfolgreich zurückkorrigiert!");
+  addHistoryLog("Letzte Schicht-Zuweisung (inkl. Stundenzähler) per 'Zurück korrigieren' widerrufen", "AUTO");
+  showToast("↩️ Änderungen & Stundenzähler erfolgreich zurückkorrigiert!");
 };
 
 function compareSecondaryFairness(empA, empB, lineId, todayIso) {
@@ -1492,8 +1532,12 @@ window.shouldApplyTrainingFocusToday = function(emp, lineId, todayIso) {
   return bucketPct < pct;
 };
 
-function isEmpDueForRotationLearning(emp, todayIso) {
+function isEmpDueForRotationLearning(emp, lineId, todayIso) {
   if (window.shouldHoldEmpOnMainLineToday(emp, todayIso)) return false;
+  if (lineId) {
+    if (Array.isArray(emp.mainLines) && emp.mainLines.indexOf(lineId) !== -1) return false;
+    if (Array.isArray(emp.secLines) && emp.secLines.indexOf(lineId) !== -1) return false;
+  }
   const cycleMonths = Number(shiftModelConfig.rotationCycleMonths || 0);
   if (cycleMonths <= 0) return false;
   const secCount = Array.isArray(emp.secLines) ? emp.secLines.length : 0;
@@ -1591,8 +1635,6 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     if (emp.noRotation && isEmpAnchorActiveToday(emp, todayIso)) return false;
     if (!window.canRoleBeAssignedToLine(emp.role || "Bediener")) return false;
     const isTeamMember = (emp.team === teamKey);
-    /* Bringschichtler bei stiller 05:00-Uhr-Automatik nur einplanen, wenn ihr 1h-Vorlauf bereits aktiv ist;
-       beim manuellen Klick auf den Zauberstab 🪄 der jeweiligen Schicht immer mit einplanen */
     const hasExtra = extraShifts.some(es =>
       es.empId === emp.id &&
       window.normalizeDateIso(es.date) === todayIso &&
@@ -1630,6 +1672,19 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     return employees.filter(e => extractLineIdFromZone(e.zone) === lineId && extractShiftIdFromZone(e.zone) === shiftId);
   }
 
+  function isEmpQualifiedForLine(emp, lineId) {
+    return (Array.isArray(emp.mainLines) && emp.mainLines.indexOf(lineId) !== -1) ||
+           (Array.isArray(emp.secLines) && emp.secLines.indexOf(lineId) !== -1);
+  }
+
+  function hasExperiencedWorkerOnLine(lineId) {
+    return getLineEmps(lineId).some(e => e.noRotation || isEmpQualifiedForLine(e, lineId));
+  }
+
+  function hasTraineeOrUnqualifiedOnLine(lineId) {
+    return getLineEmps(lineId).some(e => !e.noRotation && !isEmpQualifiedForLine(e, lineId));
+  }
+
   function isFloorTLCovered(floorName) {
     if (shiftModelConfig.smartRespectFloorTL === false) return false;
     return employees.some(e => {
@@ -1654,15 +1709,23 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
 
   function placeEmpOnLine(emp, line, countTrainingHours) {
     const isRegularTeamMember = (emp.team === teamKey);
+    const isMainLineOfEmp = Array.isArray(emp.mainLines) && emp.mainLines.indexOf(line.id) !== -1;
+    const hasNoMainLinesConfigured = !Array.isArray(emp.mainLines) || emp.mainLines.length === 0;
     emp.zone = line.id + "_" + shiftId;
-    if (isRegularTeamMember || !emp.pinnedZone) {
+    /* Die Stamm-PIN-Nadel (📌) wird bei der Auto-Zuweisung nur aktualisiert,
+       wenn es eine Prio-/Stammlinie des Mitarbeiters ist (nicht bei Sekundär- oder Lerntagen!) */
+    if (isRegularTeamMember && (isMainLineOfEmp || (!emp.pinnedZone && hasNoMainLinesConfigured))) {
       emp.pinnedZone = emp.zone;
+      emp.lastShiftId = shiftId;
+    } else if (isRegularTeamMember) {
       emp.lastShiftId = shiftId;
     }
     trackEmployeeLineAssignment(emp, line.id, todayIso);
     if (countTrainingHours) {
       const defaultShiftHours = (shiftModelConfig && typeof shiftModelConfig.defaultShiftHours === "number") ? shiftModelConfig.defaultShiftHours : 8;
       window.recordManualAssignmentHours(emp.id, line.id, defaultShiftHours, true);
+    } else {
+      window.recordManualAssignmentHours(emp.id, line.id, 0, true);
     }
     assignedCount++;
   }
@@ -1709,33 +1772,52 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     });
   });
 
-  /* Mitarbeiter markieren, die heute laut eingestellter 5%-100% Fokus-Quote ihren Lerntag an einer bestimmten Linie haben */
-  const todaysFocusMap = {};
+  /* Alle Lernlinien je Mitarbeiter sammeln, die heute laut 5%-100% Fokus-Quote an der Reihe sind */
+  const todaysFocusLinesMap = {};
   if (shiftModelConfig.focusModeEnabled !== false) {
     slotCandidates.forEach(e => {
       if (!isAvailableInPool(e) || window.shouldHoldEmpOnMainLineToday(e, todayIso)) return;
+      const fLines = [];
       for (let i = 0; i < sortedLines.length; i++) {
         const l = sortedLines[i];
         if (!l.mainOnly && window.shouldApplyTrainingFocusToday(e, l.id, todayIso)) {
-          todaysFocusMap[e.id] = l.id;
-          break;
+          fLines.push(l.id);
         }
       }
+      if (fLines.length > 0) todaysFocusLinesMap[e.id] = fLines;
     });
   }
 
+  function hasOpenFocusTargetLeft(emp, currentLineIdx) {
+    const fList = todaysFocusLinesMap[emp.id];
+    if (!fList || !fList.length) return false;
+    const rName = emp.role || "Bediener";
+    for (let idx = currentLineIdx + 1; idx < sortedLines.length; idx++) {
+      const futureLine = sortedLines[idx];
+      if (!futureLine.mainOnly && fList.indexOf(futureLine.id) !== -1) {
+        if (getLineEmps(futureLine.id).length < getLineTotalTarget(futureLine) &&
+            getRoleDeficitForLine(futureLine, rName) > 0 &&
+            !hasTraineeOrUnqualifiedOnLine(futureLine.id)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   /* PHASE 2: Reguläre Linien (nicht mainOnly) mit 5%-100% Fokus-Quote, Stammpersonal & fairer Sekundär-Balance besetzen */
-  sortedLines.filter(l => !l.mainOnly).forEach(line => {
+  sortedLines.forEach((line, lineIdx) => {
+    if (line.mainOnly) return;
     const totalSoll = getLineTotalTarget(line);
     roles.forEach(rName => {
       while (getLineEmps(line.id).length < totalSoll && getRoleDeficitForLine(line, rName) > 0) {
         let cand = null;
 
-        const existingTraineeOnLine = getLineEmps(line.id).some(e => getActiveFocusLineHours(e, line.id) > 0);
-        if (shiftModelConfig.focusModeEnabled !== false && !existingTraineeOnLine && getLineEmps(line.id).length >= 1) {
+        if (shiftModelConfig.focusModeEnabled !== false && !hasTraineeOrUnqualifiedOnLine(line.id) && hasExperiencedWorkerOnLine(line.id)) {
           const focusCands = slotCandidates.filter(e =>
             isAvailableInPool(e) &&
-            todaysFocusMap[e.id] === line.id &&
+            todaysFocusLinesMap[e.id] &&
+            todaysFocusLinesMap[e.id].indexOf(line.id) !== -1 &&
             (e.role || "Bediener") === rName
           ).sort((a, b) => getActiveFocusLineHours(b, line.id) - getActiveFocusLineHours(a, line.id));
           if (focusCands.length > 0) {
@@ -1746,10 +1828,9 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
           }
         }
 
-        /* Reguläres Stammpersonal bevorzugen, das heute keinen reservierten Fokus-Tag auf einer anderen Linie hat */
         cand = slotCandidates.find(e =>
           isAvailableInPool(e) &&
-          !todaysFocusMap[e.id] &&
+          !hasOpenFocusTargetLeft(e, lineIdx) &&
           (e.role || "Bediener") === rName &&
           extractLineIdFromZone(e.pinnedZone) === line.id &&
           Array.isArray(e.mainLines) && e.mainLines.indexOf(line.id) !== -1
@@ -1758,7 +1839,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
         if (!cand) {
           cand = slotCandidates.find(e =>
             isAvailableInPool(e) &&
-            !todaysFocusMap[e.id] &&
+            !hasOpenFocusTargetLeft(e, lineIdx) &&
             (e.role || "Bediener") === rName &&
             Array.isArray(e.mainLines) && e.mainLines.indexOf(line.id) !== -1
           );
@@ -1767,7 +1848,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
         if (!cand) {
           const secPool = slotCandidates.filter(e =>
             isAvailableInPool(e) &&
-            !todaysFocusMap[e.id] &&
+            !hasOpenFocusTargetLeft(e, lineIdx) &&
             !window.shouldHoldEmpOnMainLineToday(e, todayIso) &&
             (e.role || "Bediener") === rName &&
             Array.isArray(e.secLines) && e.secLines.indexOf(line.id) !== -1
@@ -1775,7 +1856,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
           if (secPool.length > 0) cand = secPool[0];
         }
 
-        /* Falls sonst niemand frei ist, darf auch ein für später vorgemerkter Fokus-Mitarbeiter seine Stammlinie absichern */
+        /* Falls kein anderer Mitarbeiter frei ist, sichert auch ein Fokus-Kandidat zuerst seine Stammlinie ab */
         if (!cand) {
           cand = slotCandidates.find(e =>
             isAvailableInPool(e) &&
@@ -1807,7 +1888,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     });
   });
 
-  /* PHASE 4: Intelligenter Ringtausch */
+  /* PHASE 4: Intelligenter Ringtausch (Stamm-Nadel 📌 wird beim Ausweichen auf Sekundärlinie geschützt) */
   if (shiftModelConfig.smartAllowSwap !== false) {
     const unplaced = slotCandidates.filter(isAvailableInPool);
     unplaced.forEach(cand => {
@@ -1846,10 +1927,13 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
           for (let k = 0; k < occAltLineIds.length; k++) {
             const altLine = sortedLines.find(l => l.id === occAltLineIds[k]);
             if (!altLine) continue;
-            if (altLine.mainOnly && (!Array.isArray(occ.mainLines) || occ.mainLines.indexOf(altLine.id) === -1)) continue;
+            const isOccMainOnAlt = Array.isArray(occ.mainLines) && occ.mainLines.indexOf(altLine.id) !== -1;
+            if (altLine.mainOnly && !isOccMainOnAlt) continue;
             if (getLineEmps(altLine.id).length < getLineTotalTarget(altLine) && getRoleDeficitForLine(altLine, cRole) > 0) {
               occ.zone = altLine.id + "_" + shiftId;
-              if (occ.team === teamKey || !occ.pinnedZone) occ.pinnedZone = occ.zone;
+              if (occ.team === teamKey && (isOccMainOnAlt || !occ.pinnedZone)) {
+                occ.pinnedZone = occ.zone;
+              }
               trackEmployeeLineAssignment(occ, altLine.id, todayIso);
               placeEmpOnLine(cand, targetLine, false);
               swapCount++;
@@ -1864,16 +1948,20 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     });
   }
 
-  /* PHASE 5: Förder-Zyklus & anteiliger Fokus (5%-100%) für noch offene Linien-Plätze */
+  /* PHASE 5: Förder-Zyklus & anteiliger Fokus (5%-100%) für noch offene Linien-Plätze
+     SICHERHEITS-REGEL: Niemals 2 Anfänger zusammen und nur wenn mind. 1 erfahrener Mitarbeiter auf der Linie steht! */
   sortedLines.filter(l => !l.mainOnly).forEach(line => {
     const totalSoll = getLineTotalTarget(line);
     roles.forEach(rName => {
       while (getLineEmps(line.id).length < totalSoll && getRoleDeficitForLine(line, rName) > 0) {
+        if (!hasExperiencedWorkerOnLine(line.id) || hasTraineeOrUnqualifiedOnLine(line.id)) {
+          break;
+        }
         let learner = slotCandidates.find(e =>
           isAvailableInPool(e) &&
           !window.shouldHoldEmpOnMainLineToday(e, todayIso) &&
           (e.role || "Bediener") === rName &&
-          (window.shouldApplyTrainingFocusToday(e, line.id, todayIso) || isEmpDueForRotationLearning(e, todayIso))
+          (window.shouldApplyTrainingFocusToday(e, line.id, todayIso) || isEmpDueForRotationLearning(e, line.id, todayIso))
         );
         if (!learner) break;
         focusCount++;
@@ -1918,11 +2006,11 @@ window.runAllShiftsAutoAssignment = function(silent) {
 };
 
 /* ==========================================================================
-   6. KUGELSICHERE 05:00-UHR-AUTOMATIK (INKL. 1H-BRINGSCHICHT-EINPLANUNG)
+   6. KUGELSICHERE 05:00-UHR-AUTOMATIK (INKL. 1H-BRINGSCHICHT & ZEIT-REGELN)
    ========================================================================== */
 
 /* Teilt beim untertägigen Schichtfenster-Wechsel (13:00 Spät / 21:00 Nacht) neu im "extra"-Fach
-   bereitgestellte Bringschichtler automatisch auf noch offene Linienplätze der aktiven Schicht zu */
+   bereitgestellte Bringschichtler ausschließlich auf beherrschte Linien (unter Beachtung von mainOnly) zu */
 function autoAssignWaitingExtraWorkersForActiveShift(shiftId, todayIso) {
   if (shiftModelConfig.smartAssignEnabled === false || isIsoDateSunday(todayIso)) return false;
   const waitingExtras = employees.filter(emp =>
@@ -1937,11 +2025,14 @@ function autoAssignWaitingExtraWorkersForActiveShift(shiftId, todayIso) {
 
   waitingExtras.forEach(emp => {
     const rName = emp.role || "Bediener";
-    const prefIds = [].concat(emp.mainLines || [], emp.secLines || []);
-    const candidateLines = prefIds.map(id => activeLines.find(l => l.id === id)).filter(Boolean).concat(activeLines);
+    const mainIds = Array.isArray(emp.mainLines) ? emp.mainLines : [];
+    const secIds = Array.isArray(emp.secLines) ? emp.secLines : [];
+    const qualifiedLines = mainIds.map(id => activeLines.find(l => l.id === id)).filter(Boolean)
+      .concat(secIds.map(id => activeLines.find(l => l.id === id && !l.mainOnly)).filter(Boolean))
+      .concat(secIds.map(id => activeLines.find(l => l.id === id && l.mainOnly)).filter(Boolean));
 
-    for (let i = 0; i < candidateLines.length; i++) {
-      const line = candidateLines[i];
+    for (let i = 0; i < qualifiedLines.length; i++) {
+      const line = qualifiedLines[i];
       const curEmps = employees.filter(e => extractLineIdFromZone(e.zone) === line.id && extractShiftIdFromZone(e.zone) === shiftId);
       const roleSoll = Number((line.roleTargets || {})[rName] || 0);
       const curRoleCnt = curEmps.filter(e => (e.role || "Bediener") === rName).length;
@@ -1961,9 +2052,13 @@ function checkScheduledAutomations() {
   if (!hasLoadedFromCloud || isDraggingCard || isRunningAutoTransition) return false;
   const now = new Date();
   const prodTodayIso = getLogicalDateIso(now);
+  const calTodayIso = getTodayIso(now);
+  const curHour = now.getHours();
+  const curJsDay = now.getDay();
   const isSundayNow = isIsoDateSunday(prodTodayIso);
   const currentBlockIdx = getWorkdayBlockIndex(prodTodayIso);
   let didChange = false;
+  let blockJustRotated = false;
 
   isRunningAutoTransition = true;
   try {
@@ -1979,6 +2074,7 @@ function checkScheduledAutomations() {
         window.performShiftRotationLogic(true);
       }
       shiftModelConfig.lastRotationBlockIndex = currentBlockIdx;
+      blockJustRotated = true;
       addHistoryLog("Automatischer 2-2-2 Block-Wechsel (" + getBlockDayInfo(prodTodayIso).blockLabel + ") ausgeführt", "SHIFT");
       didChange = true;
     }
@@ -1996,27 +2092,75 @@ function checkScheduledAutomations() {
         addHistoryLog("Sonntags-Ruhe ab 05:00 Uhr aktiviert (Board in Pool geleert)", "SHIFT");
         didChange = true;
       } else {
-        if (shiftModelConfig.resetEnabled !== false || shiftModelConfig.autoRotate !== false) {
+        const resetDayMatch = (Number(shiftModelConfig.resetDay ?? -1) === -1 || Number(shiftModelConfig.resetDay) === curJsDay);
+        const loadDayMatch = (Number(shiftModelConfig.loadDay ?? -1) === -1 || Number(shiftModelConfig.loadDay) === curJsDay);
+        const shouldResetOnMorning = blockJustRotated || (!!shiftModelConfig.resetEnabled && resetDayMatch && Number(shiftModelConfig.resetHour ?? 5) === 5);
+        const shouldLoadOnMorning = blockJustRotated || (!!shiftModelConfig.loadEnabled && loadDayMatch && Number(shiftModelConfig.loadHour ?? 5) === 5);
+
+        if (shouldResetOnMorning) {
           employees.forEach(e => {
             if (e.zone && ["pool", "absent", "extra"].indexOf(e.zone) === -1 && !isEmpAnchorActiveToday(e, prodTodayIso)) {
               e.zone = "pool";
             }
           });
+          shiftModelConfig.lastResetRunKey = calTodayIso + "_5";
         }
+
         window.syncAbsentAndExtraZones();
 
+        if (shouldLoadOnMorning) {
+          if (shiftModelConfig.smartAssignEnabled !== false) {
+            lastBoardSnapshotForUndo = createBoardSnapshotForUndo();
+            shifts.forEach(s => {
+              window.smartAssignShiftSlot(s.id, true);
+            });
+          } else {
+            ["frueh", "spaet", "nacht", "frei"].forEach(slot => {
+              const tKey = shiftRotation[slot];
+              if (tKey) distributeTeamToSlotInternal(tKey, slot);
+            });
+          }
+          shiftModelConfig.lastLoadRunKey = calTodayIso + "_5";
+        }
+
+        if (shouldResetOnMorning || shouldLoadOnMorning) {
+          addHistoryLog("Tages-Automatik (05:00 Uhr / Catch-Up) für " + formatDateDe(prodTodayIso) + " ausgeführt", "AUTO");
+        }
+        didChange = true;
+      }
+    }
+
+    /* Unterstützung für individuell eingestellte Reset- und Verteil-Stunden (falls abweichend von 05:00 Uhr) */
+    if (!isSundayNow) {
+      const cfgRDay = Number(shiftModelConfig.resetDay ?? -1);
+      const cfgRHour = Number(shiftModelConfig.resetHour ?? 5);
+      const rKey = calTodayIso + "_" + cfgRHour;
+      if (shiftModelConfig.resetEnabled && (cfgRDay === -1 || cfgRDay === curJsDay) && curHour === cfgRHour && shiftModelConfig.lastResetRunKey !== rKey) {
+        shiftModelConfig.lastResetRunKey = rKey;
+        employees.forEach(e => {
+          if (e.zone && ["pool", "absent", "extra"].indexOf(e.zone) === -1 && !isEmpAnchorActiveToday(e, prodTodayIso)) {
+            e.zone = "pool";
+          }
+        });
+        addHistoryLog("Zeitgesteuertes Pool-Leeren (" + cfgRHour + ":00 Uhr) ausgeführt", "SHIFT");
+        didChange = true;
+      }
+
+      const cfgLDay = Number(shiftModelConfig.loadDay ?? -1);
+      const cfgLHour = Number(shiftModelConfig.loadHour ?? 5);
+      const lKey = calTodayIso + "_" + cfgLHour;
+      if (shiftModelConfig.loadEnabled && (cfgLDay === -1 || cfgLDay === curJsDay) && curHour === cfgLHour && shiftModelConfig.lastLoadRunKey !== lKey) {
+        shiftModelConfig.lastLoadRunKey = lKey;
         if (shiftModelConfig.smartAssignEnabled !== false) {
           lastBoardSnapshotForUndo = createBoardSnapshotForUndo();
-          shifts.forEach(s => {
-            window.smartAssignShiftSlot(s.id, true);
-          });
-        } else if (shiftModelConfig.loadEnabled !== false) {
+          shifts.forEach(s => { window.smartAssignShiftSlot(s.id, true); });
+        } else {
           ["frueh", "spaet", "nacht", "frei"].forEach(slot => {
             const tKey = shiftRotation[slot];
             if (tKey) distributeTeamToSlotInternal(tKey, slot);
           });
         }
-        addHistoryLog("Tages-Automatik (05:00 Uhr / Catch-Up) für " + formatDateDe(prodTodayIso) + " ausgeführt", "AUTO");
+        addHistoryLog("Zeitgesteuertes Team-Verteilen (" + cfgLHour + ":00 Uhr) ausgeführt", "AUTO");
         didChange = true;
       }
     }
@@ -2310,7 +2454,7 @@ function renderEmployees() {
       const threshold = Number(shiftModelConfig.secondaryUnlockThresholdHours || 120);
       if (focusH > 0) {
         qualWarnHtml = '<span class="card-qual-warn" style="color:#0284c7; font-weight:700;" title="🎯 Fokus-Einarbeitung: ' + focusH + 'h / ' + threshold + 'h gesammelt (noch ' + Math.max(0, threshold - focusH) + 'h bis Freischaltung)">🎯 ' + focusH + 'h</span>';
-      } else if (!isMain && !isSec && extractLineIdFromZone(emp.pinnedZone) !== lineIdPure) {
+      } else if (!isMain && !isSec) {
         qualWarnHtml = '<span class="card-qual-warn" title="⚠️ Linie nicht in Qualifikation hinterlegt!">⚠️</span>';
       }
     }
@@ -2496,6 +2640,9 @@ function initDragAndDrop() {
               const defaultShiftHours = (shiftModelConfig && typeof shiftModelConfig.defaultShiftHours === "number") ? shiftModelConfig.defaultShiftHours : 8;
               window.recordManualAssignmentHours(emp.id, targetLineId, defaultShiftHours);
             }
+          } else {
+            /* Wird ein Mitarbeiter heute wieder in den Pool/Review gezogen, evtl. gebuchte Tages-Lernstunden stornieren */
+            window.recordManualAssignmentHours(emp.id, null, 0);
           }
           saveToFirebase();
           renderEmployees();
@@ -2544,6 +2691,7 @@ window.clearEntireBoard = function() {
   employees.forEach(e => {
     if (e.zone && ["pool", "absent", "extra"].indexOf(e.zone) === -1 && !isEmpAnchorActiveToday(e, todayIso)) {
       e.zone = "pool";
+      window.recordManualAssignmentHours(e.id, null, 0, true);
     }
   });
   addHistoryLog("Komplettes Board in den Pool geleert", "SHIFT");
@@ -2559,6 +2707,7 @@ window.clearShiftRow = function(sId) {
   employees.forEach(e => {
     if (extractShiftIdFromZone(e.zone) === sId && !isEmpAnchorActiveToday(e, todayIso)) {
       e.zone = "pool";
+      window.recordManualAssignmentHours(e.id, null, 0, true);
     }
   });
   saveToFirebase();
@@ -2568,6 +2717,16 @@ window.clearShiftRow = function(sId) {
 
 function distributeTeamToSlotInternal(teamKey, slotKey) {
   const todayIso = getLogicalDateIso();
+  const canFitOnLineInSlot = (lObj, roleName) => {
+    if (!lObj || lObj.ausgeplant) return false;
+    const roleSoll = Number((lObj.roleTargets || {})[roleName] || 0);
+    if (roleSoll <= 0) return false;
+    const curEmps = employees.filter(e => extractLineIdFromZone(e.zone) === lObj.id && extractShiftIdFromZone(e.zone) === slotKey);
+    if (curEmps.length >= getLineTotalTarget(lObj)) return false;
+    const curRoleCnt = curEmps.filter(e => (e.role || "Bediener") === roleName).length;
+    return curRoleCnt < roleSoll;
+  };
+
   employees.forEach(emp => {
     if (emp.team === teamKey && emp.zone !== "absent" && emp.zone !== "extra") {
       if (emp.noRotation && isEmpAnchorActiveToday(emp, todayIso) && emp.zone && ["pool", "review", "absent", "extra"].indexOf(emp.zone) === -1) {
@@ -2578,21 +2737,27 @@ function distributeTeamToSlotInternal(teamKey, slotKey) {
         emp.zone = "pool";
         return;
       }
+
+      const hasMainLines = Array.isArray(emp.mainLines) && emp.mainLines.length > 0;
       let targetLineId = emp.pinnedZone ? extractLineIdFromZone(emp.pinnedZone) : null;
+      /* Gespeicherte Nadel beim Laden nur nutzen, wenn sie zu den Stammlinien gehört (oder keine Stammlinien gepflegt sind) */
+      if (targetLineId && hasMainLines && emp.mainLines.indexOf(targetLineId) === -1 && !emp.noRotation) {
+        targetLineId = null;
+      }
+
       let lineObj = targetLineId ? lines.find(l => l.id === targetLineId && !l.ausgeplant) : null;
-
-      if (lineObj && Number((lineObj.roleTargets || {})[empRole] || 0) <= 0) {
+      if (lineObj && !canFitOnLineInSlot(lineObj, empRole)) {
         lineObj = null;
       }
 
-      if (lineObj && lineObj.mainOnly && (!Array.isArray(emp.mainLines) || emp.mainLines.indexOf(lineObj.id) === -1)) {
+      if (lineObj && lineObj.mainOnly && (!hasMainLines || emp.mainLines.indexOf(lineObj.id) === -1)) {
         lineObj = null;
       }
 
-      if (!lineObj && Array.isArray(emp.mainLines) && emp.mainLines.length > 0) {
+      if (!lineObj && hasMainLines) {
         for (let i = 0; i < emp.mainLines.length; i++) {
           const candidate = lines.find(l => l.id === emp.mainLines[i] && !l.ausgeplant);
-          if (candidate && Number((candidate.roleTargets || {})[empRole] || 0) > 0) {
+          if (candidate && canFitOnLineInSlot(candidate, empRole)) {
             lineObj = candidate;
             break;
           }
@@ -2636,6 +2801,7 @@ window.loadTeamToShift = function(slotKey) {
     const zShift = extractShiftIdFromZone(emp.zone);
     if ((slotKey !== "frei" && zShift === slotKey) || emp.team === teamKey || (oldTeam && emp.team === oldTeam && shiftRotation.frei === oldTeam)) {
       emp.zone = "pool";
+      window.recordManualAssignmentHours(emp.id, null, 0, true);
     }
   });
 
@@ -3186,9 +3352,23 @@ function initSettingsDragAndDrop() {
   }
 }
 
-window.onEmpLineCheckboxChange = function() {
+/* Verhindert, dass dieselbe Linie gleichzeitig als Prio- und Sekundär-Linie angehakt ist */
+window.onEmpLineCheckboxChange = function(changedChk) {
+  if (changedChk && changedChk.checked) {
+    if (changedChk.classList.contains("emp-main-line-chk")) {
+      document.querySelectorAll(".emp-sec-line-chk").forEach(c => {
+        if (c.value === changedChk.value) c.checked = false;
+      });
+    } else if (changedChk.classList.contains("emp-sec-line-chk")) {
+      document.querySelectorAll(".emp-main-line-chk").forEach(c => {
+        if (c.value === changedChk.value) c.checked = false;
+      });
+    }
+  }
   window._tempEditEmpMainLines = Array.from(document.querySelectorAll(".emp-main-line-chk:checked")).map(c => c.value);
-  window._tempEditEmpSecLines = Array.from(document.querySelectorAll(".emp-sec-line-chk:checked")).map(c => c.value);
+  window._tempEditEmpSecLines = Array.from(document.querySelectorAll(".emp-sec-line-chk:checked"))
+    .map(c => c.value)
+    .filter(id => window._tempEditEmpMainLines.indexOf(id) === -1);
 };
 
 function ensureStrategicMatrixSettingsControls() {
@@ -3307,16 +3487,16 @@ function renderSettingsLists() {
   const mainLinesBox = document.getElementById("mainLinesCheckboxes");
   const secLinesBox = document.getElementById("secLinesCheckboxes");
   const currentMain = window._tempEditEmpMainLines || [];
-  const currentSec = window._tempEditEmpSecLines || [];
+  const currentSec = (window._tempEditEmpSecLines || []).filter(id => currentMain.indexOf(id) === -1);
 
   if (mainLinesBox) {
     mainLinesBox.innerHTML = lines.map(l =>
-      '<label style="font-size:0.74rem; display:inline-flex; align-items:center; gap:3px; cursor:pointer; background:#fff; padding:3px 6px; border:1px solid #cbd5e1; border-radius:6px;"><input type="checkbox" value="' + l.id + '" class="emp-main-line-chk" ' + (currentMain.indexOf(l.id) !== -1 ? 'checked' : '') + ' onchange="onEmpLineCheckboxChange()"> ' + l.name + '</label>'
+      '<label style="font-size:0.74rem; display:inline-flex; align-items:center; gap:3px; cursor:pointer; background:#fff; padding:3px 6px; border:1px solid #cbd5e1; border-radius:6px;"><input type="checkbox" value="' + l.id + '" class="emp-main-line-chk" ' + (currentMain.indexOf(l.id) !== -1 ? 'checked' : '') + ' onchange="onEmpLineCheckboxChange(this)"> ' + l.name + '</label>'
     ).join("");
   }
   if (secLinesBox) {
     secLinesBox.innerHTML = lines.map(l =>
-      '<label style="font-size:0.74rem; display:inline-flex; align-items:center; gap:3px; cursor:pointer; background:#fff; padding:3px 6px; border:1px solid #cbd5e1; border-radius:6px;"><input type="checkbox" value="' + l.id + '" class="emp-sec-line-chk" ' + (currentSec.indexOf(l.id) !== -1 ? 'checked' : '') + ' onchange="onEmpLineCheckboxChange()"> ' + l.name + '</label>'
+      '<label style="font-size:0.74rem; display:inline-flex; align-items:center; gap:3px; cursor:pointer; background:#fff; padding:3px 6px; border:1px solid #cbd5e1; border-radius:6px;"><input type="checkbox" value="' + l.id + '" class="emp-sec-line-chk" ' + (currentSec.indexOf(l.id) !== -1 ? 'checked' : '') + ' onchange="onEmpLineCheckboxChange(this)"> ' + l.name + '</label>'
     ).join("");
   }
 
@@ -3840,7 +4020,9 @@ window.editEmployee = function(id) {
   if (trStart) trStart.value = emp.trainingStartDate || getLogicalDateIso();
 
   window._tempEditEmpMainLines = Array.isArray(emp.mainLines) ? emp.mainLines.slice() : [];
-  window._tempEditEmpSecLines = Array.isArray(emp.secLines) ? emp.secLines.slice() : [];
+  window._tempEditEmpSecLines = Array.isArray(emp.secLines)
+    ? emp.secLines.filter(lId => window._tempEditEmpMainLines.indexOf(lId) === -1)
+    : [];
 
   document.getElementById("btnCancelEditEmp").style.display = "inline-block";
   document.getElementById("btnSaveEmp").textContent = "Änderungen speichern";
@@ -3884,7 +4066,9 @@ window.saveEmployee = function() {
   if (!fName || !lName) return showToast("Bitte Vor- und Nachname eingeben", true);
 
   const mainChecked = Array.from(document.querySelectorAll(".emp-main-line-chk:checked")).map(c => c.value);
-  const secChecked = Array.from(document.querySelectorAll(".emp-sec-line-chk:checked")).map(c => c.value);
+  const secChecked = Array.from(document.querySelectorAll(".emp-sec-line-chk:checked"))
+    .map(c => c.value)
+    .filter(lId => mainChecked.indexOf(lId) === -1);
 
   const teamVal = document.getElementById("newEmpTeam").value;
   const roleVal = document.getElementById("newEmpRole").value;
@@ -4205,12 +4389,18 @@ function applyLineRequestToEmployee(sl) {
   if (!sl || !sl.lineRequestData || !sl.lineRequestData.lineId) return;
   const emp = employees.find(e => e.id === sl.empId);
   if (!emp) return;
+  const lineId = sl.lineRequestData.lineId;
+  if (!Array.isArray(emp.mainLines)) emp.mainLines = [];
+  if (!Array.isArray(emp.secLines)) emp.secLines = [];
+
   if (sl.lineRequestData.type === "prio") {
-    if (!Array.isArray(emp.mainLines)) emp.mainLines = [];
-    if (emp.mainLines.indexOf(sl.lineRequestData.lineId) === -1) emp.mainLines.push(sl.lineRequestData.lineId);
+    if (emp.mainLines.indexOf(lineId) === -1) emp.mainLines.push(lineId);
+    /* Falls die Linie zuvor als Sekundärlinie hinterlegt war, dort entfernen (Hochstufung) */
+    emp.secLines = emp.secLines.filter(id => id !== lineId);
   } else {
-    if (!Array.isArray(emp.secLines)) emp.secLines = [];
-    if (emp.secLines.indexOf(sl.lineRequestData.lineId) === -1) emp.secLines.push(sl.lineRequestData.lineId);
+    if (emp.mainLines.indexOf(lineId) === -1 && emp.secLines.indexOf(lineId) === -1) {
+      emp.secLines.push(lineId);
+    }
   }
 }
 
@@ -4244,16 +4434,27 @@ window.markAllSickLeavesRead = function() {
   extraShifts.forEach(es => {
     if (es.status === "pending" && !es.plausibilityWarning) {
       es.status = "approved";
+      let filledCovId = null;
+      const normDate = window.normalizeDateIso(es.date);
       if (Array.isArray(leaveRequests)) {
-        const normDate = window.normalizeDateIso(es.date);
         leaveRequests.forEach(cov => {
           if (es.coverageId && cov.id !== es.coverageId) return;
           (cov.days || []).forEach(d => {
             if (window.normalizeDateIso(d.date) === normDate && d.shift === es.shift && !d.takenBy) {
               d.takenBy = es.empId;
               d.dayStatus = "taken";
+              filledCovId = cov.id;
             }
           });
+        });
+      }
+      if (filledCovId) {
+        extraShifts.forEach(other => {
+          if (other.id !== es.id && other.status === "pending" && other.coverageId === filledCovId && window.normalizeDateIso(other.date) === normDate && other.shift === es.shift) {
+            other.status = "rejected";
+            other.plannerUnreadInfo = false;
+            other.note = (other.note ? other.note + " · " : "") + "Schicht wurde bereits vergeben";
+          }
         });
       }
     }
