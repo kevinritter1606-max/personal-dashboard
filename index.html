@@ -193,7 +193,7 @@
 
     .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.45); display: none; align-items: center; justify-content: center; z-index: 100; padding: 12px; }
     #lineEditModal { z-index: 150; }
-    #coverageReleaseModal { z-index: 2300; background: rgba(15, 23, 42, 0.65); }
+    #coverageReleaseModal, #leaveCounterOfferModal { z-index: 2300; background: rgba(15, 23, 42, 0.65); }
     .modal { background: #fff; padding: 20px; border-radius: 10px; width: 100%; max-width: 520px; box-shadow: 0 10px 25px rgba(0,0,0,0.18); max-height: 90vh; overflow-y: auto; color: #0f172a; }
     .form-group { margin-bottom: 10px; position: relative; }
     .form-group label { display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 3px; color: #475569; }
@@ -260,22 +260,48 @@
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
 
-  <!-- MODAL: PLANER BRINGSCHICHT-EINZELFREIGABE MIT SMARTER 3ER-SCHNELLAUSWAHL -->
+  <!-- MODAL: KOMPAKTE BRINGSCHICHT-EINZELFREIGABE MIT SMARTER 3ER-SCHNELLAUSWAHL -->
   <div id="coverageReleaseModal" class="modal-overlay" style="display:none;">
-    <div class="modal" style="max-width: 580px;">
-      <h3 style="display:flex; justify-content:space-between; align-items:center; color:var(--bayer-blue); margin-bottom:8px;">
-        <span>📢 Bringschichten für Portal freigeben?</span>
-        <button onclick="closeModal('coverageReleaseModal')" style="border:none; background:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+    <div class="modal" style="max-width: 620px; padding: 16px;">
+      <h3 style="display:flex; justify-content:space-between; align-items:center; color:var(--bayer-blue); margin-bottom:6px; font-size:1rem;">
+        <span>📢 Bringschichten für Portal freigeben</span>
+        <button onclick="closeModal('coverageReleaseModal')" style="border:none; background:none; font-size:1.4rem; cursor:pointer;">&times;</button>
       </h3>
-      <p id="coverageReleaseSubtitle" style="font-size:0.82rem; color:#475569; margin-bottom:10px; line-height:1.4;"></p>
-      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid #e2e8f0;">
-        <button type="button" class="btn btn-primary" style="background:#16a34a; font-size:0.73rem; padding:5px 9px;" onclick="setAllModalCoverageDaysStatus('open_green')">🟢 Alle fahrbaren Tage (Ja)</button>
-        <button type="button" class="btn btn-outline" style="background:#fffbeb; color:#b45309; border-color:#fde68a; font-size:0.73rem; padding:5px 9px;" onclick="setAllModalCoverageDaysStatus('open_all')">🟡 Alle inkl. Ruhezeit-Warnung (Ja)</button>
-        <button type="button" class="btn btn-outline" style="background:#fef2f2; color:#b91c1c; border-color:#fecaca; font-size:0.73rem; padding:5px 9px;" onclick="setAllModalCoverageDaysStatus('rejected')">❌ Alle ablehnen (Nein)</button>
+      <p id="coverageReleaseSubtitle" style="font-size:0.78rem; color:#475569; margin-bottom:8px; line-height:1.35;"></p>
+      <div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid #e2e8f0;">
+        <button type="button" class="btn btn-primary" style="background:#16a34a; font-size:0.7rem; padding:4px 8px;" onclick="setAllModalCoverageDaysStatus('open_green')">🟢 Alle fahrbaren (Ja)</button>
+        <button type="button" class="btn btn-outline" style="background:#fffbeb; color:#b45309; border-color:#fde68a; font-size:0.7rem; padding:4px 8px;" onclick="setAllModalCoverageDaysStatus('open_all')">🟡 Alle inkl. Warnung (Ja)</button>
+        <button type="button" class="btn btn-outline" style="background:#fef2f2; color:#b91c1c; border-color:#fecaca; font-size:0.7rem; padding:4px 8px;" onclick="setAllModalCoverageDaysStatus('rejected')">❌ Alle sperren (Nein)</button>
       </div>
-      <div id="coverageReleaseDaysList" style="max-height:310px; overflow-y:auto; border:1px solid #cbd5e1; border-radius:8px; padding:8px; background:#f8fafc;"></div>
-      <div class="modal-actions">
+      <div id="coverageReleaseDaysList" style="max-height:330px; overflow-y:auto; border:1px solid #cbd5e1; border-radius:8px; padding:6px; background:#f8fafc; display:grid; grid-template-columns:repeat(auto-fill, minmax(265px, 1fr)); gap:5px;"></div>
+      <div class="modal-actions" style="margin-top:10px;">
         <button class="btn btn-primary" onclick="closeModal('coverageReleaseModal')">Fertig & Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: URLAUB TEILGENEHMIGEN / GEGENANGEBOT MIT PLUS-ZEICHEN (+) -->
+  <div id="leaveCounterOfferModal" class="modal-overlay" style="display:none;">
+    <div class="modal" style="max-width: 600px; padding: 18px;">
+      <h3 style="display:flex; justify-content:space-between; align-items:center; color:var(--bayer-blue); margin-bottom:6px; font-size:1.02rem;">
+        <span>✂️ Urlaub teilgenehmigen / Gegenangebot senden</span>
+        <button onclick="closeModal('leaveCounterOfferModal')" style="border:none; background:none; font-size:1.4rem; cursor:pointer;">&times;</button>
+      </h3>
+      <div id="counterOfferOriginalInfo" style="font-size:0.79rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; margin-bottom:10px; color:#334155;"></div>
+      <p style="font-size:0.74rem; color:#64748b; margin-bottom:8px;">
+        Lege einen oder mehrere Zeiträume fest. Über den Button <b>„+ Weiteren Zeitraum hinzufügen“</b> kannst du den Urlaub bequem splitten (z.B. Teil 1 sofort genehmigen und Teil 2 als Gegenangebot vorschlagen):
+      </p>
+      <div id="counterOfferBlocksContainer" style="display:flex; flex-direction:column; gap:6px; max-height:240px; overflow-y:auto; margin-bottom:8px;"></div>
+      <button type="button" class="btn btn-outline" style="width:100%; border-style:dashed; color:var(--bayer-blue); border-color:#7dd3fc; background:#f0f9ff; font-size:0.76rem; padding:6px; margin-bottom:10px;" onclick="addCounterOfferBlockRow()">
+        ➕ Weiteren Zeitraum hinzufügen (Von – Bis)
+      </button>
+      <div class="form-group" style="margin-bottom:8px;">
+        <label>Hinweis / Begründung für den Mitarbeiter (optional)</label>
+        <input type="text" id="counterOfferPlannerNote" class="form-control" style="font-size:0.8rem; padding:6px 9px;" placeholder="z.B. Wegen Schichtbesetzung nur erste Woche möglich oder Alternativ-Datum...">
+      </div>
+      <div class="modal-actions" style="margin-top:10px;">
+        <button class="btn btn-outline" onclick="closeModal('leaveCounterOfferModal')">Abbrechen</button>
+        <button class="btn btn-primary" style="background:#0284c7;" onclick="saveCounterOfferAndSplitLeave()">💾 Auswahl übernehmen & senden</button>
       </div>
     </div>
   </div>
@@ -332,7 +358,7 @@
       <div class="header-title">
         <div class="header-title-text">
           <h1>Schicht und Linienübersicht</h1>
-          <div id="headerDateKw" class="header-meta">Lade Datum... · v4.9.67</div>
+          <div id="headerDateKw" class="header-meta">Lade Datum... · v4.9.68</div>
         </div>
         <div class="header-badges-row">
           <span id="plannerStatusBadge" class="status-badge">Planer-Modus aktiv</span>
@@ -372,7 +398,7 @@
     <aside class="sidebar">
       <div class="team-filter-box">
         <div class="search-wrapper">
-          <input type="text" id="poolSearchInput" class="search-input" placeholder="🔍 Name, Rolle oder Linie suchen..." oninput="updatePoolSearch(this.value)">
+          <input type="text" id="poolSearchInput" class="search-input" placeholder="🔍 Name, Rolle oder Linie (z.B. 09)..." oninput="updatePoolSearch(this.value)">
           <span id="clearSearchBtn" class="search-clear" onclick="document.getElementById('poolSearchInput').value=''; updatePoolSearch('')">&times;</span>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -460,9 +486,9 @@
   </div>
 
   <div id="inboxModal" class="modal-overlay">
-    <div class="modal" style="max-width: 680px;">
+    <div class="modal" style="max-width: 700px;">
       <h3 style="display:flex; justify-content:space-between; align-items:center; color:var(--bayer-blue); margin-bottom:8px;">
-        <span>📬 Postfach, Onboarding-Prüfung, Urlaub & Bringschichten</span>
+        <span>📬 Postfach, Urlaub, Gegenangebote & Bringschichten</span>
         <button onclick="closeModal('inboxModal')" style="border:none; background:none; font-size:1.5rem; cursor:pointer;">&times;</button>
       </h3>
       <div id="serverSyncInfo" style="font-size:0.74rem; background:#f1f5f9; color:#475569; padding:6px 10px; border-radius:6px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
@@ -470,107 +496,109 @@
         <button class="btn btn-outline" style="padding:2px 8px; font-size:0.7rem;" onclick="forceRefreshFromServer()">🔄 Jetzt abrufen</button>
       </div>
 
-      <div class="search-wrapper" style="margin-bottom: 12px;">
-        <input type="text" id="inboxSearchInput" class="search-input" style="padding: 8px 30px 8px 12px; font-size: 0.84rem; background: #fff; border-color: #94a3b8;" placeholder="🔍 Postfach durchsuchen..." oninput="updateInboxSearch(this.value)">
+      <div class="search-wrapper" style="margin-bottom: 10px;">
+        <input type="text" id="inboxSearchInput" class="search-input" style="padding: 7px 30px 7px 12px; font-size: 0.82rem; background: #fff; border-color: #94a3b8;" placeholder="🔍 Postfach durchsuchen..." oninput="updateInboxSearch(this.value)">
         <span id="clearInboxSearchBtn" class="search-clear" onclick="document.getElementById('inboxSearchInput').value=''; updateInboxSearch('')">&times;</span>
       </div>
 
-      <div style="margin-bottom: 10px;">
-        <button type="button" class="manual-entry-toggle" onclick="toggleManualEntryBox()">
-          <span>➕ Abwesenheit direkt eintragen</span>
-          <span id="manualEntryArrow" style="font-size:0.76rem; color:var(--bayer-blue);">▼ Formular öffnen</span>
-        </button>
-        <div id="manualEntryContent" style="display:none; background:#f8fafc; border:1px solid #cbd5e1; border-top:none; border-radius:0 0 8px 8px; padding:14px;">
-          <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <div class="form-group" id="manualSickSearchGroup" style="flex:1.2; min-width:180px;">
-              <label>Mitarbeiter</label>
-              <input type="text" id="manualSickEmpInput" class="form-control" placeholder="🔍 Name eingeben..." autocomplete="off" onfocus="onManualSickNameInput(this.value)" oninput="onManualSickNameInput(this.value)">
-              <div id="manualSickSuggestions" class="suggestions-box"></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 12px;">
+        <div style="flex:1; min-width:240px;">
+          <button type="button" class="manual-entry-toggle" style="padding:7px 10px; font-size:0.78rem;" onclick="toggleManualEntryBox()">
+            <span>➕ Abwesenheit direkt eintragen</span>
+            <span id="manualEntryArrow" style="font-size:0.72rem; color:var(--bayer-blue);">▼ Öffnen</span>
+          </button>
+          <div id="manualEntryContent" style="display:none; background:#f8fafc; border:1px solid #cbd5e1; border-top:none; border-radius:0 0 8px 8px; padding:12px;">
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <div class="form-group" id="manualSickSearchGroup" style="flex:1.2; min-width:160px;">
+                <label>Mitarbeiter</label>
+                <input type="text" id="manualSickEmpInput" class="form-control" placeholder="🔍 Name eingeben..." autocomplete="off" onfocus="onManualSickNameInput(this.value)" oninput="onManualSickNameInput(this.value)">
+                <div id="manualSickSuggestions" class="suggestions-box"></div>
+              </div>
+              <div class="form-group" style="flex:1.2; min-width:160px;">
+                <label>Abwesenheit</label>
+                <select id="manualSickCategory" class="form-control">
+                  <option value="Urlaub - bezahlt">Urlaub - bezahlt</option>
+                  <option value="Urlaub - unbezahlt">Urlaub - unbezahlt</option>
+                  <option value="Arbeitsunfähigkeit">Arbeitsunfähigkeit</option>
+                  <option value="Aus- und Fortbildung">Aus- und Fortbildung</option>
+                  <option value="Dienstreise">Dienstreise</option>
+                  <option value="Dienstgang">Dienstgang</option>
+                  <option value="Freizeitausgleich / Gleittag / Altersfreizeit">Freizeitausgleich / Gleittag / Altersfreizeit</option>
+                </select>
+              </div>
             </div>
-            <div class="form-group" style="flex:1.2; min-width:200px;">
-              <label>Abwesenheit (offizielles Formular)</label>
-              <select id="manualSickCategory" class="form-control">
-                <option value="Urlaub - bezahlt">Urlaub - bezahlt</option>
-                <option value="Urlaub - unbezahlt">Urlaub - unbezahlt</option>
-                <option value="Arbeitsunfähigkeit">Arbeitsunfähigkeit</option>
-                <option value="Aus- und Fortbildung">Aus- und Fortbildung</option>
-                <option value="Dienstreise">Dienstreise</option>
-                <option value="Dienstgang">Dienstgang</option>
-                <option value="Freizeitausgleich / Gleittag / Altersfreizeit">Freizeitausgleich / Gleittag / Altersfreizeit</option>
-              </select>
+            <div style="display:flex; gap:8px;">
+              <div class="form-group" style="flex:1;"><label>Von</label><input type="date" id="manualSickStart" class="form-control"></div>
+              <div class="form-group" style="flex:1;"><label>Bis</label><input type="date" id="manualSickEnd" class="form-control"></div>
             </div>
+            <div class="form-group"><label>Notiz / Grund (optional)</label><input type="text" id="manualSickReason" class="form-control" placeholder="z.B. Uhrzeit / Kommentar..."></div>
+            <button class="btn btn-primary" style="width:100%;" onclick="addManualSickLeave()">Abwesenheit eintragen</button>
           </div>
-          <div style="display:flex; gap:10px;">
-            <div class="form-group" style="flex:1;"><label>Von</label><input type="date" id="manualSickStart" class="form-control"></div>
-            <div class="form-group" style="flex:1;"><label>Bis</label><input type="date" id="manualSickEnd" class="form-control"></div>
+        </div>
+
+        <div style="flex:1; min-width:240px;">
+          <button type="button" class="manual-entry-toggle" style="padding:7px 10px; font-size:0.78rem;" onclick="toggleManualExtraBox()">
+            <span>➕ Bringschicht direkt eintragen</span>
+            <span id="manualExtraArrow" style="font-size:0.72rem; color:#166534;">▼ Öffnen</span>
+          </button>
+          <div id="manualExtraContent" style="display:none; background:#f0fdf4; border:1px solid #86efac; border-top:none; border-radius:0 0 8px 8px; padding:12px;">
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <div class="form-group" id="manualExtraSearchGroup" style="flex:1.4; min-width:150px;">
+                <label>Mitarbeiter</label>
+                <input type="text" id="manualExtraEmpInput" class="form-control" placeholder="🔍 Name eingeben..." autocomplete="off" onfocus="onManualExtraNameInput(this.value)" oninput="onManualExtraNameInput(this.value)">
+                <div id="manualExtraSuggestions" class="suggestions-box"></div>
+              </div>
+              <div class="form-group" style="flex:1; min-width:120px;"><label>Datum</label><input type="date" id="manualExtraDate" class="form-control"></div>
+              <div class="form-group" style="flex:1; min-width:120px;">
+                <label>Schicht</label>
+                <select id="manualExtraShift" class="form-control">
+                  <option value="frueh">Frühschicht</option>
+                  <option value="spaet">Spätschicht</option>
+                  <option value="nacht">Nachtschicht</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group"><label>Notiz / Linie (optional)</label><input type="text" id="manualExtraNote" class="form-control" placeholder="z.B. Linie 34..."></div>
+            <button class="btn btn-primary" style="width:100%; background:#16a34a;" onclick="addManualExtraShift()">Bringschicht aktivieren</button>
           </div>
-          <div class="form-group"><label>Notiz / Grund (optional)</label><input type="text" id="manualSickReason" class="form-control" placeholder="z.B. Uhrzeit bei Dienstgang / Kommentar..."></div>
-          <button class="btn btn-primary" style="width:100%;" onclick="addManualSickLeave()">Abwesenheit eintragen & Bringschichten prüfen</button>
         </div>
       </div>
 
-      <div style="margin-bottom: 16px;">
-        <button type="button" class="manual-entry-toggle" onclick="toggleManualExtraBox()">
-          <span>➕ Bringschicht / Zusatzschicht direkt eintragen</span>
-          <span id="manualExtraArrow" style="font-size:0.76rem; color:#166534;">▼ Formular öffnen</span>
-        </button>
-        <div id="manualExtraContent" style="display:none; background:#f0fdf4; border:1px solid #86efac; border-top:none; border-radius:0 0 8px 8px; padding:14px;">
-          <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <div class="form-group" id="manualExtraSearchGroup" style="flex:1.4; min-width:180px;">
-              <label>Mitarbeiter</label>
-              <input type="text" id="manualExtraEmpInput" class="form-control" placeholder="🔍 Name eingeben..." autocomplete="off" onfocus="onManualExtraNameInput(this.value)" oninput="onManualExtraNameInput(this.value)">
-              <div id="manualExtraSuggestions" class="suggestions-box"></div>
-            </div>
-            <div class="form-group" style="flex:1; min-width:140px;"><label>Datum</label><input type="date" id="manualExtraDate" class="form-control"></div>
-            <div class="form-group" style="flex:1; min-width:140px;">
-              <label>Schicht</label>
-              <select id="manualExtraShift" class="form-control">
-                <option value="frueh">Frühschicht</option>
-                <option value="spaet">Spätschicht</option>
-                <option value="nacht">Nachtschicht</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-group"><label>Notiz / Linie (optional)</label><input type="text" id="manualExtraNote" class="form-control" placeholder="z.B. Geplant für Linie 34..."></div>
-          <button class="btn btn-primary" style="width:100%; background:#16a34a;" onclick="addManualExtraShift()">Bringschicht eintragen & aktivieren</button>
-        </div>
-      </div>
-
-      <div style="margin-bottom: 16px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
-          <h4 style="font-size:0.92rem; color:#dc2626;">🔔 Neue Meldungen, Bringschicht-Angebote & Anträge</h4>
-          <button id="btnMarkAllRead" class="btn btn-outline" style="padding:4px 10px; font-size:0.75rem;" onclick="markAllSickLeavesRead()">Alle Infos gelesen</button>
+      <div style="margin-bottom: 12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;">
+          <h4 style="font-size:0.88rem; color:#dc2626;">🔔 Neue Meldungen, Urlaubsanträge & Bringschicht-Angebote</h4>
+          <button id="btnMarkAllRead" class="btn btn-outline" style="padding:3px 9px; font-size:0.72rem;" onclick="markAllSickLeavesRead()" title="Markiert reine Info- und Onboarding-Hinweise als gelesen">Info-Hinweise gelesen</button>
         </div>
         <div id="unreadSickList"></div>
       </div>
 
-      <!-- PLANER-STEUERUNG: GESUCHTE BRINGSCHICHTEN EINZELN FÜR DAS PORTAL FREIGEBEN ODER SPERREN -->
-      <div style="border-top: 2px solid #e2e8f0; padding-top: 12px; margin-bottom: 16px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px; flex-wrap:wrap; gap:6px;">
-          <h4 style="font-size:0.92rem; color:#0369a1; margin:0;">📢 Gesuchte Bringschichten (Einzel-Freigabe fürs Mitarbeiter-Portal)</h4>
-          <span style="font-size:0.72rem; color:#64748b;">Nur freigegebene Tage sind im Portal sichtbar</span>
+      <!-- KOMPAKTE PLANER-STEUERUNG: GESUCHTE BRINGSCHICHTEN -->
+      <div style="border-top: 1px solid #e2e8f0; padding-top: 10px; margin-bottom: 12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px; flex-wrap:wrap; gap:4px;">
+          <h4 style="font-size:0.86rem; color:#0369a1; margin:0;">📢 Gesuchte Bringschichten (Kompakt-Steuerung fürs Portal)</h4>
+          <span style="font-size:0.69rem; color:#64748b;">Klick auf Tag schaltet 🟢 Ja / 🔴 Nein direkt um</span>
         </div>
         <div id="inboxCoverageControlList"></div>
       </div>
 
-      <div style="border-top: 2px solid #e2e8f0; padding-top: 12px; margin-bottom: 16px;">
-        <h4 style="font-size:0.92rem; color:#166534; margin-bottom: 6px;">➕ Genehmigte Bringschichten (Bereitstellung 1h vor Schichtbeginn)</h4>
+      <div style="border-top: 1px solid #e2e8f0; padding-top: 10px; margin-bottom: 12px;">
+        <h4 style="font-size:0.86rem; color:#166534; margin-bottom: 5px;">➕ Kommende genehmigte Bringschichten (1h Vorlauf)</h4>
         <div id="inboxExtraList"></div>
       </div>
 
-      <div style="border-top: 2px solid #e2e8f0; padding-top: 12px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:8px;">
-          <h4 style="font-size:0.92rem; margin:0;">📋 Bearbeitete & aktive Abwesenheiten</h4>
+      <div style="border-top: 1px solid #e2e8f0; padding-top: 10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:6px;">
+          <h4 style="font-size:0.86rem; margin:0;">📋 Bearbeitete & aktive Abwesenheiten</h4>
         </div>
-        <div id="inboxHistoryFilterBar" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; align-items:center;">
-          <button type="button" class="btn btn-outline active" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('ALL')">Alle</button>
-          <button type="button" class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('URLAUB')">Urlaub</button>
-          <button type="button" class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('KRANK')">Krank</button>
-          <button type="button" class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('EXTRA')">Bringschicht / Info</button>
-          <button type="button" class="btn btn-outline" style="padding:3px 8px; font-size:0.74rem;" onclick="setInboxHistoryCategoryFilter('ONBOARDING')">🎓 Onboarding</button>
+        <div id="inboxHistoryFilterBar" style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; align-items:center;">
+          <button type="button" class="btn btn-outline active" style="padding:2px 8px; font-size:0.72rem;" onclick="setInboxHistoryCategoryFilter('ALL')">Alle</button>
+          <button type="button" class="btn btn-outline" style="padding:2px 8px; font-size:0.72rem;" onclick="setInboxHistoryCategoryFilter('URLAUB')">Urlaub</button>
+          <button type="button" class="btn btn-outline" style="padding:2px 8px; font-size:0.72rem;" onclick="setInboxHistoryCategoryFilter('KRANK')">Krank</button>
+          <button type="button" class="btn btn-outline" style="padding:2px 8px; font-size:0.72rem;" onclick="setInboxHistoryCategoryFilter('EXTRA')">Bringschicht / Info</button>
+          <button type="button" class="btn btn-outline" style="padding:2px 8px; font-size:0.72rem;" onclick="setInboxHistoryCategoryFilter('ONBOARDING')">🎓 Onboarding</button>
         </div>
-        <div style="margin-bottom:10px;">
-          <input type="text" id="inboxActiveSearchInput" class="form-control" placeholder="🔍 Einträge durchsuchen (Name, Grund, Notiz)..." oninput="renderInboxLists()" style="font-size:0.82rem; padding:8px 10px;">
+        <div style="margin-bottom:8px;">
+          <input type="text" id="inboxActiveSearchInput" class="form-control" placeholder="🔍 Einträge durchsuchen (Name, Grund, Notiz)..." oninput="renderInboxLists()" style="font-size:0.78rem; padding:6px 9px;">
         </div>
         <div id="activeSickList"></div>
       </div>
@@ -580,7 +608,7 @@
   <div id="settingsModal" class="modal-overlay">
     <div class="modal" style="max-width: 760px;">
       <h3 style="display:flex; justify-content:space-between; color:var(--bayer-blue); margin-bottom:12px;">
-        <span>⚙️ Einstellungen <small style="font-size:0.72rem; color:#94a3b8; font-weight:600;">v4.9.67</small></span>
+        <span>⚙️ Einstellungen <small style="font-size:0.72rem; color:#94a3b8; font-weight:600;">v4.9.68</small></span>
         <button onclick="closeModal('settingsModal')" style="border:none; background:none; font-size:1.5rem; cursor:pointer;">&times;</button>
       </h3>
       <div class="tabs">
@@ -935,7 +963,7 @@
   </div>
 
   <script>
-    window.EXPECTED_HTML_VERSION = "4.9.67";
+    window.EXPECTED_HTML_VERSION = "4.9.68";
     window.closeModal = function(id) {
       var el = document.getElementById(id);
       if (el) el.style.display = "none";
@@ -968,7 +996,7 @@
       if (!content) return;
       const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : (content.style.display === "none" || !content.style.display);
       content.style.display = shouldOpen ? "block" : "none";
-      if (arrow) arrow.textContent = shouldOpen ? "▲ Formular schließen" : "▼ Formular öffnen";
+      if (arrow) arrow.textContent = shouldOpen ? "▲ Schließen" : "▼ Öffnen";
     }
     function toggleManualExtraBox(forceOpen) {
       const content = document.getElementById("manualExtraContent");
@@ -976,9 +1004,9 @@
       if (!content) return;
       const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : (content.style.display === "none" || !content.style.display);
       content.style.display = shouldOpen ? "block" : "none";
-      if (arrow) arrow.textContent = shouldOpen ? "▲ Formular schließen" : "▼ Formular öffnen";
+      if (arrow) arrow.textContent = shouldOpen ? "▲ Schließen" : "▼ Öffnen";
     }
   </script>
-  <script src="planer.js?v=4.9.67"></script>
+  <script src="planer.js?v=4.9.68"></script>
 </body>
 </html>
