@@ -282,16 +282,16 @@
     </div>
   </div>
 
-  <!-- MODAL: URLAUB TEILGENEHMIGEN / GEGENANGEBOT MIT PLUS-ZEICHEN (+) -->
+  <!-- MODAL: URLAUB ANNEHMEN, ABLEHNEN ODER BEDINGT ANNEHMEN (MIT PLUS + FÜR MEHERE ZEITRÄUME) -->
   <div id="leaveCounterOfferModal" class="modal-overlay" style="display:none;">
     <div class="modal" style="max-width: 600px; padding: 18px;">
       <h3 style="display:flex; justify-content:space-between; align-items:center; color:var(--bayer-blue); margin-bottom:6px; font-size:1.02rem;">
-        <span>✂️ Urlaub teilgenehmigen / Gegenangebot senden</span>
+        <span>🌴 Urlaubsantrag bearbeiten (Annehmen, Ablehnen oder Bedingt)</span>
         <button onclick="closeModal('leaveCounterOfferModal')" style="border:none; background:none; font-size:1.4rem; cursor:pointer;">&times;</button>
       </h3>
       <div id="counterOfferOriginalInfo" style="font-size:0.79rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; margin-bottom:10px; color:#334155;"></div>
       <p style="font-size:0.74rem; color:#64748b; margin-bottom:8px;">
-        Lege einen oder mehrere Zeiträume fest. Über den Button <b>„+ Weiteren Zeitraum hinzufügen“</b> kannst du den Urlaub bequem splitten (z.B. Teil 1 sofort genehmigen und Teil 2 als Gegenangebot vorschlagen):
+        Wähle <b>Annehmen</b>, <b>Ablehnen</b> oder <b>Bedingt annehmen</b>. Bei bedingter Annahme kannst du über den <b>„+ Weiteren Zeitraum hinzufügen“</b> Button mehrere Blöcke (Datum Von – Bis) definieren:
       </p>
       <div id="counterOfferBlocksContainer" style="display:flex; flex-direction:column; gap:6px; max-height:240px; overflow-y:auto; margin-bottom:8px;"></div>
       <button type="button" class="btn btn-outline" style="width:100%; border-style:dashed; color:var(--bayer-blue); border-color:#7dd3fc; background:#f0f9ff; font-size:0.76rem; padding:6px; margin-bottom:10px;" onclick="addCounterOfferBlockRow()">
@@ -299,11 +299,11 @@
       </button>
       <div class="form-group" style="margin-bottom:8px;">
         <label>Hinweis / Begründung für den Mitarbeiter (optional)</label>
-        <input type="text" id="counterOfferPlannerNote" class="form-control" style="font-size:0.8rem; padding:6px 9px;" placeholder="z.B. Wegen Schichtbesetzung nur erste Woche möglich oder Alternativ-Datum...">
+        <input type="text" id="counterOfferPlannerNote" class="form-control" style="font-size:0.8rem; padding:6px 9px;" placeholder="z.B. Nur erste Woche wegen Schichtbesetzung möglich...">
       </div>
       <div class="modal-actions" style="margin-top:10px;">
         <button class="btn btn-outline" onclick="closeModal('leaveCounterOfferModal')">Abbrechen</button>
-        <button class="btn btn-primary" style="background:#0284c7;" onclick="saveCounterOfferAndSplitLeave()">💾 Auswahl übernehmen & senden</button>
+        <button class="btn btn-primary" style="background:#0284c7;" onclick="saveCounterOfferAndSplitLeave()">💾 Entscheidung speichern & senden</button>
       </div>
     </div>
   </div>
@@ -360,7 +360,7 @@
       <div class="header-title">
         <div class="header-title-text">
           <h1>Schicht und Linienübersicht</h1>
-          <div id="headerDateKw" class="header-meta">Lade Datum... · v4.9.68</div>
+          <div id="headerDateKw" class="header-meta">Lade Datum... · v4.9.69</div>
         </div>
         <div class="header-badges-row">
           <span id="plannerStatusBadge" class="status-badge">Planer-Modus aktiv</span>
@@ -610,7 +610,7 @@
   <div id="settingsModal" class="modal-overlay">
     <div class="modal" style="max-width: 760px;">
       <h3 style="display:flex; justify-content:space-between; color:var(--bayer-blue); margin-bottom:12px;">
-        <span>⚙️ Einstellungen <small style="font-size:0.72rem; color:#94a3b8; font-weight:600;">v4.9.68</small></span>
+        <span>⚙️ Einstellungen <small style="font-size:0.72rem; color:#94a3b8; font-weight:600;">v4.9.69</small></span>
         <button onclick="closeModal('settingsModal')" style="border:none; background:none; font-size:1.5rem; cursor:pointer;">&times;</button>
       </h3>
       <div class="tabs">
@@ -965,7 +965,7 @@
   </div>
 
   <script>
-    window.EXPECTED_HTML_VERSION = "4.9.68";
+    window.EXPECTED_HTML_VERSION = "4.9.69";
     window.closeModal = function(id) {
       var el = document.getElementById(id);
       if (el) el.style.display = "none";
@@ -1009,6 +1009,6 @@
       if (arrow) arrow.textContent = shouldOpen ? "▲ Schließen" : "▼ Öffnen";
     }
   </script>
-  <script src="planer.js?v=4.9.68"></script>
+  <script src="planer.js?v=4.9.69"></script>
 </body>
 </html>
