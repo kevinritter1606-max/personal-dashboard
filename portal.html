@@ -3,583 +3,617 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mitarbeiter Portal - Schichtplan</title>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <title>Mitarbeiter-Portal – Bayer Schichtplaner</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <style>
     :root {
       --bayer-blue: #0091df;
-      --bayer-green: #89d329;
+      --bayer-green: #66b512;
       --bayer-dark: #10384f;
-      --bg-gray: #f4f6f9;
-      --border-color: #d8e0e8;
+      --bg-light: #f1f5f9;
+      --card-bg: #ffffff;
+      --border-col: #cbd5e1;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
     }
+
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
     }
+
     body {
-      background-color: var(--bg-gray);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg-light);
+      color: var(--text-main);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      position: relative;
-      color: #0f172a;
     }
 
-    body.portal-locked header,
-    body.portal-locked main {
-      display: none !important;
-    }
-
-    .brand-gradient {
-      height: 6px;
-      width: 100%;
-      flex-shrink: 0;
-      transition: background 0.3s ease;
-    }
-    .brand-gradient.pending {
-      background: linear-gradient(90deg, #0091df 0%, #ef4444 45%, #dc2626 100%);
-    }
-    .brand-gradient.approved {
-      background: linear-gradient(90deg, #0091df 0%, #00bcff 50%, #89d329 100%);
-    }
-
-    header {
-      background: #ffffff;
-      padding: 12px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-      flex-wrap: wrap;
-      gap: 10px;
-      border-bottom: 1px solid var(--border-color);
-    }
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .bayer-logo {
-      width: 44px;
-      height: 44px;
-      object-fit: contain;
-      flex-shrink: 0;
-    }
-    .header-title h1 {
-      font-size: 1.18rem;
-      font-weight: 700;
-      color: var(--bayer-blue);
-      margin: 0;
-    }
-    .header-meta {
-      font-size: 0.76rem;
-      color: #64748b;
-      font-weight: 600;
-      margin-top: 2px;
-    }
-
-    .portal-shift-status {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 0.78rem;
-      font-weight: 700;
-      padding: 5px 12px;
-      border-radius: 999px;
-      border: 1px solid transparent;
-    }
-    .portal-shift-status.pending { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
-    .portal-shift-status.approved { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
-    .portal-shift-status.sunday { background: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #dc2626;
-      flex-shrink: 0;
-    }
-    .portal-shift-status.approved .status-dot { background: #16a34a; }
-    .portal-shift-status.sunday .status-dot { background: #0284c7; }
-
-    .btn {
-      padding: 7px 14px;
-      border-radius: 7px;
-      font-size: 0.84rem;
-      font-weight: 600;
-      cursor: pointer;
-      border: 1px solid transparent;
-      transition: all 0.15s;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      text-decoration: none;
-    }
-    .btn-primary { background: var(--bayer-blue); color: #ffffff; }
-    .btn-primary:hover { background: #0077b8; }
-    .btn-outline { background: #ffffff; border-color: #cbd5e1; color: #1e293b; }
-    .btn-outline:hover { background: #f8fafc; }
-    .btn-danger { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
-    .btn-danger:hover { background: #fecaca; }
-    .btn-success { background: #16a34a; color: #ffffff; }
-    .btn-success:hover { background: #15803d; }
-
-    main {
-      max-width: 1120px;
-      width: 100%;
-      margin: 0 auto;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      flex: 1;
-    }
-
-    .portal-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
-      gap: 16px;
-    }
-
-    .card {
-      background: #ffffff;
-      border-radius: 12px;
-      border: 1px solid var(--border-color);
-      padding: 16px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.03);
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .card h2 {
-      font-size: 1rem;
-      color: var(--bayer-dark);
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      border-bottom: 1px solid #f1f5f9;
-      padding-bottom: 8px;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .form-group label {
-      font-size: 0.78rem;
-      font-weight: 700;
-      color: #334155;
-    }
-    .form-control {
-      width: 100%;
-      padding: 8px 10px;
-      border: 1px solid #cbd5e1;
-      border-radius: 7px;
-      font-size: 0.86rem;
-    }
-
-    .suggestions-box {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      background: #ffffff;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      max-height: 190px;
-      overflow-y: auto;
-      z-index: 100;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.14);
-      display: none;
-    }
-    .suggestion-item {
-      padding: 8px 12px;
-      font-size: 0.84rem;
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #f1f5f9;
-    }
-    .suggestion-item:hover { background: #f0f9ff; }
-
-    /* Login & Onboarding Overlays */
-    .portal-overlay {
+    /* Login-Screen im originalen dunklen Bayer-Farbverlauf */
+    .portal-login-screen {
       position: fixed;
       inset: 0;
-      background: linear-gradient(135deg, #0f172a 0%, #10384f 100%);
-      display: none;
-      justify-content: center;
+      background: linear-gradient(145deg, #091e2c 0%, var(--bayer-dark) 55%, #0c364c 100%);
+      display: flex;
       align-items: center;
-      z-index: 2000;
+      justify-content: center;
       padding: 16px;
+      z-index: 100;
     }
-    .portal-modal {
+
+    .portal-login-card {
       background: #ffffff;
-      width: 430px;
-      max-width: 96vw;
-      max-height: 92vh;
-      overflow-y: auto;
-      border-radius: 14px;
-      padding: 22px;
-      box-shadow: 0 24px 48px rgba(0,0,0,0.3);
+      width: 100%;
+      max-width: 410px;
+      border-radius: 16px;
+      padding: 24px 22px;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.38);
       display: flex;
       flex-direction: column;
       gap: 14px;
     }
 
-    .badge-pill {
+    .bayer-logo-circle {
+      width: 48px;
+      height: 48px;
+      min-width: 48px;
+      border-radius: 50%;
+      border: 2.5px solid var(--bayer-green);
+      box-shadow: 0 0 0 2px var(--bayer-blue);
+      background: #ffffff;
+      color: var(--bayer-dark);
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      grid-template-rows: repeat(5, 1fr);
+      align-items: center;
+      justify-items: center;
+      font-size: 0.5rem;
+      font-weight: 900;
+      line-height: 1;
+      user-select: none;
+      padding: 3px;
+    }
+
+    .login-header-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .login-header-text h2 {
+      font-size: 1.18rem;
+      font-weight: 800;
+      color: var(--bayer-dark);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .login-header-text p {
+      font-size: 0.8rem;
+      color: #64748b;
+      line-height: 1.35;
+      margin-top: 2px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      position: relative;
+    }
+
+    .form-group label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #1e293b;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 9px;
+      font-size: 0.9rem;
+      color: #0f172a;
+      background: #ffffff;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--bayer-blue);
+      box-shadow: 0 0 0 3px rgba(0, 145, 223, 0.15);
+    }
+
+    .suggestions-dropdown {
+      position: absolute;
+      top: calc(100% + 3px);
+      left: 0;
+      right: 0;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.16);
+      max-height: 210px;
+      overflow-y: auto;
+      z-index: 250;
+      display: none;
+    }
+
+    .suggestion-item {
+      padding: 10px 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      font-size: 0.86rem;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .suggestion-item:last-child {
+      border-bottom: none;
+    }
+
+    .suggestion-item:hover {
+      background: #f0f9ff;
+    }
+
+    .login-actions-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 9px 15px;
+      border-radius: 9px;
+      font-size: 0.84rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid transparent;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+
+    .btn-primary {
+      background: var(--bayer-blue);
+      color: #ffffff;
+      border-color: #0284c7;
+    }
+
+    .btn-primary:hover {
+      background: #0284c7;
+    }
+
+    .btn-outline {
+      background: #ffffff;
+      color: #1e293b;
+      border-color: #cbd5e1;
+    }
+
+    .btn-outline:hover {
+      background: #f8fafc;
+      border-color: #94a3b8;
+    }
+
+    /* Portal-Header nach Anmeldung */
+    .brand-gradient {
+      height: 5px;
+      width: 100%;
+      background: linear-gradient(90deg, var(--bayer-green) 0%, var(--bayer-blue) 50%, var(--bayer-dark) 100%);
+    }
+
+    .portal-header {
+      background: linear-gradient(135deg, #0d2b3e 0%, var(--bayer-dark) 60%, #164e63 100%);
+      color: #ffffff;
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+    }
+
+    .portal-container {
+      width: 100%;
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 14px;
+      display: none;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .portal-card {
+      background: #ffffff;
+      border: 1px solid var(--border-col);
+      border-radius: 12px;
+      padding: 14px 16px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .portal-card h3 {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: var(--bayer-dark);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .status-hero-banner {
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      border: 1px solid #bae6fd;
+      border-left: 5px solid var(--bayer-blue);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    /* 14-Tage Schicht-Kalender */
+    .shift-calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(125px, 1fr));
+      gap: 8px;
+    }
+
+    .cal-day-box {
+      border: 1px solid #e2e8f0;
+      border-radius: 9px;
+      padding: 8px 9px;
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      font-size: 0.76rem;
+    }
+
+    .cal-day-box.today {
+      border: 2px solid var(--bayer-blue);
+      background: #f0f9ff;
+    }
+
+    .cal-day-box.extra-day {
+      background: #f0fdf4;
+      border-color: #86efac;
+    }
+
+    .cal-day-box.leave-day {
+      background: #fff1f2;
+      border-color: #fecaca;
+    }
+
+    .shift-pill {
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      padding: 2px 8px;
+      padding: 2px 7px;
       border-radius: 999px;
-      font-size: 0.72rem;
-      font-weight: 700;
+      font-size: 0.68rem;
+      font-weight: 800;
+      width: fit-content;
+    }
+    .shift-pill.frueh { background: #dbeafe; color: #1e40af; }
+    .shift-pill.spaet { background: #ffedd5; color: #c2410c; }
+    .shift-pill.nacht { background: #ede9fe; color: #5b21b6; }
+    .shift-pill.frei { background: #e2e8f0; color: #475569; }
+    .shift-pill.extra { background: #16a34a; color: #ffffff; }
+    .shift-pill.leave { background: #fee2e2; color: #991b1b; }
+
+    .portal-two-col {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+      gap: 14px;
     }
 
-    .audit-stamp {
-      margin-top: 6px;
+    .audit-trail-box {
+      margin-top: 5px;
       padding: 5px 8px;
       background: #f8fafc;
       border: 1px dashed #cbd5e1;
       border-radius: 6px;
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       color: #475569;
       display: flex;
       flex-direction: column;
       gap: 2px;
     }
 
-    .training-history-row {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 8px 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .progress-track {
-      width: 100%;
-      height: 7px;
-      background: #e2e8f0;
-      border-radius: 999px;
-      overflow: hidden;
-    }
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--bayer-blue), #10b981);
-      border-radius: 999px;
-      transition: width 0.3s ease;
+    /* Modals im Portal (Erst-PIN & Onboarding) */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(2px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+      z-index: 300;
     }
 
-    #portalToast {
+    .modal-card {
+      background: #ffffff;
+      border-radius: 14px;
+      width: 100%;
+      max-width: 520px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    #toast {
       position: fixed;
       bottom: 18px;
       right: 18px;
-      background: #10384f;
-      color: #fff;
+      background: var(--bayer-dark);
+      color: #ffffff;
       padding: 10px 16px;
-      border-radius: 8px;
-      font-size: 0.84rem;
+      border-radius: 9px;
+      font-size: 0.8rem;
       font-weight: 700;
       box-shadow: 0 8px 20px rgba(0,0,0,0.25);
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.25s ease;
-      z-index: 3500;
+      transform: translateY(10px);
+      transition: all 0.22s ease;
+      z-index: 500;
     }
-    #portalToast.show { opacity: 1; }
+    #toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
   </style>
 </head>
-<body class="portal-locked">
+<body>
 
-  <div id="portalBrandBar" class="brand-gradient pending"></div>
-
-  <!-- 1. MITARBEITER-LOGIN OVERLAY -->
-  <div id="portalLoginOverlay" class="portal-overlay" style="display:flex;">
-    <div class="portal-modal">
-      <div style="display:flex; align-items:center; gap:12px;">
-        <img src="logo.png" alt="Logo" style="width:42px; height:42px; object-fit:contain;" onerror="this.style.display='none'">
-        <div>
-          <h2 style="font-size:1.15rem; color:var(--bayer-dark);">🌐 Mitarbeiter-Portal</h2>
-          <p style="font-size:0.78rem; color:#64748b;">Persönlicher Schichtplan, Urlaub, Krankmeldung & Bringschichten</p>
+  <!-- 1. LOGIN SCREEN (ORIGINALE BAYER-OPTIK OHNE "AB 2 BUCHSTABEN"-HINWEIS, MIT 3-BUCHSTABEN-BASIS) -->
+  <div id="portalLoginScreen" class="portal-login-screen">
+    <div class="portal-login-card">
+      <div class="login-header-row">
+        <div class="bayer-logo-circle">
+          <span></span><span></span><span>B</span><span></span><span></span>
+          <span></span><span></span><span>A</span><span></span><span></span>
+          <span>B</span><span>A</span><span>Y</span><span>E</span><span>R</span>
+          <span></span><span></span><span>E</span><span></span><span></span>
+          <span></span><span></span><span>R</span><span></span><span></span>
+        </div>
+        <div class="login-header-text">
+          <h2>🌐 Mitarbeiter-Portal</h2>
+          <p>Persönlicher Schichtplan, Urlaub, Krankmeldung & Bringschichten</p>
         </div>
       </div>
 
-      <div class="form-group" style="position:relative;">
-        <label>Dein Name (ab 2 Buchstaben tippen):</label>
-        <input type="text" id="portalLoginNameInput" class="form-control" placeholder="Vor- oder Nachname..." oninput="onPortalLoginNameInput(this.value)" autocomplete="off">
-        <div id="portalLoginSuggestions" class="suggestions-box"></div>
+      <div id="portalLoginError" style="display:none; padding:8px 10px; border-radius:8px; background:#fef2f2; border:1px solid #fecaca; color:#dc2626; font-size:0.78rem; font-weight:700;"></div>
+
+      <div class="form-group">
+        <label for="portalLoginName">Dein Name:</label>
+        <input type="text" id="portalLoginName" class="form-control" placeholder="Name eingeben..." autocomplete="off" oninput="onPortalNameInput(this.value)">
+        <div id="portalNameSuggestions" class="suggestions-dropdown"></div>
       </div>
 
       <div class="form-group">
-        <label>Deine persönliche PIN:</label>
-        <input type="password" id="portalLoginPinInput" class="form-control" placeholder="PIN eingeben..." onkeydown="if(event.key==='Enter') submitPortalLogin()">
+        <input type="password" id="portalLoginPin" class="form-control" placeholder="PIN eingeben..." onkeydown="if(event.key==='Enter') loginToPortal();">
       </div>
 
-      <div id="portalLoginError" style="display:none; background:#fef2f2; color:#dc2626; border:1px solid #fecaca; padding:7px 10px; border-radius:7px; font-size:0.78rem; font-weight:700;"></div>
-
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:4px;">
+      <div class="login-actions-row">
         <a href="index.html" class="btn btn-outline">📊 Zur Tafel-Ansicht</a>
-        <button class="btn btn-primary" onclick="submitPortalLogin()">🔐 Anmelden</button>
+        <button type="button" class="btn btn-primary" onclick="loginToPortal()">🔐 Anmelden</button>
       </div>
     </div>
   </div>
 
-  <!-- 2. ERST-PIN ÄNDERN OVERLAY -->
-  <div id="portalForcePinOverlay" class="portal-overlay">
-    <div class="portal-modal">
-      <h2 style="font-size:1.1rem; color:var(--bayer-dark);">🔑 Eigene PIN festlegen</h2>
-      <p style="font-size:0.8rem; color:#475569; line-height:1.4;">
-        Du hast dich mit einer einmaligen Start-PIN angemeldet. Bitte lege jetzt deine eigene persönliche PIN fest (mindestens 4 Zeichen):
-      </p>
-      <div class="form-group">
-        <label>Neue persönliche PIN:</label>
-        <input type="password" id="portalNewPin1" class="form-control" placeholder="Mind. 4 Zeichen...">
+  <!-- 2. PORTAL HAUPTANSICHT (NACH ANMELDUNG) -->
+  <div id="portalHeaderWrap" style="display:none;">
+    <div class="brand-gradient"></div>
+    <header class="portal-header">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div class="bayer-logo-circle" style="width:40px; height:40px; min-width:40px; font-size:0.44rem;">
+          <span></span><span></span><span>B</span><span></span><span></span>
+          <span></span><span></span><span>A</span><span></span><span></span>
+          <span>B</span><span>A</span><span>Y</span><span>E</span><span>R</span>
+          <span></span><span></span><span>E</span><span></span><span></span>
+          <span></span><span></span><span>R</span><span></span><span></span>
+        </div>
+        <div>
+          <div id="portalUserHeaderName" style="font-size:1rem; font-weight:800;">👤 Mitarbeiter</div>
+          <div id="portalUserHeaderMeta" style="font-size:0.75rem; color:#bae6fd;">Rolle · Team</div>
+        </div>
       </div>
-      <div class="form-group">
-        <label>Neue PIN wiederholen:</label>
-        <input type="password" id="portalNewPin2" class="form-control" placeholder="PIN bestätigen..." onkeydown="if(event.key==='Enter') submitPortalForcePin()">
+      <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+        <button type="button" class="btn btn-outline" style="background:rgba(255,255,255,0.12); color:#fff; border-color:rgba(255,255,255,0.25); padding:5px 10px; font-size:0.75rem;" onclick="openPortalChangePinModal()">🔑 PIN ändern</button>
+        <a href="index.html" class="btn btn-outline" style="background:rgba(255,255,255,0.12); color:#fff; border-color:rgba(255,255,255,0.25); padding:5px 10px; font-size:0.75rem;">📊 Zur Tafel-Ansicht</a>
+        <button type="button" class="btn btn-outline" style="background:rgba(239,68,68,0.25); color:#fff; border-color:#f87171; padding:5px 10px; font-size:0.75rem;" onclick="logoutFromPortal()">🚪 Abmelden</button>
       </div>
-      <div id="portalForcePinError" style="display:none; background:#fef2f2; color:#dc2626; padding:6px 9px; border-radius:6px; font-size:0.78rem; font-weight:700;"></div>
-      <div style="display:flex; justify-content:flex-end;">
-        <button class="btn btn-primary" onclick="submitPortalForcePin()">PIN speichern & weiter</button>
-      </div>
-    </div>
+    </header>
   </div>
 
-  <!-- 3. ONBOARDING OVERLAY (STAMM- & SEKUNDÄRLINIEN WÄHLEN) -->
-  <div id="portalOnboardingOverlay" class="portal-overlay">
-    <div class="portal-modal" style="width:540px;">
-      <h2 style="font-size:1.1rem; color:var(--bayer-dark);">🎓 Willkommen! Deine Anlagen-Qualifikation</h2>
-      <p style="font-size:0.8rem; color:#475569; line-height:1.4;">
-        Bitte wähle einmalig aus, an welchen Anlagen du bereits fest eingearbeitet bist. Der Schichtplaner erhält darüber automatisch eine Bestätigungs-Info.
-      </p>
+  <main id="portalMainContainer" class="portal-container">
+    <!-- AKTUELLER TAGES-STATUS & BRINGSCHICHT-ANZEIGE -->
+    <div id="portalTodayHero" class="status-hero-banner"></div>
 
-      <div class="form-group">
-        <label style="color:#166534;">⭐ Meine Prio-Stammlinien (Hauptanlagen – mind. 1 auswählen):</label>
-        <div id="onbMainLinesBox" style="display:flex; flex-wrap:wrap; gap:6px; padding:8px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px;"></div>
-      </div>
+    <!-- OFFENE URLAUBS-GEGENANGEBOTE VOM PLANER -->
+    <div id="portalCounterOffersSection" style="display:none;"></div>
 
-      <div class="form-group">
-        <label style="color:#0369a1;">🔄 Meine Sekundärlinien (Vertretungs-Anlagen – optional):</label>
-        <div id="onbSecLinesBox" style="display:flex; flex-wrap:wrap; gap:6px; padding:8px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px;"></div>
-      </div>
-
-      <div id="portalOnboardingError" style="display:none; background:#fef2f2; color:#dc2626; padding:6px 9px; border-radius:6px; font-size:0.78rem; font-weight:700;"></div>
-
-      <div style="display:flex; justify-content:flex-end; gap:8px;">
-        <button class="btn btn-primary" onclick="submitPortalOnboarding()">✅ Qualifikationen speichern & Portal starten</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- HEADER -->
-  <header>
-    <div class="header-left">
-      <img src="logo.png" alt="Logo" class="bayer-logo" onerror="this.style.display='none'">
-      <div class="header-title">
-        <h1>Mitarbeiter-Portal</h1>
-        <div class="header-meta">
-          <span id="portalHeaderUser">Nicht angemeldet</span> · <span id="portalHeaderDate">--.--.----</span>
-        </div>
-      </div>
-    </div>
-
-    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-      <div id="portalShiftStatusPill" class="portal-shift-status pending">
-        <span class="status-dot"></span>
-        <span id="portalShiftStatusText">Schichtplan in Bearbeitung</span>
-      </div>
-      <a href="index.html" class="btn btn-outline">📊 Zum Schichtplan</a>
-      <button class="btn btn-danger" onclick="logoutPortalEmployee()">🚪 Abmelden</button>
-    </div>
-  </header>
-
-  <!-- MAIN PORTAL CONTENT -->
-  <main>
-    <!-- REIHE 1: AKTUELLE SCHICHT & ANLAGEN-QUALIFIKATIONEN INKL. MULTI-LINIEN-HISTORIE -->
-    <div class="portal-grid">
-      <!-- Karte 1: Meine Schicht & Einteilung -->
-      <section class="card">
-        <h2>
-          <span>📍 Meine aktuelle Schicht & Einteilung</span>
-          <span id="portalUserTeamBadge" class="badge-pill" style="background:#e0f2fe; color:#0369a1;">Team</span>
-        </h2>
-        <div id="portalMyShiftBox" style="display:flex; flex-direction:column; gap:8px; font-size:0.85rem;"></div>
-      </section>
-
-      <!-- Karte 2: Meine Anlagen & Multi-Linien-Einarbeitungs-Historie -->
-      <section class="card">
-        <h2>
-          <span>🏭 Meine Anlagen & Einarbeitungs-Historie</span>
-          <button class="btn btn-outline" style="padding:3px 8px; font-size:0.72rem;" onclick="togglePortalLineRequestForm()">+ Linie anfragen</button>
-        </h2>
-        <div id="portalMyLinesBox" style="display:flex; flex-direction:column; gap:8px; font-size:0.83rem;"></div>
-
-        <!-- Formular: Neue Linie beim Planer anfragen -->
-        <div id="portalLineReqForm" style="display:none; background:#f0f9ff; border:1px solid #bae6fd; padding:10px; border-radius:8px; flex-direction:column; gap:8px;">
-          <b style="font-size:0.8rem; color:#0369a1;">🏭 Weitere Linien-Qualifikation beim Planer melden:</b>
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-            <select id="portalReqLineSelect" class="form-control"></select>
-            <select id="portalReqLineType" class="form-control">
-              <option value="sec">Als Sekundärlinie (Vertretung)</option>
-              <option value="prio">Als Prio-Stammlinie</option>
-            </select>
-          </div>
-          <input type="text" id="portalReqLineNote" class="form-control" placeholder="Optionaler Hinweis (z.B. Einarbeitung abgeschlossen)...">
-          <div style="display:flex; justify-content:flex-end; gap:6px;">
-            <button class="btn btn-outline" style="padding:4px 8px; font-size:0.75rem;" onclick="togglePortalLineRequestForm(false)">Abbrechen</button>
-            <button class="btn btn-primary" style="padding:4px 10px; font-size:0.75rem;" onclick="submitPortalLineRequest()">Anfrage absenden</button>
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <!-- REIHE 2: OFFENE BRINGSCHICHTEN & FREIE BRINGSCHICHT ANBIETEN -->
-    <section class="card" style="border-color:#bae6fd; background:#f8fafc;">
-      <h2>
-        <span>📢 Offene Bringschichten (Vom Planer freigegeben)</span>
-        <button class="btn btn-outline" style="padding:4px 10px; font-size:0.75rem; color:#166534; border-color:#86efac; background:#f0fdf4;" onclick="togglePortalFreeExtraForm()">➕ Freie Bringschicht anbieten</button>
-      </h2>
-
-      <!-- Freie Bringschicht anbieten -->
-      <div id="portalFreeExtraForm" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; padding:12px; border-radius:8px; flex-direction:column; gap:8px;">
-        <b style="font-size:0.82rem; color:#166534;">➕ Freiwillige Bringschicht an einem freien Tag anbieten</b>
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:8px;">
-          <div class="form-group">
-            <label>Datum:</label>
-            <input type="date" id="portalFreeExtraDate" class="form-control" onchange="previewPortalFreeExtraPlausibility()">
-          </div>
-          <div class="form-group">
-            <label>Schicht:</label>
-            <select id="portalFreeExtraShift" class="form-control" onchange="previewPortalFreeExtraPlausibility()">
-              <option value="frueh">Frühschicht</option>
-              <option value="spaet">Spätschicht</option>
-              <option value="nacht">Nachtschicht</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Notiz (optional):</label>
-            <input type="text" id="portalFreeExtraNote" class="form-control" placeholder="z.B. Kann ab 06:00 Uhr einspringen...">
-          </div>
-        </div>
-        <div id="portalFreeExtraPlausibilityHint" style="font-size:0.76rem; font-weight:700;"></div>
-        <div style="display:flex; justify-content:flex-end; gap:6px;">
-          <button class="btn btn-outline" onclick="togglePortalFreeExtraForm(false)">Abbrechen</button>
-          <button class="btn btn-success" onclick="submitPortalFreeExtraShift()">➕ Angebot an Planer senden</button>
-        </div>
-      </div>
-
-      <div id="portalOpenCoverageList" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:10px;"></div>
+    <!-- PERSÖNLICHER 14-TAGE SCHICHTPLAN (2-2-2 VOLLKONTI MIT SONNTAG FREI) -->
+    <section class="portal-card">
+      <h3>
+        <span>📅 Mein persönlicher 14-Tage-Schichtplan (2-2-2 Modell · Sonntag frei)</span>
+        <span id="portalQualBadgesSummary" style="font-size:0.74rem; font-weight:700; color:#0369a1;"></span>
+      </h3>
+      <div id="portalShiftCalendarGrid" class="shift-calendar-grid"></div>
     </section>
 
-    <!-- REIHE 3: KRANKMELDUNG & URLAUB / FREISTELLUNG EINREICHEN -->
-    <div class="portal-grid">
-      <!-- Karte 3A: Krankmeldung / Urlaub melden -->
-      <section class="card">
-        <h2><span>🏥 Krankmeldung & 🌴 Urlaub / Freistellung</span></h2>
-
+    <div class="portal-two-col">
+      <!-- LINKS: URLAUB / KRANKMELDUNG / ABWESENHEIT EINREICHEN -->
+      <section class="portal-card">
+        <h3>🌴 Urlaub, Freistellung oder Krankmeldung einreichen</h3>
         <div class="form-group">
-          <label>Art der Meldung / des Antrags:</label>
-          <select id="portalLeaveCategory" class="form-control" onchange="updatePortalLeaveSubmitButtonText()">
-            <option value="Urlaub - bezahlt">🌴 Urlaub - bezahlt (Antrag an Planer)</option>
-            <option value="Freizeitausgleich">🌴 Freizeitausgleich / Gleittag (Antrag an Planer)</option>
-            <option value="Arbeitsunfähigkeit">🏥 Arbeitsunfähigkeit / Krankmeldung (Sofort aktiv)</option>
+          <label>Art der Meldung:</label>
+          <select id="portalLeaveCategory" class="form-control" onchange="onPortalLeaveCatChange()">
+            <option value="Urlaub - bezahlt">🌴 Urlaub - bezahlt (Genehmigungspflichtig)</option>
+            <option value="Freizeitausgleich">⏳ Freizeitausgleich / Gleittag (Genehmigungspflichtig)</option>
+            <option value="Arbeitsunfähigkeit">🏥 Arbeitsunfähigkeit / Krankmeldung (Sofortige Eintragung)</option>
             <option value="Fortbildung / Schulung">📚 Fortbildung / Schulung</option>
-            <option value="Dienstreise / Dienstgang">🚗 Dienstreise / Dienstgang</option>
-            <option value="Sonstige Abwesenheit">📌 Sonstige Abwesenheit</option>
+            <option value="Dienstgang">🚶 Dienstgang</option>
           </select>
         </div>
-
+        <div id="portalSickNoticeHint" style="display:none; background:#fff1f2; border:1px solid #fecaca; color:#991b1b; padding:7px 10px; border-radius:8px; font-size:0.75rem; font-weight:600;">
+          ℹ️ Eine Krankmeldung (Arbeitsunfähigkeit) wird sofort mit Datum und Uhrzeit für dich im System eingetragen und dem Planer gemeldet.
+        </div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
           <div class="form-group">
-            <label>Von (erster Tag):</label>
+            <label>Von:</label>
             <input type="date" id="portalLeaveStart" class="form-control">
           </div>
           <div class="form-group">
-            <label>Bis (einschließlich):</label>
+            <label>Bis:</label>
             <input type="date" id="portalLeaveEnd" class="form-control">
           </div>
         </div>
-
         <div class="form-group">
           <label>Bemerkung / Hinweis (optional):</label>
-          <input type="text" id="portalLeaveReason" class="form-control" placeholder="Optionaler Hinweis für die Schichtplanung...">
+          <input type="text" id="portalLeaveReason" class="form-control" placeholder="Optionaler Hinweis an den Planer...">
         </div>
-
-        <div id="portalLeaveModeInfo" style="font-size:0.74rem; color:#0369a1; background:#f0f9ff; border:1px solid #bae6fd; padding:7px 9px; border-radius:7px;">
-          🌴 Urlaubs- und Freistellungsanträge werden mit Datum, Uhrzeit und deinem Namen dokumentiert und an den Planer zur Genehmigung gesendet.
-        </div>
-
-        <button id="portalLeaveSubmitBtn" class="btn btn-primary" style="justify-content:center;" onclick="submitPortalLeaveEntry()">
-          🌴 Antrag verbindlich einreichen
-        </button>
+        <button type="button" class="btn btn-primary" onclick="submitPortalLeaveRequest()">📨 Verbindlich absenden</button>
       </section>
 
-      <!-- Karte 3B: Meine Anträge, Gegenangebote (+) & Sicherheits-Dokumentation -->
-      <section class="card">
-        <h2>
-          <span>🗂️ Meine Meldungen, Gegenangebote & Audit-Nachweis</span>
-        </h2>
-        <div id="portalMyRequestsList" style="display:flex; flex-direction:column; gap:8px; max-height:420px; overflow-y:auto; padding-right:2px;"></div>
+      <!-- RECHTS: BRINGSCHICHTEN-BÖRSE & EIGENE BRINGSCHICHT ANBIETEN -->
+      <section class="portal-card">
+        <h3>➕ Bringschichten-Börse (F / S / N) & Freie Tage anbieten</h3>
+        <div>
+          <div style="font-size:0.76rem; font-weight:700; color:#0369a1; margin-bottom:5px;">📢 Vom Planer freigegebene Ausfall-Schichten deiner Rolle:</div>
+          <div id="portalOpenCoverageList" style="display:flex; flex-direction:column; gap:6px; max-height:190px; overflow-y:auto;"></div>
+        </div>
+
+        <div style="border-top:1px solid #e2e8f0; padding-top:10px; margin-top:4px; display:flex; flex-direction:column; gap:8px;">
+          <div style="font-size:0.78rem; font-weight:800; color:#166534;">🙋‍♂️ Freien Tag als Bringschicht anbieten</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <div class="form-group">
+              <label>Datum:</label>
+              <input type="date" id="portalExtraDate" class="form-control" onchange="previewPortalExtraPlausibility()">
+            </div>
+            <div class="form-group">
+              <label>Schicht (F / S / N):</label>
+              <select id="portalExtraShift" class="form-control" onchange="previewPortalExtraPlausibility()">
+                <option value="frueh">Frühschicht (F)</option>
+                <option value="spaet">Spätschicht (S)</option>
+                <option value="nacht">Nachtschicht (N)</option>
+              </select>
+            </div>
+          </div>
+          <div id="portalExtraPlausibilityBox" style="display:none; padding:6px 9px; border-radius:7px; font-size:0.74rem; font-weight:700;"></div>
+          <input type="text" id="portalExtraNote" class="form-control" placeholder="Optionaler Hinweis (z.B. ab 06:00 Uhr verfügbar)">
+          <button type="button" class="btn btn-primary" style="background:#16a34a; border-color:#15803d;" onclick="submitPortalExtraShiftOffer()">➕ Bringschicht anbieten</button>
+        </div>
       </section>
     </div>
 
-    <!-- REIHE 4: EIGENE PIN ÄNDERN -->
-    <section class="card">
-      <details>
-        <summary style="cursor:pointer; font-weight:700; font-size:0.88rem; color:var(--bayer-dark);">🔐 Persönliche PIN-Einstellungen ändern</summary>
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:8px; margin-top:10px;">
-          <input type="password" id="portalChangeOldPin" class="form-control" placeholder="Aktuelle PIN">
-          <input type="password" id="portalChangeNewPin1" class="form-control" placeholder="Neue PIN (mind. 4 Zeichen)">
-          <input type="password" id="portalChangeNewPin2" class="form-control" placeholder="Neue PIN wiederholen">
-          <button class="btn btn-primary" onclick="changePortalOwnPin()">PIN speichern</button>
-        </div>
-      </details>
+    <!-- MEINE ANLAGEN-QUALIFIKATIONEN & MULTI-ANLAGEN-LERNHISTORIE -->
+    <section class="portal-card">
+      <h3>
+        <span>🏭 Meine Linien-Qualifikationen & Einarbeitungs-Historie</span>
+        <button type="button" class="btn btn-outline" style="padding:4px 9px; font-size:0.74rem;" onclick="togglePortalLineRequestBox()">➕ Neue Linie anfragen</button>
+      </h3>
+      <div id="portalLineRequestBox" style="display:none; background:#f0f9ff; border:1px solid #bae6fd; padding:10px; border-radius:8px; gap:8px; align-items:center; flex-wrap:wrap;">
+        <select id="portalReqLineId" class="form-control" style="width:auto; flex:1; min-width:150px;"></select>
+        <select id="portalReqLineType" class="form-control" style="width:auto; flex:1; min-width:160px;">
+          <option value="sec">🔄 Als Sekundärlinie anfragen</option>
+          <option value="prio">⭐ Als Prio-Stammlinie anfragen</option>
+        </select>
+        <button type="button" class="btn btn-primary" onclick="submitPortalLineQualRequest()">Anfrage senden</button>
+      </div>
+      <div id="portalMyTrainingHistoryList"></div>
+    </section>
+
+    <!-- MEINE EINGEREICHTEN ANTRÄGE, KRANKMELDUNGEN & BRINGSCHICHTEN (MIT AUDIT-TRAIL) -->
+    <section class="portal-card">
+      <h3>🗂️ Meine Meldungen, Urlaubsanträge & Bringschichten (Dokumentierter Nachweis)</h3>
+      <div id="portalMyRequestsHistoryList" style="display:flex; flex-direction:column; gap:6px;"></div>
     </section>
   </main>
 
-  <div id="portalToast">Gespeichert</div>
+  <!-- MODAL: ERST-ANMELDUNG START-PIN ÄNDERN / PERSÖNLICHE PIN ÄNDERN -->
+  <div id="portalPinModal" class="modal-overlay">
+    <div class="modal-card" style="max-width:410px;">
+      <h3 id="portalPinModalTitle" style="font-size:1rem; font-weight:800; color:var(--bayer-dark);">🔑 Eigene PIN festlegen</h3>
+      <p id="portalPinModalDesc" style="font-size:0.8rem; color:#475569;">Bitte vergib deine persönliche PIN (mindestens 4 Zeichen):</p>
+      <div id="portalPinModalError" style="display:none; padding:7px 9px; border-radius:7px; background:#fef2f2; color:#dc2626; font-size:0.76rem; font-weight:700;"></div>
+      <div class="form-group">
+        <label>Neue persönliche PIN:</label>
+        <input type="password" id="portalNewPin1" class="form-control" placeholder="Mind. 4 Zeichen">
+      </div>
+      <div class="form-group">
+        <label>Neue PIN wiederholen:</label>
+        <input type="password" id="portalNewPin2" class="form-control" placeholder="PIN bestätigen" onkeydown="if(event.key==='Enter') savePortalNewPin();">
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" id="portalPinCancelBtn" class="btn btn-outline" onclick="closeModal('portalPinModal')">Abbrechen</button>
+        <button type="button" class="btn btn-primary" onclick="savePortalNewPin()">✅ PIN speichern</button>
+      </div>
+    </div>
+  </div>
 
-  <!-- Zentrales Planer-Skript (enthält Firebase, 2-2-2 Logik, Plausibilitätsprüfung & Audit-Funktionen) -->
-  <script src="planer.js?v=4.9.69"></script>
+  <!-- MODAL: ERST-ONBOARDING (STAMM- UND SEKUNDÄRLINIEN AUSWÄHLEN) -->
+  <div id="portalOnboardingModal" class="modal-overlay">
+    <div class="modal-card">
+      <h3 style="font-size:1.02rem; font-weight:800; color:var(--bayer-dark);">👋 Willkommen! Bitte wähle deine Anlagen</h3>
+      <p style="font-size:0.8rem; color:#475569;">Damit dich der Schichtplaner optimal einteilen kann, wähle bitte einmalig deine aktuellen <b>Prio-Stammlinien</b> und <b>Sekundärlinien</b> aus:</p>
+      <div>
+        <label style="font-size:0.78rem; font-weight:800; color:#0369a1;">⭐ Deine Prio-Stammlinien (Hauptanlagen):</label>
+        <div id="onbMainLinesBox" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:5px;"></div>
+      </div>
+      <div>
+        <label style="font-size:0.78rem; font-weight:800; color:#475569;">🔄 Deine Sekundärlinien (Vertretungsanlagen):</label>
+        <div id="onbSecLinesBox" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:5px;"></div>
+      </div>
+      <div style="display:flex; justify-content:flex-end; margin-top:6px;">
+        <button type="button" class="btn btn-primary" onclick="completePortalOnboarding()">✅ Qualifikationen speichern & starten</button>
+      </div>
+    </div>
+  </div>
 
-  <!-- Portal-Steuerung -->
+  <div id="toast"></div>
+
+  <script src="planer.js"></script>
   <script>
-    let currentPortalEmpId = sessionStorage.getItem("portal_emp_id") || null;
+    /* ==========================================================================
+       PORTAL-SPEZIFISCHE LOGIK (3-BUCHSTABEN-SUCHE &ECHTZEIT-SYNC MIT PLANER.JS)
+       ========================================================================== */
     let selectedPortalLoginEmpId = null;
+    let currentPortalEmpId = sessionStorage.getItem("portal_emp_id") || null;
 
-    function showPortalToast(msg, isWarn) {
-      const t = document.getElementById("portalToast");
-      if (!t) return;
-      t.textContent = msg;
-      t.style.background = isWarn ? "#b91c1c" : "#10384f";
-      t.classList.add("show");
-      setTimeout(() => t.classList.remove("show"), 3400);
-    }
-
-    function formatAuditDateTimeDe(isoStr) {
-      if (!isoStr) return "";
-      const d = new Date(isoStr);
-      if (isNaN(d.getTime())) return isoStr;
-      return d.toLocaleDateString("de-DE") + ", " + d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) + " Uhr";
-    }
-
-    window.onPortalLoginNameInput = function(val) {
+    /* 3-Buchstaben-Basis für die Namenssuche im Portal (ohne störenden Hinweis) */
+    window.onPortalNameInput = function(val) {
       selectedPortalLoginEmpId = null;
-      const box = document.getElementById("portalLoginSuggestions");
+      const box = document.getElementById("portalNameSuggestions");
       const q = (val || "").trim().toLowerCase();
-      if (!box || !Array.isArray(employees) || q.length < 2) {
+      if (!box || !Array.isArray(employees) || q.length < 3) {
         if (box) box.style.display = "none";
         return;
       }
@@ -589,224 +623,218 @@
         return;
       }
       box.innerHTML = matches.map(e => {
-        const tObj = teamsConfig[e.team] || { name: e.team };
-        return '<div class="suggestion-item" onclick="selectPortalLoginEmployee(\'' + e.id + '\')">' +
-          '<b>' + fullName(e) + '</b>' +
-          '<small style="color:#64748b;">' + (e.role || 'Bediener') + ' · ' + tObj.name + '</small>' +
+        const tName = (teamsConfig && teamsConfig[e.team]) ? teamsConfig[e.team].name : e.team;
+        return '<div class="suggestion-item" onclick="selectPortalLoginEmp(\'' + e.id + '\')">' +
+          '<span><b>' + fullName(e) + '</b></span>' +
+          '<small style="color:#64748b;">' + (e.role || 'Bediener') + ' · ' + tName + '</small>' +
         '</div>';
       }).join("");
       box.style.display = "block";
     };
 
-    window.selectPortalLoginEmployee = function(empId) {
+    window.selectPortalLoginEmp = function(empId) {
       const emp = employees.find(e => e.id === empId);
       if (!emp) return;
       selectedPortalLoginEmpId = emp.id;
-      document.getElementById("portalLoginNameInput").value = fullName(emp);
-      document.getElementById("portalLoginSuggestions").style.display = "none";
-      document.getElementById("portalLoginPinInput").focus();
+      const inp = document.getElementById("portalLoginName");
+      if (inp) inp.value = fullName(emp);
+      const box = document.getElementById("portalNameSuggestions");
+      if (box) box.style.display = "none";
+      const pinInp = document.getElementById("portalLoginPin");
+      if (pinInp) pinInp.focus();
     };
 
-    window.submitPortalLogin = function() {
-      const errEl = document.getElementById("portalLoginError");
-      errEl.style.display = "none";
-      const typedName = (document.getElementById("portalLoginNameInput").value || "").trim().toLowerCase();
-      const pinVal = (document.getElementById("portalLoginPinInput").value || "").trim();
+    window.loginToPortal = function() {
+      const errBox = document.getElementById("portalLoginError");
+      if (errBox) errBox.style.display = "none";
+
+      const typedName = (document.getElementById("portalLoginName").value || "").trim().toLowerCase();
+      const pinVal = (document.getElementById("portalLoginPin").value || "").trim();
 
       let emp = selectedPortalLoginEmpId ? employees.find(e => e.id === selectedPortalLoginEmpId) : null;
       if (!emp && typedName) {
         emp = employees.find(e => fullName(e).toLowerCase() === typedName);
       }
+
       if (!emp) {
-        errEl.textContent = "❌ Bitte wähle deinen Namen aus der Vorschlagsliste aus!";
-        errEl.style.display = "block";
+        if (errBox) {
+          errBox.textContent = "❌ Bitte gib mindestens 3 Buchstaben deines Namens ein und wähle dich aus!";
+          errBox.style.display = "block";
+        }
         return;
       }
+
       if ((emp.password || "1234") !== pinVal) {
-        errEl.textContent = "❌ Die eingegebene PIN ist nicht korrekt!";
-        errEl.style.display = "block";
+        if (errBox) {
+          errBox.textContent = "❌ Die eingegebene PIN ist nicht korrekt!";
+          errBox.style.display = "block";
+        }
         return;
       }
 
       currentPortalEmpId = emp.id;
       sessionStorage.setItem("portal_emp_id", emp.id);
+      document.getElementById("portalLoginPin").value = "";
 
       if (emp.mustChangePw !== false) {
-        document.getElementById("portalLoginOverlay").style.display = "none";
-        document.getElementById("portalForcePinOverlay").style.display = "flex";
+        document.getElementById("portalPinModalTitle").textContent = "🔑 Einmalige Start-PIN ändern";
+        document.getElementById("portalPinModalDesc").textContent = "Bitte lege jetzt deine eigene, persönliche PIN fest (mindestens 4 Zeichen):";
+        document.getElementById("portalPinCancelBtn").style.display = "none";
+        document.getElementById("portalNewPin1").value = "";
+        document.getElementById("portalNewPin2").value = "";
+        document.getElementById("portalPinModalError").style.display = "none";
+        document.getElementById("portalPinModal").style.display = "flex";
         return;
       }
 
-      checkPortalOnboardingOrEnter(emp);
+      checkAndEnterPortalView(emp);
     };
 
-    window.submitPortalForcePin = function() {
+    function checkAndEnterPortalView(emp) {
+      if (!emp) return;
+      document.getElementById("portalLoginScreen").style.display = "none";
+      document.getElementById("portalHeaderWrap").style.display = "block";
+      document.getElementById("portalMainContainer").style.display = "flex";
+
+      const todayIso = getLogicalDateIso();
+      const startEl = document.getElementById("portalLeaveStart");
+      const endEl = document.getElementById("portalLeaveEnd");
+      const extraDateEl = document.getElementById("portalExtraDate");
+      if (startEl && !startEl.value) startEl.value = todayIso;
+      if (endEl && !endEl.value) endEl.value = todayIso;
+      if (extraDateEl && !extraDateEl.value) extraDateEl.value = todayIso;
+
+      if (!emp.onboardingCompleted && window.doesRoleRequireLines(emp.role || "Bediener") && (!Array.isArray(emp.mainLines) || emp.mainLines.length === 0)) {
+        openPortalOnboardingModal(emp);
+      }
+
+      renderPortalDashboard();
+    }
+
+    window.logoutFromPortal = function() {
+      currentPortalEmpId = null;
+      sessionStorage.removeItem("portal_emp_id");
+      document.getElementById("portalHeaderWrap").style.display = "none";
+      document.getElementById("portalMainContainer").style.display = "none";
+      document.getElementById("portalLoginScreen").style.display = "flex";
+    };
+
+    window.openPortalChangePinModal = function() {
+      document.getElementById("portalPinModalTitle").textContent = "🔑 Persönliche PIN ändern";
+      document.getElementById("portalPinModalDesc").textContent = "Gib hier deine neue persönliche PIN ein (mind. 4 Zeichen):";
+      document.getElementById("portalPinCancelBtn").style.display = "inline-flex";
+      document.getElementById("portalNewPin1").value = "";
+      document.getElementById("portalNewPin2").value = "";
+      document.getElementById("portalPinModalError").style.display = "none";
+      document.getElementById("portalPinModal").style.display = "flex";
+    };
+
+    window.savePortalNewPin = function() {
       const emp = employees.find(e => e.id === currentPortalEmpId);
       if (!emp) return;
       const p1 = (document.getElementById("portalNewPin1").value || "").trim();
       const p2 = (document.getElementById("portalNewPin2").value || "").trim();
-      const errEl = document.getElementById("portalForcePinError");
+      const err = document.getElementById("portalPinModalError");
 
       if (p1.length < 4) {
-        errEl.textContent = "❌ Deine neue PIN muss mindestens 4 Zeichen lang sein!";
-        errEl.style.display = "block";
+        err.textContent = "❌ Die PIN muss mindestens 4 Zeichen lang sein!";
+        err.style.display = "block";
         return;
       }
       if (p1 !== p2) {
-        errEl.textContent = "❌ Die beiden PINs stimmen nicht überein!";
-        errEl.style.display = "block";
+        err.textContent = "❌ Die beiden PINs stimmen nicht überein!";
+        err.style.display = "block";
         return;
       }
 
       emp.password = p1;
       emp.mustChangePw = false;
-      addHistoryLog(fullName(emp) + " hat im Portal eine eigene persönliche PIN vergeben", "LOGIN");
+      addHistoryLog(fullName(emp) + " hat seine persönliche PIN im Portal festgelegt", "LOGIN");
       saveToFirebase();
-
-      document.getElementById("portalForcePinOverlay").style.display = "none";
-      showPortalToast("✅ Persönliche PIN gespeichert!");
-      checkPortalOnboardingOrEnter(emp);
+      closeModal("portalPinModal");
+      checkAndEnterPortalView(emp);
+      showToast("✅ Deine persönliche PIN wurde gespeichert!");
     };
-
-    function checkPortalOnboardingOrEnter(emp) {
-      const needsLines = typeof window.doesRoleRequireLines === "function" ? window.doesRoleRequireLines(emp.role) : true;
-      const hasMain = Array.isArray(emp.mainLines) && emp.mainLines.length > 0;
-
-      if (!emp.onboardingCompleted && needsLines && !hasMain) {
-        openPortalOnboardingModal(emp);
-      } else {
-        enterPortalDashboard();
-      }
-    }
 
     function openPortalOnboardingModal(emp) {
-      document.getElementById("portalLoginOverlay").style.display = "none";
-      const mainBox = document.getElementById("onbMainLinesBox");
-      const secBox = document.getElementById("onbSecLinesBox");
+      const mBox = document.getElementById("onbMainLinesBox");
+      const sBox = document.getElementById("onbSecLinesBox");
+      if (!mBox || !sBox) return;
 
-      mainBox.innerHTML = lines.map(l =>
-        '<label style="font-size:0.8rem; display:inline-flex; align-items:center; gap:4px; background:#fff; padding:4px 8px; border:1px solid #86efac; border-radius:6px; cursor:pointer;">' +
-          '<input type="checkbox" class="onb-main-chk" value="' + l.id + '" onchange="syncOnboardingCheckboxes(this)"> ' + l.name +
+      mBox.innerHTML = lines.map(l =>
+        '<label style="font-size:0.78rem; background:#f8fafc; border:1px solid #cbd5e1; padding:5px 9px; border-radius:7px; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">' +
+          '<input type="checkbox" class="onb-main-chk" value="' + l.id + '" onchange="syncOnbCheckboxes(this, \'main\')"> ' + l.name +
         '</label>'
       ).join("");
 
-      secBox.innerHTML = lines.map(l =>
-        '<label style="font-size:0.8rem; display:inline-flex; align-items:center; gap:4px; background:#fff; padding:4px 8px; border:1px solid #bae6fd; border-radius:6px; cursor:pointer;">' +
-          '<input type="checkbox" class="onb-sec-chk" value="' + l.id + '" onchange="syncOnboardingCheckboxes(this)"> ' + l.name +
+      sBox.innerHTML = lines.map(l =>
+        '<label style="font-size:0.78rem; background:#f8fafc; border:1px solid #cbd5e1; padding:5px 9px; border-radius:7px; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">' +
+          '<input type="checkbox" class="onb-sec-chk" value="' + l.id + '" onchange="syncOnbCheckboxes(this, \'sec\')"> ' + l.name +
         '</label>'
       ).join("");
 
-      document.getElementById("portalOnboardingOverlay").style.display = "flex";
+      document.getElementById("portalOnboardingModal").style.display = "flex";
     }
 
-    window.syncOnboardingCheckboxes = function(changedChk) {
-      if (!changedChk || !changedChk.checked) return;
-      if (changedChk.classList.contains("onb-main-chk")) {
-        document.querySelectorAll(".onb-sec-chk").forEach(c => { if (c.value === changedChk.value) c.checked = false; });
+    window.syncOnbCheckboxes = function(chk, type) {
+      if (!chk.checked) return;
+      if (type === "main") {
+        document.querySelectorAll(".onb-sec-chk").forEach(c => { if (c.value === chk.value) c.checked = false; });
       } else {
-        document.querySelectorAll(".onb-main-chk").forEach(c => { if (c.value === changedChk.value) c.checked = false; });
+        document.querySelectorAll(".onb-main-chk").forEach(c => { if (c.value === chk.value) c.checked = false; });
       }
     };
 
-    window.submitPortalOnboarding = function() {
+    window.completePortalOnboarding = function() {
       const emp = employees.find(e => e.id === currentPortalEmpId);
       if (!emp) return;
-      const mainIds = Array.from(document.querySelectorAll(".onb-main-chk:checked")).map(c => c.value);
-      const secIds = Array.from(document.querySelectorAll(".onb-sec-chk:checked")).map(c => c.value).filter(id => mainIds.indexOf(id) === -1);
-      const errEl = document.getElementById("portalOnboardingError");
+      const mainSel = Array.from(document.querySelectorAll(".onb-main-chk:checked")).map(c => c.value);
+      const secSel = Array.from(document.querySelectorAll(".onb-sec-chk:checked")).map(c => c.value).filter(id => mainSel.indexOf(id) === -1);
 
-      if (!mainIds.length) {
-        errEl.textContent = "❌ Bitte wähle mindestens eine Prio-Stammlinie aus!";
-        errEl.style.display = "block";
+      if (!mainSel.length) {
+        showToast("Bitte wähle mindestens eine Prio-Stammlinie aus!", true);
         return;
       }
 
-      emp.mainLines = mainIds;
-      emp.secLines = secIds;
+      emp.mainLines = mainSel;
+      emp.secLines = secSel;
       emp.onboardingCompleted = true;
 
-      const mainNames = mainIds.map(id => { const l = lines.find(x => x.id === id); return l ? l.name : id; }).join(", ");
-      const secNames = secIds.map(id => { const l = lines.find(x => x.id === id); return l ? l.name : id; }).join(", ");
+      const mainNames = mainSel.map(id => { const l = lines.find(x => x.id === id); return l ? l.name : id; }).join(", ");
+      const secNames = secSel.map(id => { const l = lines.find(x => x.id === id); return l ? l.name : id; }).join(", ");
       const nowIso = new Date().toISOString();
-      const todayIso = getLogicalDateIso();
+      const actor = fullName(emp) + " (Portal)";
 
-      sickLeaves.unshift({
+      const notice = {
         id: "onb_" + Date.now(),
         empId: emp.id,
-        startDate: todayIso,
-        endDate: todayIso,
-        category: "🎓 Onboarding abgeschlossen",
-        reason: "Stammlinien: " + mainNames + (secNames ? " · Sekundär: " + secNames : ""),
+        startDate: getLogicalDateIso(),
+        endDate: getLogicalDateIso(),
+        category: "✅ Onboarding abgeschlossen",
+        reason: "Prio-Stammlinien: " + mainNames + (secNames ? " · Sekundärlinien: " + secNames : ""),
+        isOnboardingNotice: true,
+        onboardingData: { empId: emp.id, mainLines: mainSel, secLines: secSel },
         status: "pending",
         plannerUnreadInfo: true,
-        isOnboardingNotice: true,
-        onboardingData: { empId: emp.id, mainLines: mainIds, secLines: secIds },
         createdAt: nowIso,
-        createdBy: fullName(emp) + " (Portal-Onboarding)",
-        auditLog: [{
-          action: "Onboarding-Qualifikationen im Portal abgeschlossen",
-          actor: fullName(emp) + " (Portal)",
-          timestamp: nowIso
-        }]
-      });
-
-      addHistoryLog("Onboarding im Portal abgeschlossen von " + fullName(emp) + " (Prio: " + mainNames + ")", "EMP");
+        createdBy: actor,
+        auditLog: [{ action: "Onboarding-Qualifikationen im Portal eingetragen", actor: actor, timestamp: nowIso }]
+      };
+      sickLeaves.unshift(notice);
+      addHistoryLog(fullName(emp) + " hat das Onboarding im Portal abgeschlossen", "EMP");
       saveToFirebase();
-
-      document.getElementById("portalOnboardingOverlay").style.display = "none";
-      showPortalToast("🎓 Qualifikationen erfolgreich gespeichert!");
-      enterPortalDashboard();
-    };
-
-    function enterPortalDashboard() {
-      document.body.classList.remove("portal-locked");
-      document.getElementById("portalLoginOverlay").style.display = "none";
-      document.getElementById("portalForcePinOverlay").style.display = "none";
-      document.getElementById("portalOnboardingOverlay").style.display = "none";
-
-      const todayIso = getLogicalDateIso();
-      const sInp = document.getElementById("portalLeaveStart");
-      const eInp = document.getElementById("portalLeaveEnd");
-      const fInp = document.getElementById("portalFreeExtraDate");
-      if (sInp && !sInp.value) sInp.value = todayIso;
-      if (eInp && !eInp.value) eInp.value = todayIso;
-      if (fInp && !fInp.value) fInp.value = todayIso;
-
+      closeModal("portalOnboardingModal");
       renderPortalDashboard();
-    }
-
-    window.logoutPortalEmployee = function() {
-      currentPortalEmpId = null;
-      sessionStorage.removeItem("portal_emp_id");
-      document.body.classList.add("portal-locked");
-      document.getElementById("portalLoginPinInput").value = "";
-      document.getElementById("portalLoginOverlay").style.display = "flex";
+      showToast("✅ Deine Linien-Qualifikationen wurden gespeichert!");
     };
 
-    window.updatePortalLeaveSubmitButtonText = function() {
-      const cat = document.getElementById("portalLeaveCategory").value || "";
-      const btn = document.getElementById("portalLeaveSubmitBtn");
-      const info = document.getElementById("portalLeaveModeInfo");
-      const isSick = cat.toLowerCase().indexOf("arbeitsunfähig") !== -1 || cat.toLowerCase().indexOf("krank") !== -1;
-
-      if (isSick) {
-        btn.textContent = "🏥 Krankmeldung jetzt verbindlich eintragen";
-        btn.style.background = "#dc2626";
-        info.style.background = "#fff5f5";
-        info.style.borderColor = "#fecaca";
-        info.style.color = "#991b1b";
-        info.innerHTML = "🏥 <b>Krankmeldung (Arbeitsunfähigkeit):</b> Wird sofort aktiv im Schichtplan als abwesend verbucht (mit Datum, Uhrzeit & Name dokumentiert). Der Planer erhält eine Meldung zur Ersatzprüfung.";
-      } else {
-        btn.textContent = "🌴 Antrag verbindlich einreichen";
-        btn.style.background = "var(--bayer-blue)";
-        info.style.background = "#f0f9ff";
-        info.style.borderColor = "#bae6fd";
-        info.style.color = "#0369a1";
-        info.innerHTML = "🌴 <b>Urlaub / Freistellung:</b> Dein Antrag wird mit exaktem Zeitstempel dokumentiert und an den Schichtplaner zur Genehmigung (oder Teilgenehmigung) gesendet.";
-      }
+    window.onPortalLeaveCatChange = function() {
+      const cat = document.getElementById("portalLeaveCategory").value;
+      const hint = document.getElementById("portalSickNoticeHint");
+      if (hint) hint.style.display = (cat === "Arbeitsunfähigkeit") ? "block" : "none";
     };
 
-    window.submitPortalLeaveEntry = function() {
+    window.submitPortalLeaveRequest = function() {
       const emp = employees.find(e => e.id === currentPortalEmpId);
       if (!emp) return;
 
@@ -816,16 +844,20 @@
       const reason = (document.getElementById("portalLeaveReason").value || "").trim();
 
       if (!start || !end || start > end) {
-        return showPortalToast("⚠️ Bitte einen gültigen Zeitraum (Von / Bis) wählen!", true);
+        showToast("Bitte einen gültigen Zeitraum (Von / Bis) auswählen!", true);
+        return;
       }
+
       if (window.hasLeaveOverlap(emp.id, start, end)) {
-        return showPortalToast("⛔ Du hast in diesem Zeitraum bereits eine aktive Meldung oder einen offenen Antrag!", true);
+        showToast("⛔ Du hast in diesem Zeitraum bereits eine aktive Meldung oder einen Antrag!", true);
+        return;
       }
 
-      const isSick = cat.toLowerCase().indexOf("arbeitsunfähig") !== -1 || cat.toLowerCase().indexOf("krank") !== -1;
+      const isSick = (cat === "Arbeitsunfähigkeit");
       const nowIso = new Date().toISOString();
+      const actor = fullName(emp) + " (Portal)";
 
-      const newEntry = {
+      const newLeave = {
         id: "sl_" + Date.now(),
         empId: emp.id,
         startDate: start,
@@ -837,548 +869,398 @@
         status: isSick ? "approved" : "pending",
         plannerUnreadInfo: true,
         createdAt: nowIso,
-        createdBy: fullName(emp) + " (Portal)",
-        auditLog: [{
-          action: isSick
-            ? ("Krankmeldung eingereicht (" + formatDateDe(start) + " – " + formatDateDe(end) + ")")
-            : ("Antrag auf " + cat + " eingereicht (" + formatDateDe(start) + " – " + formatDateDe(end) + ")"),
-          actor: fullName(emp) + " (Portal)",
-          timestamp: nowIso
-        }]
+        createdBy: actor,
+        auditLog: []
       };
 
-      sickLeaves.unshift(newEntry);
-      if (isSick) {
-        window.generateCoveragePromptForLeave(newEntry, "pending");
-      }
-
-      addHistoryLog(
-        (isSick ? "Krankmeldung" : "Antrag (" + cat + ")") + " im Portal eingereicht von " + fullName(emp) +
-        " (" + formatDateDe(start) + " bis " + formatDateDe(end) + ")",
-        "ABSENCE"
+      appendAuditEntry(
+        newLeave,
+        isSick
+          ? ("Krankmeldung im Portal eingereicht (" + formatDateDe(start) + " – " + formatDateDe(end) + ")")
+          : ("Antrag (" + cat + ") im Portal eingereicht (" + formatDateDe(start) + " – " + formatDateDe(end) + ")"),
+        actor
       );
 
+      sickLeaves.unshift(newLeave);
+      if (isSick) {
+        window.generateCoveragePromptForLeave(newLeave, "pending");
+      }
+
+      addHistoryLog(fullName(emp) + ": " + cat + " im Portal gemeldet (" + formatDateDe(start) + "–" + formatDateDe(end) + ")", "ABSENCE");
+      document.getElementById("portalLeaveReason").value = "";
       saveToFirebase();
       window.syncAbsentAndExtraZones();
-      document.getElementById("portalLeaveReason").value = "";
       renderPortalDashboard();
-      showPortalToast(isSick ? "🏥 Krankmeldung wurde im System eingetragen!" : "🌴 Antrag erfolgreich an den Planer gesendet!");
+      showToast(isSick ? "🏥 Krankmeldung mit Zeitstempel eingetragen!" : "📨 Dein Antrag wurde mit Zeitstempel an den Planer gesendet!");
     };
 
-    window.portalRespondToCounterOffer = function(leaveId, accept) {
+    window.previewPortalExtraPlausibility = function() {
       const emp = employees.find(e => e.id === currentPortalEmpId);
-      if (!emp) return;
-      const ok = accept ? window.acceptLeaveCounterOffer(leaveId) : window.rejectLeaveCounterOffer(leaveId);
-      if (ok) {
-        renderPortalDashboard();
-        showPortalToast(accept ? "✅ Gegenangebot angenommen!" : "❌ Gegenangebot abgelehnt");
-      }
-    };
-
-    window.portalCancelOwnPendingLeave = function(leaveId) {
-      const sl = sickLeaves.find(x => x.id === leaveId && x.empId === currentPortalEmpId);
-      if (!sl) return;
-      if (!confirm("Möchtest du diesen noch offenen Antrag wirklich zurückziehen?")) return;
-      sickLeaves = sickLeaves.filter(x => x.id !== leaveId);
-      window.removeCoveragePromptForLeave(leaveId);
-      addHistoryLog("Offener Antrag im Portal zurückgezogen von " + fullName(employees.find(e => e.id === currentPortalEmpId)), "ABSENCE");
-      saveToFirebase();
-      renderPortalDashboard();
-      showPortalToast("Antrag zurückgezogen");
-    };
-
-    window.togglePortalLineRequestForm = function(forceState) {
-      const el = document.getElementById("portalLineReqForm");
-      if (!el) return;
-      const show = typeof forceState === "boolean" ? forceState : (el.style.display === "none" || !el.style.display);
-      el.style.display = show ? "flex" : "none";
-      if (show) {
-        const emp = employees.find(e => e.id === currentPortalEmpId);
-        const sel = document.getElementById("portalReqLineSelect");
-        if (sel && emp) {
-          sel.innerHTML = lines.map(l => '<option value="' + l.id + '">' + l.name + ' (' + (l.floor || '1. OG') + ')</option>').join("");
-        }
-      }
-    };
-
-    window.submitPortalLineRequest = function() {
-      const emp = employees.find(e => e.id === currentPortalEmpId);
-      if (!emp) return;
-      const lineId = document.getElementById("portalReqLineSelect").value;
-      const lType = document.getElementById("portalReqLineType").value;
-      const note = (document.getElementById("portalReqLineNote").value || "").trim();
-      const lObj = lines.find(l => l.id === lineId);
-      if (!lObj) return;
-
-      const todayIso = getLogicalDateIso();
-      const nowIso = new Date().toISOString();
-
-      sickLeaves.unshift({
-        id: "lreq_" + Date.now(),
-        empId: emp.id,
-        startDate: todayIso,
-        endDate: todayIso,
-        category: "Qualifikations-Anfrage (" + (lType === "prio" ? "Prio-Linie" : "Sekundärlinie") + ")",
-        reason: lObj.name + (note ? " · " + note : ""),
-        status: "pending",
-        plannerUnreadInfo: true,
-        lineRequestData: { lineId: lineId, type: lType },
-        createdAt: nowIso,
-        createdBy: fullName(emp) + " (Portal)",
-        auditLog: [{
-          action: "Freischaltung für " + lObj.name + " (" + (lType === "prio" ? "Prio" : "Sekundär") + ") angefragt",
-          actor: fullName(emp) + " (Portal)",
-          timestamp: nowIso
-        }]
-      });
-
-      addHistoryLog(fullName(emp) + " hat im Portal " + lObj.name + " angefragt", "EMP");
-      saveToFirebase();
-      document.getElementById("portalReqLineNote").value = "";
-      window.togglePortalLineRequestForm(false);
-      renderPortalDashboard();
-      showPortalToast("🏭 Linien-Anfrage an Planer gesendet!");
-    };
-
-    window.togglePortalFreeExtraForm = function(forceState) {
-      const el = document.getElementById("portalFreeExtraForm");
-      if (!el) return;
-      const show = typeof forceState === "boolean" ? forceState : (el.style.display === "none" || !el.style.display);
-      el.style.display = show ? "flex" : "none";
-      if (show) window.previewPortalFreeExtraPlausibility();
-    };
-
-    window.previewPortalFreeExtraPlausibility = function() {
-      const hintEl = document.getElementById("portalFreeExtraPlausibilityHint");
-      if (!hintEl || !currentPortalEmpId) return;
-      const dVal = window.normalizeDateIso(document.getElementById("portalFreeExtraDate").value);
-      const sVal = document.getElementById("portalFreeExtraShift").value;
+      const box = document.getElementById("portalExtraPlausibilityBox");
+      if (!emp || !box) return;
+      const dVal = window.normalizeDateIso(document.getElementById("portalExtraDate").value);
+      const sVal = document.getElementById("portalExtraShift").value;
       if (!dVal) {
-        hintEl.textContent = "";
+        box.style.display = "none";
         return;
       }
-      const check = window.checkExtraShiftPlausibility(currentPortalEmpId, dVal, sVal);
+      const check = window.checkExtraShiftPlausibility(emp.id, dVal, sVal);
+      box.style.display = "block";
       if (check.ok) {
-        hintEl.style.color = "#166534";
-        hintEl.textContent = "✅ Regulär in deiner Freischicht & Ruhezeit eingehalten.";
+        box.style.background = "#f0fdf4";
+        box.style.border = "1px solid #86efac";
+        box.style.color = "#166534";
+        box.textContent = "✅ Regulär frei & 11h-Ruhezeit eingehalten – Bringschicht problemlos möglich.";
       } else {
-        hintEl.style.color = "#b45309";
-        hintEl.textContent = "⚠️ Hinweis: " + check.reason + " (Der Planer sieht diesen Ruhezeit-Hinweis bei deiner Anfrage).";
+        box.style.background = "#fffbeb";
+        box.style.border = "1px solid #fde68a";
+        box.style.color = "#b45309";
+        box.textContent = "⚠️ Hinweis: " + check.reason;
       }
     };
 
-    window.submitPortalFreeExtraShift = function() {
+    window.submitPortalExtraShiftOffer = function(covId, presetDate, presetShift) {
       const emp = employees.find(e => e.id === currentPortalEmpId);
       if (!emp) return;
-      const dVal = window.normalizeDateIso(document.getElementById("portalFreeExtraDate").value);
-      const sVal = document.getElementById("portalFreeExtraShift").value;
-      const note = (document.getElementById("portalFreeExtraNote").value || "").trim();
-      if (!dVal) return showPortalToast("Bitte ein Datum wählen!", true);
+
+      const dVal = window.normalizeDateIso(presetDate || document.getElementById("portalExtraDate").value);
+      const sVal = presetShift || document.getElementById("portalExtraShift").value;
+      const noteVal = presetDate ? "Aus Bringschicht-Börse übernommen" : (document.getElementById("portalExtraNote").value || "").trim();
+
+      if (!dVal) {
+        showToast("Bitte ein Datum auswählen!", true);
+        return;
+      }
 
       const dup = extraShifts.find(es => es.empId === emp.id && window.normalizeDateIso(es.date) === dVal && es.status !== "rejected");
-      if (dup) return showPortalToast("⛔ Du hast für den " + formatDateDe(dVal) + " bereits eine Bringschicht eingetragen!", true);
+      if (dup) {
+        showToast("⛔ Du hast für den " + formatDateDe(dVal) + " bereits eine Bringschicht eingetragen!", true);
+        return;
+      }
 
       const check = window.checkExtraShiftPlausibility(emp.id, dVal, sVal);
       const nowIso = new Date().toISOString();
+      const actor = fullName(emp) + " (Portal)";
+      const shiftShortCode = sVal === "frueh" ? "F" : (sVal === "spaet" ? "S" : "N");
 
-      extraShifts.unshift({
+      const newExtra = {
         id: "es_" + Date.now(),
         empId: emp.id,
         date: dVal,
         shift: sVal,
-        note: note || "Freies Bringschicht-Angebot aus dem Portal",
+        coverageId: covId || null,
+        note: noteVal,
         plausibilityWarning: !check.ok,
-        conflictDetails: check.ok ? "" : check.reason,
+        conflictDetails: check.reason || "",
         status: "pending",
         plannerUnreadInfo: true,
         createdAt: nowIso,
-        createdBy: fullName(emp) + " (Portal)",
-        auditLog: [{
-          action: "Bringschicht angeboten für " + formatDateDe(dVal) + " (" + (shiftsLabel[sVal] || sVal) + ")",
-          actor: fullName(emp) + " (Portal)",
-          timestamp: nowIso
-        }]
-      });
+        createdBy: actor,
+        auditLog: []
+      };
 
-      addHistoryLog("Bringschicht im Portal angeboten von " + fullName(emp) + " am " + formatDateDe(dVal), "ABSENCE");
-      saveToFirebase();
-      document.getElementById("portalFreeExtraNote").value = "";
-      window.togglePortalFreeExtraForm(false);
-      renderPortalDashboard();
-      showPortalToast("➕ Bringschicht-Angebot an Planer gesendet!");
-    };
-
-    window.takePortalCoverageShift = function(covId, dateIso, shiftId) {
-      const emp = employees.find(e => e.id === currentPortalEmpId);
-      if (!emp) return;
-      const normDate = window.normalizeDateIso(dateIso);
-      const dup = extraShifts.find(es => es.empId === emp.id && window.normalizeDateIso(es.date) === normDate && es.status !== "rejected");
-      if (dup) return showPortalToast("⛔ Du hast an diesem Tag bereits eine Bringschicht!", true);
-
-      const check = window.checkExtraShiftPlausibility(emp.id, normDate, shiftId);
-      const cov = (leaveRequests || []).find(r => r.id === covId || r.leaveId === covId);
-      const absentEmp = cov ? employees.find(x => x.id === cov.empId) : null;
-      const nowIso = new Date().toISOString();
-
-      extraShifts.unshift({
-        id: "es_" + Date.now(),
-        empId: emp.id,
-        date: normDate,
-        shift: shiftId,
-        coverageId: cov ? cov.id : covId,
-        note: "Vertretungs-Angebot" + (absentEmp ? (" für " + fullName(absentEmp)) : ""),
-        plausibilityWarning: !check.ok,
-        conflictDetails: check.ok ? "" : check.reason,
-        status: "pending",
-        plannerUnreadInfo: true,
-        createdAt: nowIso,
-        createdBy: fullName(emp) + " (Portal)",
-        auditLog: [{
-          action: "Auf ausgeschriebene Bringschicht gemeldet (" + formatDateDe(normDate) + " · " + (shiftsLabel[shiftId] || shiftId) + ")",
-          actor: fullName(emp) + " (Portal)",
-          timestamp: nowIso
-        }]
-      });
-
-      addHistoryLog(fullName(emp) + " hat sich im Portal für Bringschicht am " + formatDateDe(normDate) + " gemeldet", "ABSENCE");
+      appendAuditEntry(newExtra, "Bringschicht (" + shiftShortCode + " · " + (shiftsShortLabel[sVal] || sVal) + ") am " + formatDateDe(dVal) + " im Portal angeboten", actor);
+      extraShifts.unshift(newExtra);
+      addHistoryLog(fullName(emp) + " bietet Bringschicht (" + shiftShortCode + ") am " + formatDateDe(dVal) + " an", "ABSENCE");
+      if (!presetDate) document.getElementById("portalExtraNote").value = "";
       saveToFirebase();
       renderPortalDashboard();
-      showPortalToast("🤝 Dein Übernahme-Angebot wurde an den Planer gesendet!");
+      showToast("➕ Bringschicht-Angebot (" + shiftShortCode + ") mit Zeitstempel an den Planer gesendet!");
     };
 
-    window.changePortalOwnPin = function() {
-      const emp = employees.find(e => e.id === currentPortalEmpId);
-      if (!emp) return;
-      const oldP = (document.getElementById("portalChangeOldPin").value || "").trim();
-      const newP1 = (document.getElementById("portalChangeNewPin1").value || "").trim();
-      const newP2 = (document.getElementById("portalChangeNewPin2").value || "").trim();
-
-      if ((emp.password || "1234") !== oldP) return showPortalToast("❌ Aktuelle PIN stimmt nicht!", true);
-      if (newP1.length < 4) return showPortalToast("❌ Neue PIN muss mind. 4 Zeichen haben!", true);
-      if (newP1 !== newP2) return showPortalToast("❌ Die neuen PINs stimmen nicht überein!", true);
-
-      emp.password = newP1;
-      emp.mustChangePw = false;
-      addHistoryLog("Persönliche PIN im Portal geändert von " + fullName(emp), "LOGIN");
-      saveToFirebase();
-      document.getElementById("portalChangeOldPin").value = "";
-      document.getElementById("portalChangeNewPin1").value = "";
-      document.getElementById("portalChangeNewPin2").value = "";
-      showPortalToast("✅ Deine PIN wurde erfolgreich aktualisiert!");
-    };
-
-    function renderPortalAuditBoxHtml(item) {
-      const linesHtml = [];
-      if (item.createdAt || item.createdBy) {
-        linesHtml.push(
-          '<div>📝 <b>Eingereicht:</b> ' +
-          (item.createdAt ? formatAuditDateTimeDe(item.createdAt) : 'Dokumentiert') +
-          (item.createdBy ? (' durch <b>' + item.createdBy + '</b>') : '') +
-          '</div>'
-        );
-      }
-      if (item.reviewedBy || item.reviewedAt) {
-        const stVerb = item.status === "approved"
-          ? "Bestätigt / Genehmigt"
-          : (item.status === "counter_offer" ? "Gegenangebot / Teilgenehmigung" : "Abgelehnt");
-        linesHtml.push(
-          '<div style="color:#0f172a;">🛡️ <b>' + stVerb + ':</b> ' +
-          (item.reviewedAt ? formatAuditDateTimeDe(item.reviewedAt) : '') +
-          (item.reviewedBy ? (' durch <b>' + item.reviewedBy + '</b>') : '') +
-          '</div>'
-        );
-      }
-      if (Array.isArray(item.auditLog) && item.auditLog.length > 1) {
-        const lastLog = item.auditLog[item.auditLog.length - 1];
-        if (lastLog && lastLog.action) {
-          linesHtml.push(
-            '<div style="color:#0369a1;">🕒 <b>Letzter Schritt:</b> ' + lastLog.action +
-            ' (' + formatAuditDateTimeDe(lastLog.timestamp) + ' · ' + (lastLog.actor || 'System') + ')</div>'
-          );
+    window.togglePortalLineRequestBox = function() {
+      const box = document.getElementById("portalLineRequestBox");
+      if (!box) return;
+      const show = (box.style.display === "none" || !box.style.display);
+      box.style.display = show ? "flex" : "none";
+      if (show) {
+        const sel = document.getElementById("portalReqLineId");
+        if (sel) {
+          sel.innerHTML = lines.map(l => '<option value="' + l.id + '">' + l.name + '</option>').join("");
         }
       }
-      if (!linesHtml.length) return "";
-      return '<div class="audit-stamp">' + linesHtml.join("") + '</div>';
-    }
+    };
 
-    window.renderPortalDashboard = function() {
-      if (!currentPortalEmpId || !Array.isArray(employees) || !employees.length) return;
+    window.submitPortalLineQualRequest = function() {
+      const emp = employees.find(e => e.id === currentPortalEmpId);
+      if (!emp) return;
+      const lineId = document.getElementById("portalReqLineId").value;
+      const type = document.getElementById("portalReqLineType").value;
+      const lObj = lines.find(l => l.id === lineId);
+      const lName = lObj ? lObj.name : lineId;
+      const nowIso = new Date().toISOString();
+      const actor = fullName(emp) + " (Portal)";
+
+      const reqObj = {
+        id: "lreq_" + Date.now(),
+        empId: emp.id,
+        startDate: getLogicalDateIso(),
+        endDate: getLogicalDateIso(),
+        category: "Linien-Freischaltung (" + (type === "prio" ? "Prio-Stammlinie" : "Sekundärlinie") + ")",
+        reason: lName + " als " + (type === "prio" ? "Prio-Stammlinie" : "Sekundärlinie") + " freischalten",
+        lineRequestData: { lineId: lineId, type: type },
+        status: "pending",
+        plannerUnreadInfo: true,
+        createdAt: nowIso,
+        createdBy: actor,
+        auditLog: []
+      };
+      appendAuditEntry(reqObj, "Freischaltung für " + lName + " angefragt", actor);
+      sickLeaves.unshift(reqObj);
+      saveToFirebase();
+      document.getElementById("portalLineRequestBox").style.display = "none";
+      renderPortalDashboard();
+      showToast("🏭 Anfrage für " + lName + " an den Planer gesendet!");
+    };
+
+    window.withdrawPortalRequest = function(type, id) {
+      if (!confirm("Möchtest du diesen offenen Antrag wirklich zurückziehen?")) return;
+      if (type === "leave") {
+        sickLeaves = sickLeaves.filter(x => x.id !== id);
+        window.removeCoveragePromptForLeave(id);
+      } else {
+        window.deleteExtraShift(id, true);
+      }
+      saveToFirebase();
+      renderPortalDashboard();
+      showToast("Antrag zurückgezogen");
+    };
+
+    function renderPortalDashboard() {
+      if (!currentPortalEmpId || !hasLoadedFromCloud) return;
       const emp = employees.find(e => e.id === currentPortalEmpId);
       if (!emp) return;
 
       const todayIso = getLogicalDateIso();
-      const isSun = isIsoDateSunday(todayIso);
-      const isApproved = (approvedShiftKey === getShiftWindowKey());
+      const tObj = (teamsConfig && teamsConfig[emp.team]) ? teamsConfig[emp.team] : { name: emp.team, color: "#0091df" };
 
-      document.getElementById("portalHeaderUser").textContent = "👤 " + fullName(emp) + " (" + (emp.role || "Bediener") + ")";
-      document.getElementById("portalHeaderDate").textContent = formatDateDe(todayIso) + " · KW " + getIsoWeekNumber(new Date());
+      document.getElementById("portalUserHeaderName").textContent = "👤 " + fullName(emp);
+      document.getElementById("portalUserHeaderMeta").textContent = (emp.role || "Bediener") + " · " + tObj.name;
 
-      const bar = document.getElementById("portalBrandBar");
-      const statusPill = document.getElementById("portalShiftStatusPill");
-      const statusTxt = document.getElementById("portalShiftStatusText");
+      /* 1. Heutiger Live-Status & nächste Bringschicht (inkl. F / S / N Kennzeichnung) */
+      const heroEl = document.getElementById("portalTodayHero");
+      if (heroEl) {
+        const curLineId = extractLineIdFromZone(emp.zone);
+        const curShiftId = extractShiftIdFromZone(emp.zone);
+        const lObj = curLineId ? lines.find(l => l.id === curLineId) : null;
+        const isApprovedToday = (approvedShiftKey === getShiftWindowKey());
 
-      if (isSun) {
-        bar.className = "brand-gradient approved";
-        statusPill.className = "portal-shift-status sunday";
-        statusTxt.textContent = "Sonntag – Regulär arbeitsfrei";
-      } else if (isApproved) {
-        bar.className = "brand-gradient approved";
-        statusPill.className = "portal-shift-status approved";
-        statusTxt.textContent = "Aktueller Schichtplan freigegeben";
-      } else {
-        bar.className = "brand-gradient pending";
-        statusPill.className = "portal-shift-status pending";
-        statusTxt.textContent = "Schichtplan wird aktuell disponiert";
+        const myUpcomingExtras = (extraShifts || []).filter(es => es.empId === emp.id && es.status === "approved" && window.normalizeDateIso(es.date) >= todayIso);
+        const extraBadgesHtml = myUpcomingExtras.map(es => {
+          const code = es.shift === "frueh" ? "F" : (es.shift === "spaet" ? "S" : "N");
+          const isToday = window.normalizeDateIso(es.date) === todayIso;
+          return '<span style="background:#16a34a; color:#fff; padding:3px 9px; border-radius:999px; font-size:0.74rem; font-weight:800;">➕ Bringschicht [' + code + ' · ' + (shiftsShortLabel[es.shift] || es.shift) + ']: ' + (isToday ? 'HEUTE (' + formatDateDe(es.date) + ')' : formatDateDe(es.date)) + '</span>';
+        }).join(" ");
+
+        let statusLine = "Pool / Freischicht";
+        if (emp.zone === "absent") {
+          statusLine = "🏥 Abwesend / Urlaub eingetragen";
+        } else if (lObj && curShiftId) {
+          statusLine = "🏭 Eingeteilt an <b>" + lObj.name + "</b> (" + (shiftsLabel[curShiftId] || curShiftId) + ")";
+        } else if (emp.zone === "extra") {
+          statusLine = "➕ Im grünen Bringschichten-Feld bereitgestellt";
+        }
+
+        heroEl.innerHTML =
+          '<div>' +
+            '<div style="font-size:0.75rem; font-weight:700; color:#0369a1;">Heutiger Produktionstag (' + getWeekdayShortDe(todayIso) + ', ' + formatDateDe(todayIso) + '):</div>' +
+            '<div style="font-size:0.96rem; margin-top:2px;">' + statusLine + '</div>' +
+            (extraBadgesHtml ? '<div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">' + extraBadgesHtml + '</div>' : '') +
+          '</div>' +
+          '<span style="font-size:0.74rem; font-weight:800; padding:4px 10px; border-radius:999px; background:' + (isApprovedToday ? '#dcfce7' : '#fee2e2') + '; color:' + (isApprovedToday ? '#166534' : '#991b1b') + ';">' +
+            (isApprovedToday ? '🟢 Heutiger Schichtplan freigegeben' : '🔴 Schichtplan noch in Planung') +
+          '</span>';
       }
 
-      const tObj = teamsConfig[emp.team] || { name: emp.team, color: "#0091df" };
-      const teamBadge = document.getElementById("portalUserTeamBadge");
-      if (teamBadge) {
-        teamBadge.textContent = tObj.name;
-        teamBadge.style.background = tObj.color + "20";
-        teamBadge.style.color = tObj.color;
-        teamBadge.style.border = "1px solid " + tObj.color;
+      /* 2. Offene Gegenangebote (Counter-Offers) rendern */
+      const coSec = document.getElementById("portalCounterOffersSection");
+      const myCounterOffers = (sickLeaves || []).filter(sl => sl.empId === emp.id && sl.status === "counter_offer");
+      if (coSec) {
+        if (!myCounterOffers.length) {
+          coSec.style.display = "none";
+          coSec.innerHTML = "";
+        } else {
+          coSec.style.display = "flex";
+          coSec.style.flexDirection = "column";
+          coSec.style.gap = "8px";
+          coSec.innerHTML = myCounterOffers.map(sl => {
+            const blocksHtml = (sl.blocks || []).map(b => {
+              const stLabel = b.status === "approved" ? "✅ Fest genehmigt" : (b.status === "counter_offer" ? "💬 Vorschlag / Gegenangebot" : "❌ Abgelehnt");
+              return '<div style="font-size:0.78rem; padding:4px 8px; background:#fff; border-radius:6px; border:1px solid #bae6fd;"><b>' + formatDateDe(b.start) + ' bis ' + formatDateDe(b.end) + ':</b> ' + stLabel + '</div>';
+            }).join("");
+            return '<div style="background:#fffbeb; border:2px solid #f59e0b; border-radius:11px; padding:12px 14px; display:flex; flex-direction:column; gap:8px;">' +
+              '<div style="font-size:0.88rem; font-weight:800; color:#b45309;">💬 Neues Gegenangebot / Teilgenehmigung vom Planer zu deinem Antrag (' + (sl.category || 'Urlaub') + ')</div>' +
+              (sl.plannerCounterNote ? '<div style="font-size:0.8rem; color:#0f172a;"><b>Nachricht vom Planer:</b> „' + sl.plannerCounterNote + '“</div>' : '') +
+              '<div style="display:flex; flex-direction:column; gap:4px;">' + blocksHtml + '</div>' +
+              renderAuditTrailHtml(sl) +
+              '<div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;">' +
+                '<button type="button" class="btn btn-primary" style="background:#16a34a;" onclick="acceptLeaveCounterOffer(\'' + sl.id + '\'); renderPortalDashboard(); showToast(\'✅ Gegenangebot verbindlich angenommen!\');">✅ Vorschlag annehmen</button>' +
+                '<button type="button" class="btn btn-outline" style="color:#dc2626; border-color:#fca5a5;" onclick="rejectLeaveCounterOffer(\'' + sl.id + '\'); renderPortalDashboard(); showToast(\'Vorschlag abgelehnt\');">❌ Vorschlag ablehnen</button>' +
+              '</div>' +
+            '</div>';
+          }).join("");
+        }
       }
 
-      /* 1. Meine Schicht Box */
-      const shiftBox = document.getElementById("portalMyShiftBox");
-      const curLineId = extractLineIdFromZone(emp.zone);
-      const curShiftId = extractShiftIdFromZone(emp.zone);
-      const curLineObj = curLineId ? lines.find(l => l.id === curLineId) : null;
-      const teamSlot = ["frueh", "spaet", "nacht", "frei"].find(s => shiftRotation[s] === emp.team) || "frei";
-      const protInfo = window.getEmpTrainingProtectionInfo(emp, todayIso);
+      /* 3. 14-Tage Kalender (inkl. F / S / N Kennzeichnung bei Bringschichten) */
+      const calGrid = document.getElementById("portalShiftCalendarGrid");
+      if (calGrid) {
+        const baseD = new Date(todayIso + "T12:00:00");
+        const daysHtml = [];
+        for (let i = 0; i < 14; i++) {
+          const curD = new Date(baseD.getTime() + i * 86400000);
+          const dIso = curD.getFullYear() + "-" + String(curD.getMonth() + 1).padStart(2, "0") + "-" + String(curD.getDate()).padStart(2, "0");
+          const wd = getWeekdayShortDe(dIso);
+          const regShift = getEmployeeRegularShiftOnDate(emp, dIso);
 
-      let myZoneHtml = "";
-      if (emp.zone === "absent") {
-        myZoneHtml = '<div style="background:#fff5f5; border:1px solid #fecaca; color:#991b1b; padding:10px; border-radius:8px; font-weight:700;">🏥 Du bist heute als abwesend / krank / im Urlaub eingetragen.</div>';
-      } else if (curLineObj && curShiftId) {
-        myZoneHtml =
-          '<div style="background:#f0fdf4; border:1px solid #86efac; color:#166534; padding:10px; border-radius:8px;">' +
-            '<div style="font-size:0.75rem; font-weight:700; text-transform:uppercase;">Aktuelle Einteilung auf dem Board:</div>' +
-            '<div style="font-size:1.05rem; font-weight:800; margin-top:2px;">🏭 ' + curLineObj.name + ' (' + (curLineObj.floor || '1. OG') + ') · ' + (shiftsLabel[curShiftId] || curShiftId) + '</div>' +
-          '</div>';
-      } else {
-        myZoneHtml =
-          '<div style="background:#f8fafc; border:1px solid #e2e8f0; color:#334155; padding:10px; border-radius:8px;">' +
-            'Regulärer 2-2-2 Team-Turnus heute: <b>' + (shiftsLabel[teamSlot] || 'Freischicht') + '</b>' +
-          '</div>';
-      }
+          const activeLeave = (sickLeaves || []).find(sl => sl.empId === emp.id && isLeaveActiveOnDate(sl, dIso));
+          const activeExtra = (extraShifts || []).find(es => es.empId === emp.id && es.status === "approved" && window.normalizeDateIso(es.date) === dIso);
 
-      const protHtml = protInfo.active
-        ? '<div style="background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; padding:7px 10px; border-radius:8px; font-size:0.78rem; font-weight:700;">' +
-            '🛡️ Einarbeitungs-Schutz aktiv: ' + protInfo.mainPct + '% Stammlinien-Fokus (noch ' + protInfo.remainingDays + ' Tage bis zum automatischen Ablauf)' +
-          '</div>'
-        : '';
+          let boxClass = "cal-day-box" + (i === 0 ? " today" : "");
+          let badgeHtml = "";
 
-      shiftBox.innerHTML = myZoneHtml + protHtml;
-
-      /* 2. Meine Anlagen & Multi-Anlagen-Historie (Test 3 B etc.) */
-      const linesBox = document.getElementById("portalMyLinesBox");
-      const mainNames = (emp.mainLines || []).map(id => { const l = lines.find(x => x.id === id); return l ? l.name : id; });
-      const secNames = (emp.secLines || []).map(id => { const l = lines.find(x => x.id === id); return l ? l.name : id; });
-      const pinLineId = emp.pinnedZone ? extractLineIdFromZone(emp.pinnedZone) : null;
-      const pinLineObj = pinLineId ? lines.find(l => l.id === pinLineId) : null;
-
-      const threshold = Number(shiftModelConfig.secondaryUnlockThresholdHours) || 120;
-      const hoursMap = emp.trainingHoursByLine || {};
-      const historyMap = emp.lineHistory || {};
-
-      /* Alle besuchten Fremdanlagen sammeln (auch wenn aktuell an einer anderen Anlage eingeteilt) */
-      const visitedForeignLineIds = Array.from(new Set(
-        Object.keys(hoursMap).concat(Object.keys(historyMap))
-      )).filter(lId => {
-        if ((emp.mainLines || []).indexOf(lId) !== -1) return false;
-        if ((emp.secLines || []).indexOf(lId) !== -1) return false;
-        return (Number(hoursMap[lId]) || 0) > 0;
-      });
-
-      let multiHistoryHtml = "";
-      if (visitedForeignLineIds.length > 0) {
-        multiHistoryHtml =
-          '<div style="margin-top:4px; border-top:1px solid #e2e8f0; padding-top:8px; display:flex; flex-direction:column; gap:6px;">' +
-            '<b style="font-size:0.78rem; color:#0369a1;">📊 Meine Einarbeitungs-Historie an weiteren Anlagen (' + visitedForeignLineIds.length + '):</b>' +
-            visitedForeignLineIds.map(lId => {
-              const lObj = lines.find(x => x.id === lId);
-              const lTitle = lObj ? lObj.name : lId;
-              const hrs = Math.round((Number(hoursMap[lId]) || 0) * 10) / 10;
-              const pct = Math.min(100, Math.round((hrs / threshold) * 100));
-              const isCurrentlyHere = (curLineId === lId);
-              const lastDate = historyMap[lId] ? formatDateDe(historyMap[lId]) : "";
-
-              return '<div class="training-history-row" style="' + (isCurrentlyHere ? 'border-color:#38bdf8; background:#f0f9ff;' : '') + '">' +
-                '<div style="display:flex; justify-content:space-between; align-items:center; font-size:0.78rem;">' +
-                  '<span><b>' + lTitle + '</b> ' +
-                    (isCurrentlyHere
-                      ? '<span style="color:#0284c7; font-weight:700; font-size:0.7rem;">(🟢 Aktuell eingeteilt)</span>'
-                      : (lastDate ? '<span style="color:#64748b; font-size:0.7rem;">(🕒 Letzter Einsatz: ' + lastDate + ')</span>' : '')) +
-                  '</span>' +
-                  '<b style="color:#0f172a;">' + hrs + 'h / ' + threshold + 'h (' + pct + '%)</b>' +
-                '</div>' +
-                '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%;"></div></div>' +
-              '</div>';
-            }).join("") +
-          '</div>';
-      }
-
-      linesBox.innerHTML =
-        '<div><b>⭐ Prio-Stammlinien:</b> ' + (mainNames.length ? mainNames.join(", ") : '<span style="color:#94a3b8;">Keine hinterlegt</span>') + '</div>' +
-        '<div><b>🔄 Sekundärlinien:</b> ' + (secNames.length ? secNames.join(", ") : '<span style="color:#94a3b8;">Keine hinterlegt</span>') + '</div>' +
-        '<div><b>📌 Letzte gespeicherte Position (Memory-Nadel):</b> ' + (pinLineObj ? pinLineObj.name : '<span style="color:#94a3b8;">–</span>') + '</div>' +
-        multiHistoryHtml;
-
-      /* 3. Offene Bringschichten (vom Planer mit JA freigegeben) */
-      const covContainer = document.getElementById("portalOpenCoverageList");
-      const openDayCards = [];
-
-      (leaveRequests || []).forEach(cov => {
-        if (cov.empId === emp.id) return;
-        if ((cov.role || "Bediener") !== (emp.role || "Bediener")) return;
-        const absentEmp = employees.find(x => x.id === cov.empId);
-
-        (cov.days || []).forEach(d => {
-          const normDate = window.normalizeDateIso(d.date);
-          if (normDate < todayIso) return;
-          if (d.dayStatus !== "open" || !d.explicitlyApproved || d.takenBy) return;
-
-          const alreadyOffered = extraShifts.some(es =>
-            es.empId === emp.id &&
-            window.normalizeDateIso(es.date) === normDate &&
-            es.shift === d.shift &&
-            es.status !== "rejected"
-          );
-
-          const check = window.checkExtraShiftPlausibility(emp.id, normDate, d.shift);
-          if (!check.ok && !d.allowWithRestWarning) return;
-
-          openDayCards.push({
-            covId: cov.id || cov.leaveId,
-            date: normDate,
-            shift: d.shift,
-            probableLines: cov.probableLines || "",
-            absentName: absentEmp ? fullName(absentEmp) : "Kollege",
-            checkOk: check.ok,
-            checkReason: check.reason,
-            alreadyOffered: alreadyOffered
-          });
-        });
-      });
-
-      if (!openDayCards.length) {
-        covContainer.innerHTML = '<p style="font-size:0.8rem; color:#64748b;">Aktuell sind keine offenen Bringschichten für deine Rolle (' + (emp.role || 'Bediener') + ') ausgeschrieben.</p>';
-      } else {
-        covContainer.innerHTML = openDayCards.map(item =>
-          '<div style="background:#ffffff; border:1px solid ' + (item.checkOk ? '#86efac' : '#fde68a') + '; border-left:4px solid ' + (item.checkOk ? '#16a34a' : '#f59e0b') + '; padding:10px; border-radius:8px; display:flex; flex-direction:column; gap:6px;">' +
-            '<div style="display:flex; justify-content:space-between; align-items:center;">' +
-              '<b style="font-size:0.84rem;">📅 ' + getWeekdayShortDe(item.date) + ', ' + formatDateDe(item.date) + '</b>' +
-              '<span class="badge-pill" style="background:#e0f2fe; color:#0369a1;">' + (shiftsLabel[item.shift] || item.shift) + '</span>' +
-            '</div>' +
-            '<div style="font-size:0.75rem; color:#475569;">Ausfall-Vertretung (' + (emp.role || 'Bediener') + ')' + (item.probableLines ? ' · ' + item.probableLines : '') + '</div>' +
-            '<div style="font-size:0.72rem; font-weight:700; color:' + (item.checkOk ? '#166534' : '#b45309') + ';">' +
-              (item.checkOk ? '🟢 Regulär in deiner Freischicht fahrbar' : '🟡 Hinweis: ' + item.checkReason) +
-            '</div>' +
-            (item.alreadyOffered
-              ? '<span style="font-size:0.74rem; font-weight:700; color:#0284c7;">⏳ Dein Angebot liegt dem Planer zur Bestätigung vor</span>'
-              : '<button class="btn btn-success" style="padding:5px 10px; font-size:0.76rem; justify-content:center;" onclick="takePortalCoverageShift(\'' + item.covId + '\', \'' + item.date + '\', \'' + item.shift + '\')">🤝 Schicht übernehmen</button>'
-            ) +
-          '</div>'
-        ).join("");
-      }
-
-      /* 4. Meine Anträge, Gegenangebote & Audit-Nachweis */
-      const reqListEl = document.getElementById("portalMyRequestsList");
-      const myLeaves = (sickLeaves || []).filter(sl => sl.empId === emp.id);
-      const myExtras = (extraShifts || []).filter(es => es.empId === emp.id);
-
-      if (!myLeaves.length && !myExtras.length) {
-        reqListEl.innerHTML = '<p style="font-size:0.8rem; color:#64748b;">Noch keine eigenen Anträge oder Meldungen vorhanden.</p>';
-      } else {
-        const leavesHtml = myLeaves.map(sl => {
-          const stBadge = sl.status === "approved"
-            ? '<span class="badge-pill" style="background:#dcfce7; color:#166534;">✅ Bestätigt / Aktiv</span>'
-            : (sl.status === "counter_offer"
-              ? '<span class="badge-pill" style="background:#e0f2fe; color:#0369a1;">💬 Gegenangebot / Teilgenehmigung</span>'
-              : (sl.status === "rejected"
-                ? '<span class="badge-pill" style="background:#fee2e2; color:#991b1b;">❌ Abgelehnt</span>'
-                : '<span class="badge-pill" style="background:#fef3c7; color:#b45309;">⏳ In Prüfung beim Planer</span>'));
-
-          let blocksHtml = "";
-          if (Array.isArray(sl.blocks) && sl.blocks.length > 0) {
-            blocksHtml =
-              '<div style="margin-top:6px; display:flex; flex-direction:column; gap:4px; background:#f0f9ff; padding:7px; border-radius:6px; border:1px solid #bae6fd;">' +
-                '<b style="font-size:0.74rem; color:#0369a1;">Aufteilung der Zeiträume durch den Planer:</b>' +
-                sl.blocks.map(b => {
-                  const bBadge = b.status === "approved"
-                    ? "🟢 Fest genehmigt"
-                    : (b.status === "counter_offer" ? "💬 Vorschlag (Gegenangebot)" : "🔴 Abgelehnt");
-                  return '<div style="font-size:0.75rem; display:flex; justify-content:space-between;">' +
-                    '<span><b>' + formatDateDe(b.start) + ' bis ' + formatDateDe(b.end) + '</b></span>' +
-                    '<b>' + bBadge + '</b>' +
-                  '</div>';
-                }).join("") +
-                (sl.plannerCounterNote ? '<div style="font-size:0.74rem; color:#0f172a; margin-top:2px;">💬 <b>Nachricht vom Planer:</b> ' + sl.plannerCounterNote + '</div>' : '') +
-              '</div>';
+          if (activeLeave) {
+            boxClass += " leave-day";
+            badgeHtml = '<span class="shift-pill leave">🏥 ' + (activeLeave.category || "Abwesend") + '</span>';
+          } else if (activeExtra) {
+            boxClass += " extra-day";
+            const sCode = activeExtra.shift === "frueh" ? "F" : (activeExtra.shift === "spaet" ? "S" : "N");
+            badgeHtml = '<span class="shift-pill extra">➕ Bringschicht [' + sCode + '] (' + (shiftsShortLabel[activeExtra.shift] || activeExtra.shift) + ')</span>';
+          } else {
+            const sCode = regShift === "frueh" ? " (F)" : (regShift === "spaet" ? " (S)" : (regShift === "nacht" ? " (N)" : ""));
+            badgeHtml = '<span class="shift-pill ' + regShift + '">' + (shiftsShortLabel[regShift] || "Frei") + sCode + '</span>';
           }
 
-          const counterActions = sl.status === "counter_offer"
-            ? '<div style="display:flex; gap:6px; margin-top:6px;">' +
-                '<button class="btn btn-success" style="padding:4px 10px; font-size:0.74rem;" onclick="portalRespondToCounterOffer(\'' + sl.id + '\', true)">✅ Gegenangebot annehmen</button>' +
-                '<button class="btn btn-danger" style="padding:4px 10px; font-size:0.74rem;" onclick="portalRespondToCounterOffer(\'' + sl.id + '\', false)">❌ Ablehnen</button>' +
-              '</div>'
-            : '';
-
-          const cancelBtn = (sl.status === "pending" && !sl.isOnboardingNotice)
-            ? '<div style="margin-top:5px;"><button class="btn btn-outline" style="padding:3px 8px; font-size:0.7rem; color:#dc2626;" onclick="portalCancelOwnPendingLeave(\'' + sl.id + '\')">🗑️ Offenen Antrag zurückziehen</button></div>'
-            : '';
-
-          return '<div style="border:1px solid #e2e8f0; border-radius:8px; padding:9px 11px; background:#ffffff;">' +
-            '<div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap;">' +
-              '<b style="font-size:0.82rem;">' + (sl.category || 'Meldung') + '</b>' +
-              stBadge +
-            '</div>' +
-            '<div style="font-size:0.76rem; color:#334155; margin-top:3px;">Zeitraum: <b>' + formatDateDe(sl.startDate) + ' bis ' + formatDateDe(sl.endDate) + '</b>' + (sl.reason ? ' · ' + sl.reason : '') + '</div>' +
-            blocksHtml +
-            counterActions +
-            cancelBtn +
-            renderPortalAuditBoxHtml(sl) +
-          '</div>';
-        }).join("");
-
-        const extrasHtml = myExtras.map(es => {
-          const stBadge = es.status === "approved"
-            ? '<span class="badge-pill" style="background:#dcfce7; color:#166534;">✅ Genehmigt</span>'
-            : (es.status === "rejected"
-              ? '<span class="badge-pill" style="background:#fee2e2; color:#991b1b;">❌ Abgelehnt</span>'
-              : '<span class="badge-pill" style="background:#fef3c7; color:#b45309;">⏳ Offen</span>');
-
-          return '<div style="border:1px solid #bbf7d0; border-radius:8px; padding:9px 11px; background:#f0fdf4;">' +
-            '<div style="display:flex; justify-content:space-between; align-items:center;">' +
-              '<b style="font-size:0.82rem;">➕ Bringschicht am ' + formatDateDe(es.date) + ' (' + (shiftsLabel[es.shift] || es.shift) + ')</b>' +
-              stBadge +
-            '</div>' +
-            (es.note ? '<div style="font-size:0.75rem; color:#334155; margin-top:2px;">' + es.note + '</div>' : '') +
-            renderPortalAuditBoxHtml(es) +
-          '</div>';
-        }).join("");
-
-        reqListEl.innerHTML = leavesHtml + extrasHtml;
+          daysHtml.push(
+            '<div class="' + boxClass + '">' +
+              '<div style="font-weight:800; color:#0f172a;">' + wd + ', ' + formatDateDe(dIso).slice(0, 6) + (i === 0 ? ' <small style="color:var(--bayer-blue);">(Heute)</small>' : '') + '</div>' +
+              badgeHtml +
+            '</div>'
+          );
+        }
+        calGrid.innerHTML = daysHtml.join("");
       }
-    };
 
-    /* Automatische Aktualisierung bei Cloud-Updates */
-    const origInitBoard = window.initBoard;
-    window.initBoard = function() {
-      if (typeof origInitBoard === "function") origInitBoard();
-      if (currentPortalEmpId) {
-        const emp = employees.find(e => e.id === currentPortalEmpId);
-        if (emp) enterPortalDashboard();
-      }
-    };
+      /* 4. Offene Bringschichten-Börse */
+      const covEl = document.getElementById("portalOpenCoverageList");
+      if (covEl) {
+        const openItems = [];
+        (leaveRequests || []).forEach(cov => {
+          if ((cov.role || "Bediener") !== (emp.role || "Bediener")) return;
+          (cov.days || []).forEach(d => {
+            const dNorm = window.normalizeDateIso(d.date);
+            if (d.dayStatus === "open" && !d.takenBy && dNorm >= todayIso) {
+              const check = window.checkExtraShiftPlausibility(emp.id, dNorm, d.shift);
+              if (check.ok || d.allowWithRestWarning) {
+                openItems.push({ covId: cov.id, date: dNorm, shift: d.shift, probLines: cov.probableLines || "", warn: check.ok ? "" : check.reason });
+              }
+            }
+          });
+        });
 
-    document.addEventListener("click", evt => {
-      const box = document.getElementById("portalLoginSuggestions");
-      if (box && box.parentElement && !box.parentElement.contains(evt.target)) {
-        box.style.display = "none";
+        if (!openItems.length) {
+          covEl.innerHTML = '<p style="font-size:0.75rem; color:#64748b;">Aktuell keine offenen Bringschicht-Gesuche für deine Rolle.</p>';
+        } else {
+          covEl.innerHTML = openItems.map(item => {
+            const sCode = item.shift === "frueh" ? "F" : (item.shift === "spaet" ? "S" : "N");
+            return '<div style="background:#f8fafc; border:1px solid #cbd5e1; padding:7px 9px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:0.76rem;">' +
+              '<div>' +
+                '<b>' + getWeekdayShortDe(item.date) + ', ' + formatDateDe(item.date) + ' · ' + (shiftsLabel[item.shift] || item.shift) + ' [' + sCode + ']</b>' +
+                (item.probLines ? '<div style="color:#0369a1; font-size:0.7rem;">' + item.probLines + '</div>' : '') +
+                (item.warn ? '<div style="color:#d97706; font-size:0.68rem;">⚠️ ' + item.warn + '</div>' : '') +
+              '</div>' +
+              '<button type="button" class="btn btn-primary" style="padding:4px 9px; font-size:0.72rem; background:#16a34a;" onclick="submitPortalExtraShiftOffer(\'' + item.covId + '\', \'' + item.date + '\', \'' + item.shift + '\')">🙋‍♂️ Übernehmen</button>' +
+            '</div>';
+          }).join("");
+        }
       }
+
+      /* 5. Eigene Linien-Qualifikationen & Multi-Anlagen-Historie */
+      const qualSummaryEl = document.getElementById("portalQualBadgesSummary");
+      const mList = (emp.mainLines || []).map(getShortLineNumber).filter(Boolean).join(", ");
+      const sList = (emp.secLines || []).map(getShortLineNumber).filter(Boolean).join(", ");
+      if (qualSummaryEl) {
+        qualSummaryEl.textContent = (mList ? "★ Prio: " + mList : "") + (mList && sList ? " · " : "") + (sList ? "Sek: " + sList : "");
+      }
+
+      const histBox = document.getElementById("portalMyTrainingHistoryList");
+      if (histBox) {
+        const threshold = Math.max(6, Number(shiftModelConfig.secondaryUnlockThresholdHours) || 160);
+        const hoursMap = emp.trainingHoursByLine || {};
+        const hKeys = Object.keys(hoursMap).filter(lId => (Number(hoursMap[lId]) || 0) > 0 && !isEmployeeQualifiedForLine(emp, lId));
+        if (!hKeys.length) {
+          histBox.innerHTML = '<div style="font-size:0.78rem; color:#475569;"><b>Freigeschaltete Anlagen:</b> ' + (mList ? '★ Prio: ' + mList : 'Keine') + (sList ? ' · 🔄 Sekundär: ' + sList : '') + '</div>';
+        } else {
+          histBox.innerHTML = hKeys.map(lId => {
+            const lObj = lines.find(l => l.id === lId);
+            const hrs = Math.round((Number(hoursMap[lId]) || 0) * 10) / 10;
+            const pct = Math.min(100, Math.round((hrs / threshold) * 100));
+            return '<div style="background:#f8fafc; border:1px solid #cbd5e1; padding:7px 10px; border-radius:8px; margin-bottom:5px; font-size:0.78rem;">' +
+              '<div style="display:flex; justify-content:space-between;"><b>🏭 ' + (lObj ? lObj.name : lId) + ' (Lern-Historie)</b><span><b>' + hrs + 'h / ' + threshold + 'h</b> (' + pct + '%)</span></div>' +
+              '<div style="width:100%; height:6px; background:#e2e8f0; border-radius:999px; overflow:hidden; margin-top:4px;"><div style="width:' + pct + '%; height:100%; background:linear-gradient(90deg, #0284c7, #16a34a);"></div></div>' +
+            '</div>';
+          }).join("");
+        }
+      }
+
+      /* 6. Meine Meldungen & Anträge inkl. Audit-Trail */
+      const reqListEl = document.getElementById("portalMyRequestsHistoryList");
+      if (reqListEl) {
+        const myLeaves = (sickLeaves || []).filter(sl => sl.empId === emp.id && !sl.isOnboardingNotice);
+        const myExtras = (extraShifts || []).filter(es => es.empId === emp.id);
+
+        if (!myLeaves.length && !myExtras.length) {
+          reqListEl.innerHTML = '<p style="font-size:0.78rem; color:#64748b;">Noch keine Anträge oder Bringschichten eingereicht.</p>';
+        } else {
+          const lHtml = myLeaves.map(sl => {
+            const stBadge = sl.status === "approved"
+              ? '<span style="color:#166534; font-weight:800;">✅ Bestätigt / Aktiv</span>'
+              : (sl.status === "counter_offer" ? '<span style="color:#b45309; font-weight:800;">💬 Gegenangebot offen</span>' : (sl.status === "rejected" ? '<span style="color:#dc2626; font-weight:800;">❌ Abgelehnt</span>' : '<span style="color:#0284c7; font-weight:800;">⏳ In Prüfung</span>'));
+            const cancelBtn = sl.status === "pending"
+              ? '<button type="button" class="btn btn-outline" style="padding:2px 8px; font-size:0.7rem; color:#dc2626;" onclick="withdrawPortalRequest(\'leave\', \'' + sl.id + '\')">Zurückziehen</button>'
+              : '';
+            return '<div style="background:#f8fafc; border:1px solid #e2e8f0; padding:8px 10px; border-radius:8px; font-size:0.78rem;">' +
+              '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">' +
+                '<div><b>' + (sl.category || 'Antrag') + '</b> · ' + formatDateDe(sl.startDate) + ' bis ' + formatDateDe(sl.endDate) + (sl.reason ? ' (' + sl.reason + ')' : '') + '</div>' +
+                '<div style="display:flex; gap:6px; align-items:center;">' + stBadge + cancelBtn + '</div>' +
+              '</div>' +
+              renderAuditTrailHtml(sl) +
+            '</div>';
+          }).join("");
+
+          const eHtml = myExtras.map(es => {
+            const sCode = es.shift === "frueh" ? "F" : (es.shift === "spaet" ? "S" : "N");
+            const stBadge = es.status === "approved"
+              ? '<span style="color:#166534; font-weight:800;">✅ Genehmigt [' + sCode + ']</span>'
+              : (es.status === "rejected" ? '<span style="color:#dc2626; font-weight:800;">❌ Abgelehnt</span>' : '<span style="color:#0284c7; font-weight:800;">⏳ In Prüfung [' + sCode + ']</span>');
+            const cancelBtn = es.status === "pending"
+              ? '<button type="button" class="btn btn-outline" style="padding:2px 8px; font-size:0.7rem; color:#dc2626;" onclick="withdrawPortalRequest(\'extra\', \'' + es.id + '\')">Zurückziehen</button>'
+              : '';
+            return '<div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:8px 10px; border-radius:8px; font-size:0.78rem;">' +
+              '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">' +
+                '<div><b>➕ Bringschicht [' + sCode + ' · ' + (shiftsLabel[es.shift] || es.shift) + ']</b> am ' + formatDateDe(es.date) + (es.note ? ' (' + es.note + ')' : '') + '</div>' +
+                '<div style="display:flex; gap:6px; align-items:center;">' + stBadge + cancelBtn + '</div>' +
+              '</div>' +
+              renderAuditTrailHtml(es) +
+            '</div>';
+          }).join("");
+
+          reqListEl.innerHTML = eHtml + lHtml;
+        }
+      }
+    }
+
+    boardRef.onSnapshot(() => {
+      setTimeout(() => {
+        if (currentPortalEmpId && hasLoadedFromCloud) {
+          const emp = employees.find(e => e.id === currentPortalEmpId);
+          if (emp && document.getElementById("portalLoginScreen").style.display !== "none") {
+            checkAndEnterPortalView(emp);
+          } else if (emp) {
+            renderPortalDashboard();
+          }
+        }
+      }, 80);
     });
   </script>
 </body>
