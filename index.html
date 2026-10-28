@@ -97,6 +97,8 @@
     .card-trainee-tag { display: none; font-size: 0.54rem; padding: 0px 4px; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 3px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
     body.planner-active .card-trainee-tag { display: inline-block; }
 
+    .card-extra-fsn-badge { display: inline-flex; align-items: center; justify-content: center; font-size: 0.56rem; font-weight: 800; padding: 0px 5px; border-radius: 4px; background: #16a34a; color: #ffffff; border: 1px solid #15803d; white-space: nowrap; flex-shrink: 0; }
+
     .card-qual-warn { display: none; font-size: 0.55rem; color: #d97706; font-weight: 800; cursor: help; flex-shrink: 0; }
     body.planner-active .card-qual-warn { display: inline-block; }
 
@@ -435,11 +437,11 @@
 
       <div class="panel">
         <h2>
-          <span title="Bringschichtler werden automatisch 1 Stunde vor Schichtbeginn hier bereitgestellt">➕ Bringschichten <span id="extraCount" style="font-size:0.72rem; color:#166534;">(0)</span></span>
+          <span title="Bringschichtler rutschen am Schichttag automatisch mit F / S / N Kennzeichnung ins grüne Feld; kommende Tage stehen unten in der Vorschau">➕ Bringschichten <span id="extraCount" style="font-size:0.72rem; color:#166534;">(0)</span></span>
           <button class="btn btn-outline lvl-2-hide admin-element" style="padding:1px 6px; font-size:0.66rem;" onclick="openInboxModal(null, false, true)">+ Neu</button>
         </h2>
         <div id="extra" class="card-list drop-zone" data-zone="extra" style="background:#f0fdf4; border-color:#86efac;"></div>
-        <div id="approvedExtraList" style="max-height:42px; overflow-y:auto; margin-top:2px; font-size:0.64rem;"></div>
+        <div id="approvedExtraList" style="max-height:68px; overflow-y:auto; margin-top:2px; font-size:0.64rem;"></div>
       </div>
 
       <div class="panel">
@@ -550,11 +552,11 @@
               </div>
               <div class="form-group" style="flex:1; min-width:120px;"><label>Datum</label><input type="date" id="manualExtraDate" class="form-control"></div>
               <div class="form-group" style="flex:1; min-width:120px;">
-                <label>Schicht</label>
+                <label>Schicht (F / S / N)</label>
                 <select id="manualExtraShift" class="form-control">
-                  <option value="frueh">Frühschicht</option>
-                  <option value="spaet">Spätschicht</option>
-                  <option value="nacht">Nachtschicht</option>
+                  <option value="frueh">Frühschicht (F)</option>
+                  <option value="spaet">Spätschicht (S)</option>
+                  <option value="nacht">Nachtschicht (N)</option>
                 </select>
               </div>
             </div>
@@ -582,13 +584,13 @@
       </div>
 
       <div style="border-top: 1px solid #e2e8f0; padding-top: 10px; margin-bottom: 12px;">
-        <h4 style="font-size:0.86rem; color:#166534; margin-bottom: 5px;">➕ Kommende genehmigte Bringschichten (1h Vorlauf)</h4>
+        <h4 style="font-size:0.86rem; color:#166534; margin-bottom: 5px;">➕ Kommende genehmigte Bringschichten (F / S / N)</h4>
         <div id="inboxExtraList"></div>
       </div>
 
       <div style="border-top: 1px solid #e2e8f0; padding-top: 10px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:6px;">
-          <h4 style="font-size:0.86rem; margin:0;">📋 Bearbeitete & aktive Abwesenheiten</h4>
+          <h4 style="font-size:0.86rem; margin:0;">📋 Bearbeitete & aktive Abwesenheiten (inkl. Audit-Trail)</h4>
         </div>
         <div id="inboxHistoryFilterBar" style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; align-items:center;">
           <button type="button" class="btn btn-outline active" style="padding:2px 8px; font-size:0.72rem;" onclick="setInboxHistoryCategoryFilter('ALL')">Alle</button>
@@ -654,7 +656,7 @@
             <div id="anchorDaysContainer" style="display:flex; gap:5px; flex-wrap:wrap;"></div>
           </div>
           <div id="newEmpTrainingPhaseWrap" style="margin-bottom:10px; background:#eff6ff; border:1px solid #bfdbfe; padding:10px 12px; border-radius:8px; display:none;">
-            <div style="font-size:0.76rem; font-weight:700; color:#1d4ed8; margin-bottom:6px;">🛡️ Neu-Mitarbeiter Einarbeitungs-Modus (Überwiegend an eigener Stammlinie einsetzen):</div>
+            <div style="font-size:0.76rem; font-weight:700; color:#1d4ed8; margin-bottom:6px;">🛡️ Neu-Mitarbeiter Einarbeitungs-Modus (Überwiegend an eigener Stammlinie einsetzen, läuft automatisch ab):</div>
             <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
               <div style="flex:1; min-width:130px;">
                 <label style="font-size:0.72rem; font-weight:600; color:#1e293b; display:block; margin-bottom:2px;">Dauer in Tagen (frei wählbar):</label>
@@ -781,10 +783,10 @@
 
         <div class="settings-card" style="border-left: 4px solid #16a34a; background: #f0fdf4;">
           <div class="settings-card-title">
-            <span style="color:#166534;">⏱️ Qualifikations-Stundenzähler für Sekundär-Anlagen (6h-Filter)</span>
+            <span style="color:#166534;">⏱️ Qualifikations-Stundenzähler & Multi-Anlagen-Historie (6h-Filter)</span>
           </div>
           <p style="font-size:0.74rem; color:#334155; margin-bottom:8px;">
-            Wird ein Mitarbeiter manuell an einer fremden Anlage eingesetzt, zählt das System die Stunden nur dann dazu, wenn er an diesem Tag <b>mindestens 6 Stunden</b> dort eingeteilt war. Über den Reset-Button können gesammelte Stunden bei Bedarf gezielt zurückgesetzt werden.
+            Wird ein Mitarbeiter manuell an einer fremden Anlage eingesetzt, zählt das System die Stunden nur dann dazu, wenn er an diesem Tag <b>mindestens 6 Stunden</b> dort eingeteilt war. Alle gelernten Anlagen bleiben gruppiert unter dem Namen des Mitarbeiters erhalten.
           </p>
           <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
             <label style="font-size:0.8rem; font-weight:700; color:#0f172a;">
@@ -798,9 +800,9 @@
           </div>
           <div style="background:#fff; border:1px solid #bbf7d0; border-radius:6px; padding:8px 10px;">
             <div style="font-size:0.76rem; font-weight:700; color:#166534; margin-bottom:4px;">
-              📊 Übersicht: Gesammelte Stunden an noch NICHT freigeschalteten Anlagen
+              📊 Übersicht: Gesammelte Stunden & Multi-Anlagen-Historie (Gruppiert nach Mitarbeiter)
             </div>
-            <div id="unqualifiedHoursOverviewList" style="max-height:130px; overflow-y:auto; font-size:0.76rem;"></div>
+            <div id="unqualifiedHoursOverviewList" style="max-height:210px; overflow-y:auto; font-size:0.76rem;"></div>
           </div>
         </div>
 
