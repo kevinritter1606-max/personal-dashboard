@@ -331,8 +331,7 @@
       </div>
     </div>
   </main>
-
-  <script src="planer.js?v=4.9.69"></script>
+  <script src="planer.js?v=4.9.70"></script>
   <script>
     let loggedInPortalEmpId = null, selectedLoginPortalEmpId = null, initialSessionChecked = false, pendingExtraSubmission = null, pendingForceEmp = null;
     let activeMyRequestsCategory = "ALL";
@@ -395,7 +394,7 @@
       const activeShiftId = typeof getCurrentActiveShiftId === "function" ? getCurrentActiveShiftId(now) : "frueh";
       const activeShiftName = (typeof shiftsLabel !== "undefined" && shiftsLabel[activeShiftId]) ? shiftsLabel[activeShiftId] : "Frühschicht";
       const dateStr = now.toLocaleDateString("de-DE", { weekday: "long", year: "numeric", month: "2-digit", day: "2-digit" });
-      dEl.textContent = dateStr + (kw ? " · KW " + kw : "") + " · Aktuell: " + activeShiftName + " · v4.9.69";
+      dEl.textContent = dateStr + (kw ? " · KW " + kw : "") + " · Aktuell: " + activeShiftName + " · v4.9.70";
     }
 
     function updatePortalShiftApprovalBanner() {
@@ -870,7 +869,7 @@
           (sl.plannerCounterNote ? '<div style="margin-top:6px; font-size:0.82rem; color:#0f172a; background:#fef3c7; padding:6px 10px; border-radius:6px;">💬 <b>Nachricht vom Planer:</b> ' + sl.plannerCounterNote + '</div>' : '') +
           '<div style="margin-top:8px; display:flex; flex-direction:column; gap:5px;">' + blocksListHtml + '</div>' +
           '<div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">' +
-            '<button type="button" class="btn btn-primary" style="background:#16a34a; flex:1;" onclick="acceptPortalCounterOffer(\'' + sl.id + '\')">✅ Bedingten Urlaub annehmen</button>' +
+            '<button type="button" class="btn btn-primary" style="background:#16a34a; flex:1;" onclick="acceptPortalCounterOffer(\'' + sl.id + '\')">✅ Annehmen</button>' +
             '<button type="button" class="btn btn-outline" style="color:#dc2626; border-color:#fca5a5; background:#fff; flex:1;" onclick="rejectPortalCounterOffer(\'' + sl.id + '\')">❌ Ablehnen</button>' +
           '</div>' +
         '</div>';
@@ -1231,8 +1230,16 @@
         if (!sl) return;
         if (Array.isArray(sl.blocks)) {
           sl.blocks.forEach(b => { if (b.status === "counter_offer") b.status = "approved"; });
+          const activeBlocks = sl.blocks.filter(b => b.status === "approved");
+          if (activeBlocks.length > 0) {
+            const starts = activeBlocks.map(b => b.start).sort();
+            const ends = activeBlocks.map(b => b.end).sort();
+            sl.startDate = starts[0];
+            sl.endDate = ends[ends.length - 1];
+          }
         }
         sl.status = "approved";
+        sl.counterOfferResponse = "accepted";
         sl.plannerUnreadInfo = true;
         if (typeof window.generateCoveragePromptForLeave === "function") window.generateCoveragePromptForLeave(sl, "pending");
         if (typeof saveToFirebase === "function") saveToFirebase();
@@ -1249,11 +1256,20 @@
         if (!sl) return;
         if (Array.isArray(sl.blocks)) {
           sl.blocks.forEach(b => { if (b.status === "counter_offer") b.status = "rejected"; });
-          const hasApproved = sl.blocks.some(b => b.status === "approved");
-          sl.status = hasApproved ? "approved" : "rejected";
+          const activeBlocks = sl.blocks.filter(b => b.status === "approved");
+          if (activeBlocks.length > 0) {
+            const starts = activeBlocks.map(b => b.start).sort();
+            const ends = activeBlocks.map(b => b.end).sort();
+            sl.startDate = starts[0];
+            sl.endDate = ends[ends.length - 1];
+            sl.status = "approved";
+          } else {
+            sl.status = "rejected";
+          }
         } else {
           sl.status = "rejected";
         }
+        sl.counterOfferResponse = "rejected";
         sl.plannerUnreadInfo = true;
         if (typeof saveToFirebase === "function") saveToFirebase();
       }
