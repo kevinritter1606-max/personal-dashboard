@@ -1,10 +1,10 @@
 /* ==========================================================================
-   PLANER-BOARD MASTER-LOGIK (planer.js) - Version 4.9.69 (TEIL 1 VON 2)
+   PLANER-BOARD MASTER-LOGIK (planer.js) - Version 4.9.70 (TEIL 1 VON 3)
    Vollständige Original-Struktur · Bayer 2-2-2 (Sonntag frei) Automatik ab 05:00 Uhr
    Bringschichten (F/S/N) · Multi-Anlagen-Historie · Memory-Pin · Audit-Trail
    ========================================================================== */
 
-window.PLANER_JS_VERSION = "4.9.69";
+window.PLANER_JS_VERSION = "4.9.70";
 
 try {
   if (!firebase.apps || !firebase.apps.length) {
@@ -1117,6 +1117,7 @@ window.getEmpProbableLinesText = function(emp) {
   return "";
 };
 
+/* LOGIK-FIX #5: Berechnet Bringschichten direkt pro genehmigtem Block (ohne 120-Tage-Abbruch bei Pausen zwischen + Blöcken) */
 window.generateCoveragePromptForLeave = function(sl, defaultDayStatus) {
   if (!sl || sl.isOnboardingNotice || sl.lineRequestData || !sl.startDate || !sl.endDate) return null;
   const emp = employees.find(e => e.id === sl.empId);
@@ -1134,28 +1135,37 @@ window.generateCoveragePromptForLeave = function(sl, defaultDayStatus) {
 
   const initStatus = defaultDayStatus || "pending";
   const days = [];
-  let curIso = window.normalizeDateIso(sl.startDate);
-  const endIso = window.normalizeDateIso(sl.endDate);
-  let safetyCounter = 0;
-  while (curIso <= endIso && safetyCounter < 120) {
-    safetyCounter++;
-    const blockApproved = !Array.isArray(sl.blocks) || sl.blocks.length === 0 || sl.blocks.some(b => b.status === "approved" && curIso >= window.normalizeDateIso(b.start) && curIso <= window.normalizeDateIso(b.end));
-    if (blockApproved) {
-      const regShift = window.getEmpRegularShiftOnDate(emp, curIso);
-      if (regShift) {
-        const prev = prevDaysMap[curIso + "_" + regShift];
-        days.push({
-          date: curIso,
-          shift: regShift,
-          takenBy: prev ? prev.takenBy : null,
-          dayStatus: prev ? prev.dayStatus : initStatus,
-          explicitlyApproved: prev ? !!prev.explicitlyApproved : (initStatus === "open"),
-          allowWithRestWarning: prev ? !!prev.allowWithRestWarning : false
-        });
+  const seenDates = new Set();
+  const blocksToProcess = (Array.isArray(sl.blocks) && sl.blocks.length > 0)
+    ? sl.blocks.filter(b => b && b.status === "approved" && b.start && b.end)
+    : (sl.status === "approved" ? [{ start: sl.startDate, end: sl.endDate, status: "approved" }] : []);
+
+  blocksToProcess.forEach(b => {
+    let curIso = window.normalizeDateIso(b.start);
+    const endIso = window.normalizeDateIso(b.end);
+    let safetyCounter = 0;
+    while (curIso && endIso && curIso <= endIso && safetyCounter < 366) {
+      safetyCounter++;
+      if (!seenDates.has(curIso)) {
+        seenDates.add(curIso);
+        const regShift = window.getEmpRegularShiftOnDate(emp, curIso);
+        if (regShift) {
+          const prev = prevDaysMap[curIso + "_" + regShift];
+          days.push({
+            date: curIso,
+            shift: regShift,
+            takenBy: prev ? prev.takenBy : null,
+            dayStatus: prev ? prev.dayStatus : initStatus,
+            explicitlyApproved: prev ? !!prev.explicitlyApproved : (initStatus === "open"),
+            allowWithRestWarning: prev ? !!prev.allowWithRestWarning : false
+          });
+        }
       }
+      curIso = getNextDateIso(curIso);
     }
-    curIso = getNextDateIso(curIso);
-  }
+  });
+
+  days.sort((a, b) => a.date.localeCompare(b.date));
 
   if (days.length > 0) {
     const newCov = {
@@ -1413,7 +1423,6 @@ window.syncAbsentAndExtraZones = function() {
 
   return changed;
 };
-
 /* ==========================================================================
    4. ROLLEN-STEUERUNG, EINSATZ-GEDÄCHTNIS & QUALIFIKATIONS-STUNDENZÄHLER
    ========================================================================== */
@@ -1461,7 +1470,7 @@ window.recordManualAssignmentHours = function(empId, lineId, plannedHours, skipS
   const todayKey = getLogicalDateIso();
   const prevCredit = emp.trainingCreditedDates[todayKey];
 
-  /* Wenn der Mitarbeiter am selben Tag zurück in den Pool gezogen wird, heutige Gutschrift stornieren */
+  /* Wenn der Mitarbeiter am selben Tag zurück in den Pool gezogen oder umgeplant wird, heutige Gutschrift sauber korrigieren */
   if (isClearOrPool || !lineId) {
     if (prevCredit && prevCredit.lineId && prevCredit.hours) {
       emp.trainingHoursByLine[prevCredit.lineId] = Math.max(0, (emp.trainingHoursByLine[prevCredit.lineId] || 0) - prevCredit.hours);
@@ -1614,7 +1623,7 @@ window.resetEmployeeTrainingHours = function(empId, lineId) {
   showToast("🔄 Stunden für " + fullName(emp) + " an " + lineName + " auf 0 zurückgesetzt");
 };
 
-/* Gruppierte Multi-Anlagen-Historie unter dem jeweiligen Mitarbeiternamen (z.B. Test 3 B) */
+/* Gruppierte Multi-Anlagen-Historie unter dem jeweiligen Mitarbeiternamen */
 function renderUnqualifiedHoursOverview() {
   const container = document.getElementById("unqualifiedHoursOverviewList");
   if (!container) return;
@@ -1704,12 +1713,19 @@ function renderUnqualifiedHoursOverview() {
    5. STRATEGISCHE QUALIFIKATIONS- & ROTATIONS-MATRIX (INKL. 5%-100% FOKUS)
    ========================================================================== */
 
+/* LOGIK-FIX #4: Snapshot sichert auch Lernstunden & Historie für 100% sauberes "Zurück korrigieren" */
 function createBoardSnapshotForUndo() {
   return employees.map(e => ({
     id: e.id,
     zone: e.zone,
     pinnedZone: e.pinnedZone,
-    lastShiftId: e.lastShiftId
+    lastShiftId: e.lastShiftId,
+    trainingHoursByLine: JSON.parse(JSON.stringify(e.trainingHoursByLine || {})),
+    trainingCreditedDates: JSON.parse(JSON.stringify(e.trainingCreditedDates || {})),
+    lineHistory: JSON.parse(JSON.stringify(e.lineHistory || {})),
+    lineAssignCounts: JSON.parse(JSON.stringify(e.lineAssignCounts || {})),
+    foreignAssignCount: e.foreignAssignCount || 0,
+    lastRotationLearnDate: e.lastRotationLearnDate || ""
   }));
 }
 
@@ -1733,6 +1749,12 @@ window.undoLastAutoAssignment = function() {
       emp.zone = snap.zone;
       emp.pinnedZone = snap.pinnedZone;
       emp.lastShiftId = snap.lastShiftId;
+      if (snap.trainingHoursByLine) emp.trainingHoursByLine = JSON.parse(JSON.stringify(snap.trainingHoursByLine));
+      if (snap.trainingCreditedDates) emp.trainingCreditedDates = JSON.parse(JSON.stringify(snap.trainingCreditedDates));
+      if (snap.lineHistory) emp.lineHistory = JSON.parse(JSON.stringify(snap.lineHistory));
+      if (snap.lineAssignCounts) emp.lineAssignCounts = JSON.parse(JSON.stringify(snap.lineAssignCounts));
+      emp.foreignAssignCount = snap.foreignAssignCount || 0;
+      emp.lastRotationLearnDate = snap.lastRotationLearnDate || "";
     }
   });
   lastBoardSnapshotForUndo = null;
@@ -1742,8 +1764,8 @@ window.undoLastAutoAssignment = function() {
 
   saveToFirebase();
   window.initBoard();
-  addHistoryLog("Letzte Schicht-Zuweisung per 'Zurück korrigieren' widerrufen", "AUTO");
-  showToast("↩️ Änderungen erfolgreich zurückkorrigiert!");
+  addHistoryLog("Letzte Schicht-Zuweisung inkl. Lernstunden per 'Zurück korrigieren' widerrufen", "AUTO");
+  showToast("↩️ Änderungen & Stundenzähler erfolgreich zurückkorrigiert!");
 };
 
 function compareSecondaryFairness(empA, empB, lineId, todayIso) {
@@ -1866,17 +1888,21 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
   const teamKey = shiftRotation[shiftId];
   const activeLines = lines.filter(l => !l.ausgeplant);
 
+  /* LOGIK-FIX #4: Beim Zurücksetzen der Schicht vor Neuverteilung evtl. heutige Lernstunden-Gutschrift bereinigen */
   employees.forEach(emp => {
     if (extractShiftIdFromZone(emp.zone) === shiftId && !isEmpAnchorActiveToday(emp, todayIso)) {
       emp.zone = "pool";
+      window.recordManualAssignmentHours(emp.id, null, 0, true, true);
     } else if (emp.zone === "review" && emp.team === teamKey) {
       emp.zone = "pool";
+      window.recordManualAssignmentHours(emp.id, null, 0, true, true);
     }
   });
 
   window.syncAbsentAndExtraZones();
   restoreActiveAnchorEmployeesForShift(shiftId, todayIso);
 
+  /* LOGIK-FIX #3: Heutige genehmigte Bringschichten (F, S, N) werden auch bei "🪄 Alle Auto" und um 05:00 Uhr direkt ihrer Schichtzeile zugewiesen */
   const slotCandidates = employees.filter(emp => {
     if (emp.zone === "absent") return false;
     if (getActiveLeaveForEmpOnDate(emp.id, todayIso)) return false;
@@ -1887,8 +1913,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
       es.empId === emp.id &&
       window.normalizeDateIso(es.date) === todayIso &&
       es.shift === shiftId &&
-      es.status === "approved" &&
-      (!silentBatch || isExtraShiftInActiveWindow(es, nowObj))
+      es.status === "approved"
     );
     return isTeamMember || hasExtra;
   });
@@ -1952,9 +1977,12 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
       emp.lastShiftId = shiftId;
     }
     trackEmployeeLineAssignment(emp, line.id, todayIso);
+    const defaultShiftHours = (shiftModelConfig && typeof shiftModelConfig.defaultShiftHours === "number") ? shiftModelConfig.defaultShiftHours : 8;
     if (countTrainingHours) {
-      const defaultShiftHours = (shiftModelConfig && typeof shiftModelConfig.defaultShiftHours === "number") ? shiftModelConfig.defaultShiftHours : 8;
-      window.recordManualAssignmentHours(emp.id, line.id, defaultShiftHours, true);
+      window.recordManualAssignmentHours(emp.id, line.id, defaultShiftHours, true, false);
+    } else if (isEmployeeQualifiedForLine(emp, line.id)) {
+      /* Falls zuvor am selben Tag auf einer Fremdlinie gewesen, etwaige Gutschrift sauber zurücknehmen */
+      window.recordManualAssignmentHours(emp.id, line.id, defaultShiftHours, true, false);
     }
     assignedCount++;
   }
@@ -2195,6 +2223,7 @@ window.runAllShiftsAutoAssignment = function(silent) {
   employees.forEach(e => {
     if (e.zone === "review" && !isEmpAnchorActiveToday(e, todayIso)) {
       e.zone = "pool";
+      window.recordManualAssignmentHours(e.id, null, 0, true, true);
     }
   });
   shifts.forEach(s => {
@@ -2348,6 +2377,7 @@ window.syncCurrentBoardAs222Anchor = function() {
     employees.forEach(e => {
       if (e.zone && ["pool", "absent", "extra"].indexOf(e.zone) === -1 && !isEmpAnchorActiveToday(e, prodTodayIso)) {
         e.zone = "pool";
+        window.recordManualAssignmentHours(e.id, null, 0, true, true);
       }
     });
     shifts.forEach(s => {
@@ -2600,7 +2630,6 @@ function renderEmployees() {
       ? '<span class="card-trainee-tag" title="Stamm-Schutz aktiv: ' + protInfo.mainPct + '% Stammlinie (noch ' + protInfo.remainingDays + ' Tage)">🛡️ ' + protInfo.mainPct + '%</span>'
       : '';
 
-    /* F / S / N Kennzeichnung für heutige Bringschichten im grünen Feld und auf den Linien */
     const activeExtraToday = getApprovedExtraShiftForToday(emp.id, nowObj);
     let extraFsnBadgeHtml = "";
     if (activeExtraToday) {
@@ -2746,7 +2775,6 @@ window.moveAllReviewToPool = function() {
   showToast(count + " Mitarbeiter aus 'Noch zuzuteilen' in den Pool verschoben");
 };
 
-/* Zeigt unter dem grünen Bringschicht-Feld alle kommenden Bringschichten (z.B. Morgen hat Kevin Ritter Bringschicht [F]) */
 function renderSidebarExtraPreview() {
   const box = document.getElementById("approvedExtraList");
   if (!box) return;
@@ -2815,7 +2843,6 @@ function initDragAndDrop() {
             const isRegTeam = targetShiftId && shiftRotation[targetShiftId] === emp.team;
             const hasQuals = (Array.isArray(emp.mainLines) && emp.mainLines.length > 0) || (Array.isArray(emp.secLines) && emp.secLines.length > 0);
 
-            /* Memory-Pin: Nur für qualifizierte Linien (oder wenn noch keine Qualifikation existiert) merken */
             if ((isRegTeam && (isEmployeeQualifiedForLine(emp, targetLineId) || !hasQuals)) || !emp.pinnedZone) {
               emp.pinnedZone = newZone;
               emp.lastShiftId = targetShiftId || emp.lastShiftId;
@@ -2835,8 +2862,9 @@ function initDragAndDrop() {
     }));
   });
 }
+
 /* ==========================================================================
-   8. SCHICHTEN LEEREN, LADEN & ROTIEREN (TEIL 2A VON 2)
+   8. SCHICHTEN LEEREN, LADEN & ROTIEREN
    ========================================================================== */
 
 function ensureUniqueShiftRotationTeams() {
@@ -3040,6 +3068,7 @@ window.rotateAllShifts = function() {
   employees.forEach(e => {
     if (e.zone && ["pool", "absent", "extra"].indexOf(e.zone) === -1 && !isEmpAnchorActiveToday(e, todayIso)) {
       e.zone = "pool";
+      window.recordManualAssignmentHours(e.id, null, 0, true, true);
     }
   });
 
@@ -3225,7 +3254,6 @@ window.saveLineDetails = function(isAuto) {
     showToast("Linie gespeichert!");
   }
 };
-
 /* ==========================================================================
    11. BRINGSCHICHT-FREIGABE (JA / NEIN) & BEDINGT ANNEHMEN (VON–BIS MIT +)
    ========================================================================== */
@@ -3260,6 +3288,9 @@ window.getCoverageTargetInfoForDay = function(dateIso, shiftId, reqRole) {
 window.openCoverageReleaseModal = function(leaveId) {
   activeCoverageReleaseLeaveId = leaveId;
   const sl = sickLeaves.find(x => x.id === leaveId);
+  if (sl && sl.plannerUnreadInfo) {
+    sl.plannerUnreadInfo = false;
+  }
   let req = (leaveRequests || []).find(r => r.leaveId === leaveId || r.id === leaveId || r.id === ("cov_" + leaveId));
   if (!req && sl && !sl.isOnboardingNotice) {
     req = window.generateCoveragePromptForLeave(sl, "pending");
@@ -3521,6 +3552,7 @@ window.saveInlineConditionalLeave = function(leaveId) {
   const actor = getCurrentActorLabel();
   const nowIso = new Date().toISOString();
   sl.status = "counter_offer";
+  sl.counterOfferResponse = "";
   sl.plannerUnreadInfo = false;
   sl.reviewedBy = actor;
   sl.reviewedAt = nowIso;
@@ -3592,6 +3624,7 @@ window.addCounterOfferBlockRow = function(startVal, endVal, statusVal) {
   container.appendChild(row);
 };
 
+/* LOGIK-FIX #5: Abgelehnte Teilblöcke verfälschen nicht mehr das Start-/Enddatum */
 window.saveCounterOfferAndSplitLeave = function() {
   const sl = sickLeaves.find(x => x.id === activeCounterOfferLeaveId);
   if (!sl) return;
@@ -3616,8 +3649,10 @@ window.saveCounterOfferAndSplitLeave = function() {
   if (!sl.originalStartDate) sl.originalStartDate = sl.startDate;
   if (!sl.originalEndDate) sl.originalEndDate = sl.endDate;
 
-  const allStarts = parsedBlocks.map(b => b.start).sort();
-  const allEnds = parsedBlocks.map(b => b.end).sort();
+  const nonRejectedBlocks = parsedBlocks.filter(b => b.status !== "rejected");
+  const blocksForSpan = nonRejectedBlocks.length > 0 ? nonRejectedBlocks : parsedBlocks;
+  const allStarts = blocksForSpan.map(b => b.start).sort();
+  const allEnds = blocksForSpan.map(b => b.end).sort();
   sl.startDate = allStarts[0];
   sl.endDate = allEnds[allEnds.length - 1];
   sl.blocks = parsedBlocks;
@@ -3628,6 +3663,7 @@ window.saveCounterOfferAndSplitLeave = function() {
   const hasCounter = parsedBlocks.some(b => b.status === "counter_offer");
   const hasApproved = parsedBlocks.some(b => b.status === "approved");
   sl.status = hasCounter ? "counter_offer" : (hasApproved ? "approved" : "rejected");
+  sl.counterOfferResponse = "";
   sl.plannerUnreadInfo = false;
   sl.reviewedBy = getCurrentActorLabel();
   sl.reviewedAt = new Date().toISOString();
@@ -3658,12 +3694,20 @@ window.acceptLeaveCounterOffer = function(leaveId) {
   if (!sl) return;
   const emp = employees.find(e => e.id === sl.empId);
   const actor = (emp ? fullName(emp) : "Mitarbeiter") + " (Portal)";
-  if (Array.isArray(sl.blocks)) {
+  if (Array.isArray(sl.blocks) && sl.blocks.length > 0) {
     sl.blocks.forEach(b => {
       if (b.status === "counter_offer") b.status = "approved";
     });
+    const activeBlocks = sl.blocks.filter(b => b.status === "approved");
+    if (activeBlocks.length > 0) {
+      const starts = activeBlocks.map(b => b.start).sort();
+      const ends = activeBlocks.map(b => b.end).sort();
+      sl.startDate = starts[0];
+      sl.endDate = ends[ends.length - 1];
+    }
   }
   sl.status = "approved";
+  sl.counterOfferResponse = "accepted";
   sl.plannerUnreadInfo = true;
   appendAuditEntry(sl, "Bedingt angenommener Urlaub vom Mitarbeiter im Portal bestätigt", actor);
   window.generateCoveragePromptForLeave(sl, "pending");
@@ -3677,15 +3721,24 @@ window.rejectLeaveCounterOffer = function(leaveId) {
   if (!sl) return;
   const emp = employees.find(e => e.id === sl.empId);
   const actor = (emp ? fullName(emp) : "Mitarbeiter") + " (Portal)";
-  if (Array.isArray(sl.blocks)) {
+  if (Array.isArray(sl.blocks) && sl.blocks.length > 0) {
     sl.blocks.forEach(b => {
       if (b.status === "counter_offer") b.status = "rejected";
     });
-    const stillHasApproved = sl.blocks.some(b => b.status === "approved");
-    sl.status = stillHasApproved ? "approved" : "rejected";
+    const activeBlocks = sl.blocks.filter(b => b.status === "approved");
+    if (activeBlocks.length > 0) {
+      const starts = activeBlocks.map(b => b.start).sort();
+      const ends = activeBlocks.map(b => b.end).sort();
+      sl.startDate = starts[0];
+      sl.endDate = ends[ends.length - 1];
+      sl.status = "approved";
+    } else {
+      sl.status = "rejected";
+    }
   } else {
     sl.status = "rejected";
   }
+  sl.counterOfferResponse = "rejected";
   sl.plannerUnreadInfo = true;
   appendAuditEntry(sl, "Bedingt angenommener Urlaub vom Mitarbeiter im Portal abgelehnt", actor);
   if (sl.status === "approved") {
@@ -4128,8 +4181,9 @@ window.autoSaveSecurityConfig = function() {
   saveToFirebase();
   showToast("Sicherheits-Einstellung gespeichert!");
 };
+
 /* ==========================================================================
-   12. HISTORIE, BACKUPS, PROFIL & STAMMDATEN-VERWALTUNG (TEIL 2B VON 2)
+   12. HISTORIE, BACKUPS, PROFIL & STAMMDATEN-VERWALTUNG
    ========================================================================== */
 
 window.setHistoryCatFilter = function(cat, btnEl) {
@@ -4644,7 +4698,6 @@ window.filterSettingsEmployees = function(q) {
   settingsEmpSearchQuery = (q || "").trim().toLowerCase();
   renderSettingsLists();
 };
-
 /* ==========================================================================
    13. UNIVERSELLE AUTOCOMPLETE-ENGINE (3-BUCHSTABEN-BASIS), POSTFACH & SYNC
    ========================================================================== */
@@ -4856,50 +4909,41 @@ function releaseCoverageTakenForExtra(es) {
   });
 }
 
+/* LOGIK-FIX #2: "Info-Hinweise gelesen" markiert NUR reine Info-/Onboarding-Meldungen als gelesen, ohne Urlaube/Bringschichten blind zu genehmigen */
 window.markAllSickLeavesRead = function() {
   const actor = getCurrentActorLabel();
   const nowIso = new Date().toISOString();
+  let markedCount = 0;
+
   sickLeaves.forEach(sl => {
-    if (sl.status === "pending") {
+    if ((sl.isOnboardingNotice || sl.lineRequestData) && (sl.status === "pending" || sl.plannerUnreadInfo)) {
       sl.status = "approved";
       sl.reviewedBy = actor;
       sl.reviewedAt = nowIso;
-      appendAuditEntry(sl, "Im Postfach angenommen (Sammel-Freigabe)", actor);
+      appendAuditEntry(sl, "Info-/Onboarding-Hinweis als gelesen markiert", actor);
       if (sl.lineRequestData && sl.lineRequestData.lineId) {
         applyLineRequestToEmployee(sl);
-      } else if (!sl.isOnboardingNotice) {
-        window.generateCoveragePromptForLeave(sl, "pending");
       }
+      sl.plannerUnreadInfo = false;
+      markedCount++;
+    } else if (sl.plannerUnreadInfo && sl.status === "counter_offer") {
+      sl.plannerUnreadInfo = false;
+      markedCount++;
     }
-    sl.plannerUnreadInfo = false;
   });
+
   extraShifts.forEach(es => {
-    if (es.status === "pending" && !es.plausibilityWarning) {
-      es.status = "approved";
-      es.reviewedBy = actor;
-      es.reviewedAt = nowIso;
-      appendAuditEntry(es, "Bringschicht im Postfach bestätigt", actor);
-      if (Array.isArray(leaveRequests)) {
-        const normDate = window.normalizeDateIso(es.date);
-        leaveRequests.forEach(cov => {
-          if (es.coverageId && cov.id !== es.coverageId) return;
-          (cov.days || []).forEach(d => {
-            if (window.normalizeDateIso(d.date) === normDate && d.shift === es.shift && !d.takenBy) {
-              d.takenBy = es.empId;
-              d.dayStatus = "taken";
-            }
-          });
-        });
-      }
+    if (es.plannerUnreadInfo && es.status === "approved" && !es.plausibilityWarning) {
+      es.plannerUnreadInfo = false;
+      markedCount++;
     }
-    es.plannerUnreadInfo = false;
   });
+
   saveToFirebase();
-  window.syncAbsentAndExtraZones();
   renderEmployees();
   window.renderInboxLists();
   window.updateInboxBadge();
-  showToast("Alle Meldungen bestätigt");
+  showToast(markedCount > 0 ? ("✅ " + markedCount + " Info-Hinweise als gelesen markiert") : "Keine neuen Info-Hinweise zum Markieren vorhanden");
 };
 
 window.setInboxHistoryCategoryFilter = function(cat) {
@@ -4994,6 +5038,22 @@ window.renderInboxLists = function() {
         '</div>';
       }
 
+      /* LOGIK-FIX #1: Zeigt bei Antworten des Mitarbeiters auf bedingte Vorschläge eine klare Antwort-Info im Postfach an, statt den Antrag fälschlicherweise als offen anzuzeigen */
+      if (sl.status === "counter_offer" && sl.counterOfferResponse) {
+        const respText = sl.counterOfferResponse === "accepted" ? "🟢 Mitarbeiter hat den bedingten Vorschlag angenommen!" : "🔴 Mitarbeiter hat den bedingten Vorschlag abgelehnt!";
+        const respColor = sl.counterOfferResponse === "accepted" ? "#166534" : "#dc2626";
+        const postActionBtn = sl.counterOfferResponse === "accepted"
+          ? '<button class="btn btn-primary" style="padding:4px 11px; font-size:0.74rem; background:#0284c7;" onclick="openCoverageReleaseModal(\'' + sl.id + '\')">📢 Bringschichten (Ja/Nein) prüfen</button>'
+          : '<button class="btn btn-primary" style="padding:4px 11px; font-size:0.74rem; background:#16a34a;" onclick="approveSickLeave(\'' + sl.id + '\')">✅ Gelesen bestätigen</button>';
+
+        return '<div style="background:#fffbeb; border:1px solid #fde68a; border-left:4px solid #f59e0b; padding:10px; border-radius:8px; margin-bottom:8px; font-size:0.82rem;">' +
+          '<div style="display:flex; justify-content:space-between; align-items:center;"><b>' + eName + '</b><span style="color:' + respColor + '; font-weight:800;">' + respText + '</span></div>' +
+          '<div style="color:#475569; margin:3px 0;">Antrag: ' + (sl.category || 'Urlaub') + ' (' + formatDateDe(sl.startDate) + ' – ' + formatDateDe(sl.endDate) + ')</div>' +
+          renderAuditTrailHtml(sl) +
+          '<div style="display:flex; gap:6px; margin-top:8px;">' + postActionBtn + '</div>' +
+        '</div>';
+      }
+
       const safePlannerNote = (sl.plannerCounterNote || "").replace(/"/g, "&quot;");
       let blocksPreviewHtml = "";
       if (Array.isArray(sl.blocks) && sl.blocks.length > 0) {
@@ -5002,8 +5062,6 @@ window.renderInboxLists = function() {
         '</div>';
       }
 
-      /* Urlaubs- und Abwesenheits-Karte mit den 3 klaren Buttons:
-         1. ✅ Annehmen  |  2. ❌ Ablehnen  |  3. 🟡 Bedingt annehmen (mit Von-Bis & + Zeichen) */
       return '<div style="background:#fff; border:1px solid #cbd5e1; border-left:4px solid #dc2626; padding:10px; border-radius:8px; margin-bottom:8px; font-size:0.82rem;">' +
         '<div style="display:flex; justify-content:space-between; align-items:center;"><b>' + eName + '</b><span style="color:#b91c1c; font-weight:700;">' + (sl.category || 'Urlaubsantrag') + '</span></div>' +
         '<div style="color:#475569; margin:3px 0;">Von ' + formatDateDe(sl.startDate) + ' bis ' + formatDateDe(sl.endDate) + (sl.reason ? ' · ' + sl.reason : '') + '</div>' +
@@ -5155,9 +5213,7 @@ window.renderInboxLists = function() {
     }
   }
 
-  /* BUGFIX: Offene Anträge (status === "pending") gehören ausschließlich nach oben in "Neue Meldungen"
-     und erscheinen unten erst, nachdem sie bearbeitet wurden (approved, counter_offer oder rejected) */
-  const processedLeaves = sickLeaves.filter(sl => sl.status !== "pending");
+  const processedLeaves = sickLeaves.filter(sl => sl.status !== "pending" && !(sl.status === "counter_offer" && !sl.counterOfferResponse));
   const processedExtrasAsItems = extraShifts
     .filter(es => es.status === "approved" || es.status === "rejected")
     .map(es => ({
