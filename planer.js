@@ -4089,7 +4089,7 @@ function renderSettingsLists() {
     empListEl.innerHTML = filteredEmps.map(e => {
       const tObj = teamsConfig[e.team] || { name: e.team, color: "#0091df" };
       const pinAction = (plannerLevel >= 3)
-        ? '<button class="btn btn-outline" style="padding:2px 7px; font-size:0.68rem; color:#0284c7; border-color:#bae6fd;" onclick="resetEmployeePin(\'' + e.id + '\')" title="Neue einmalige Start-PIN generieren">🔑 PIN</button>'
+        ? '<button class="btn btn-outline" style="padding:2px 7px; font-size:0.68rem; color:#0284c7; border-color:#bae6fd;" onclick="resetEmployeePin(\'' + e.id + '\')" title="Neue einmalige Start-PIN generieren">🔑 PIN Reset</button>'
         : '';
       const ehBadge = e.ersthelfer ? ' <span style="color:#dc2626; font-weight:900;">+</span>' : '';
       const pinVal = e.password || "1234";
