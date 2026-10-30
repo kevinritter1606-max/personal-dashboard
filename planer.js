@@ -1,10 +1,10 @@
 /* ==========================================================================
-   PLANER-BOARD MASTER-LOGIK (planer.js) - Version 4.9.70 (TEIL 1 VON 3)
+   PLANER-BOARD MASTER-LOGIK (planer.js) - Version 4.9.71 (TEIL 1 VON 3)
    Vollständige Original-Struktur · Bayer 2-2-2 (Sonntag frei) Automatik ab 05:00 Uhr
    Bringschichten (F/S/N) · Multi-Anlagen-Historie · Memory-Pin · Audit-Trail
    ========================================================================== */
 
-window.PLANER_JS_VERSION = "4.9.70";
+window.PLANER_JS_VERSION = "4.9.71";
 
 try {
   if (!firebase.apps || !firebase.apps.length) {
@@ -453,9 +453,15 @@ function injectModernSaaSStyles() {
    1. GLOBALE BASIS-, DATUMS-, AUDIT- & 2-2-2 (SONNTAG FREI) BLOCK-FUNKTIONEN
    ========================================================================== */
 
+/* LOGIK-FIX #11: Speichert beim Schließen des Bringschicht-Freigabe-Modals garantiert in Firebase und aktualisiert Postfach & Badge */
 window.closeModal = function(id) {
   const el = document.getElementById(id);
   if (el) el.style.display = "none";
+  if (id === "coverageReleaseModal" && hasLoadedFromCloud) {
+    saveToFirebase();
+    if (typeof window.renderInboxLists === "function") window.renderInboxLists();
+    if (typeof window.updateInboxBadge === "function") window.updateInboxBadge();
+  }
 };
 
 function getShiftCodeLetter(shiftId) {
@@ -649,8 +655,17 @@ function getCurrentShiftApprovalKey() {
   return getLogicalDateIso() + "_" + getCurrentActiveShiftId();
 }
 
+/* LOGIK-FIX #5: Prüft flexibel, ob eine bestimmte Schicht (Früh/Spät/Nacht) am Produktionstag bereits bestätigt wurde */
+window.isShiftApprovedOnDate = function(prodDateIso, shiftId) {
+  if (!approvedShiftKey || !prodDateIso || !shiftId) return false;
+  const targetKey = prodDateIso + "_" + shiftId;
+  const allKey = prodDateIso + "_ALL";
+  const parts = String(approvedShiftKey).split(",").map(s => s.trim()).filter(Boolean);
+  return parts.indexOf(targetKey) !== -1 || parts.indexOf(allKey) !== -1;
+};
+
 function isCurrentShiftApproved() {
-  return approvedShiftKey === getCurrentShiftApprovalKey();
+  return window.isShiftApprovedOnDate(getLogicalDateIso(), getCurrentActiveShiftId());
 }
 
 function getCalendarWeek(d) {
@@ -787,6 +802,7 @@ window.shouldHoldEmpOnMainLineToday = function(emp, todayIso) {
   return bucket < prot.mainPct;
 };
 
+/* LOGIK-FIX #18: Bereinigt zusätzlich doppelte Stamm-/Sekundärlinien und gültige Linien-/Rollen-Referenzen */
 window.sanitizeTeamReferences = function() {
   const validKeys = Object.keys(teamsConfig);
   if (!validKeys.length) {
@@ -794,14 +810,35 @@ window.sanitizeTeamReferences = function() {
     validKeys.push("team-1");
   }
   const fallbackKey = validKeys[0];
+  const validLineIds = new Set((Array.isArray(lines) ? lines : []).map(l => l.id));
+  const defaultRole = (Array.isArray(roles) && roles.length > 0) ? roles[0] : "Bediener";
+
   ["frueh", "spaet", "nacht", "frei"].forEach(slot => {
     if (!shiftRotation[slot] || !teamsConfig[shiftRotation[slot]]) shiftRotation[slot] = fallbackKey;
   });
+
   employees.forEach(emp => {
     if (!emp.team || !teamsConfig[emp.team]) emp.team = fallbackKey;
+    if (!emp.role || (Array.isArray(roles) && roles.length > 0 && roles.indexOf(emp.role) === -1)) {
+      emp.role = defaultRole;
+    }
     if (!emp.password) {
       emp.password = "1234";
       if (typeof emp.mustChangePw === "undefined") emp.mustChangePw = true;
+    }
+    if (Array.isArray(emp.mainLines)) {
+      emp.mainLines = Array.from(new Set(emp.mainLines)).filter(id => validLineIds.has(id));
+    } else {
+      emp.mainLines = [];
+    }
+    if (Array.isArray(emp.secLines)) {
+      emp.secLines = Array.from(new Set(emp.secLines)).filter(id => validLineIds.has(id) && emp.mainLines.indexOf(id) === -1);
+    } else {
+      emp.secLines = [];
+    }
+    if (emp.pinnedZone) {
+      const pLine = extractLineIdFromZone(emp.pinnedZone);
+      if (pLine && !validLineIds.has(pLine)) emp.pinnedZone = null;
     }
     if (!emp.trainingHoursByLine) emp.trainingHoursByLine = {};
     if (!emp.trainingCreditedDates) emp.trainingCreditedDates = {};
@@ -866,6 +903,7 @@ window.updateHeaderDateKw = function() {
 };
 
 window.updateShiftApprovalUI = function() {
+  const prodToday = getLogicalDateIso();
   const approved = isCurrentShiftApproved();
   const sundayFree = isSundayDaytimeFree();
   const activeShiftId = getCurrentActiveShiftId();
@@ -879,8 +917,13 @@ window.updateShiftApprovalUI = function() {
   const text = document.getElementById("indicatorText");
   const btn = document.getElementById("plannerApprovalIndicator");
   if (dot && text && btn) {
+    const approvedLabels = shifts
+      .filter(s => window.isShiftApprovedOnDate(prodToday, s.id))
+      .map(s => shiftsCodeLetter[s.id] || s.name);
     dot.style.background = approved ? "#16a34a" : "#dc2626";
-    text.textContent = approved ? ("Freigegeben (" + activeShort + ")") : (activeShort + " freigeben");
+    text.textContent = approved
+      ? ("Freigegeben (" + (approvedLabels.length > 1 ? approvedLabels.join("/") : activeShort) + ")")
+      : (activeShort + " / Tag freigeben");
     btn.style.borderColor = approved ? "#86efac" : "#fecaca";
     btn.style.background = approved ? "#f0fdf4" : "#fef2f2";
     btn.style.color = approved ? "#166534" : "#b91c1c";
@@ -906,19 +949,37 @@ window.updateShiftApprovalUI = function() {
   }
 };
 
+/* LOGIK-FIX #5 & #19: Erlaubt Freigabe ab Stufe 2 (Schichtführer) und bestätigt alle heute auf dem Board geplanten Schichten ohne gegenseitiges Überschreiben */
 window.toggleShiftApprovalState = function() {
-  if (plannerLevel <= 2) return;
+  if (plannerLevel < 2) return;
+  const prodToday = getLogicalDateIso();
   const activeShiftId = getCurrentActiveShiftId();
   const activeLong = shiftsLabel[activeShiftId] || "Schicht";
-  const currentKey = getCurrentShiftApprovalKey();
-  if (approvedShiftKey === currentKey) {
+
+  const existingKeys = String(approvedShiftKey || "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(s => s.indexOf(prodToday + "_") === 0);
+
+  if (window.isShiftApprovedOnDate(prodToday, activeShiftId)) {
     approvedShiftKey = "";
-    addHistoryLog("Freigabe für " + activeLong + " zurückgenommen", "SHIFT");
-    showToast("Freigabe für " + activeLong + " zurückgenommen");
+    addHistoryLog("Schicht-Freigabe für " + formatDateDe(prodToday) + " (" + activeLong + ") zurückgenommen", "SHIFT");
+    showToast("Freigabe für heute zurückgenommen");
   } else {
-    approvedShiftKey = currentKey;
-    addHistoryLog(activeLong + " fürs Mitarbeiter-Portal freigegeben", "SHIFT");
-    showToast("✅ " + activeLong + " freigegeben!");
+    const newSet = new Set(existingKeys);
+    newSet.add(prodToday + "_" + activeShiftId);
+    /* Alle Schichten des heutigen Tages, in denen bereits Mitarbeiter auf Linien eingeteilt sind, direkt mitbestätigen */
+    shifts.forEach(s => {
+      const hasAssigned = employees.some(e => extractShiftIdFromZone(e.zone) === s.id);
+      if (hasAssigned) newSet.add(prodToday + "_" + s.id);
+    });
+    approvedShiftKey = Array.from(newSet).join(",");
+    const approvedNames = shifts
+      .filter(s => newSet.has(prodToday + "_" + s.id))
+      .map(s => shiftsShortLabel[s.id] || s.name)
+      .join(", ");
+    addHistoryLog("Schicht-Freigabe fürs Portal erteilt (" + approvedNames + ")", "SHIFT");
+    showToast("✅ Für Portal bestätigt: " + approvedNames + "!");
   }
   window.updateShiftApprovalUI();
   saveToFirebase();
@@ -1038,11 +1099,16 @@ function getRotationForDate(targetIso) {
   return res;
 }
 
+/* LOGIK-FIX #14: Bei Fix-/Anker-Mitarbeitern hat die gespeicherte Stamm-Nadel (pinnedZone) Vorrang vor einer temporären heutigen Tages-Zone */
 window.getEmpRegularShiftOnDate = function(emp, dateIso) {
   if (!emp || !dateIso || isIsoDateSunday(dateIso)) return null;
   if (emp.noRotation) {
     if (!isEmpAnchorActiveToday(emp, dateIso)) return null;
-    return extractShiftIdFromZone(emp.zone) || extractShiftIdFromZone(emp.pinnedZone) || emp.lastShiftId || "frueh";
+    const isToday = (window.normalizeDateIso(dateIso) === getLogicalDateIso());
+    if (isToday) {
+      return extractShiftIdFromZone(emp.zone) || extractShiftIdFromZone(emp.pinnedZone) || emp.lastShiftId || "frueh";
+    }
+    return extractShiftIdFromZone(emp.pinnedZone) || emp.lastShiftId || extractShiftIdFromZone(emp.zone) || "frueh";
   }
   if (!isTeamRotating(emp.team)) {
     const dayNum = parseIsoToLocalDate(dateIso).getDay();
@@ -1053,13 +1119,14 @@ window.getEmpRegularShiftOnDate = function(emp, dateIso) {
   return ["frueh", "spaet", "nacht"].find(s => rot[s] === emp.team) || null;
 };
 
+/* LOGIK-FIX #16 / #17: Prüft zuerst auf genehmigten Urlaub/Krankheit am betreffenden Tag, damit kein falscher Ruhezeit-Konflikt für Nachbartage entsteht */
 function getEmpAnyShiftOnDate(emp, dateIso, ignoreExtraId) {
   if (!emp || !dateIso) return null;
   const normDate = window.normalizeDateIso(dateIso);
-  const reg = window.getEmpRegularShiftOnDate(emp, normDate);
-  if (reg) return reg;
   const extra = extraShifts.find(es => es.id !== ignoreExtraId && es.empId === emp.id && window.normalizeDateIso(es.date) === normDate && (es.status === "approved" || es.status === "pending"));
-  return extra ? extra.shift : null;
+  if (extra) return extra.shift;
+  if (getActiveLeaveForEmpOnDate(emp.id, normDate)) return null;
+  return window.getEmpRegularShiftOnDate(emp, normDate);
 }
 
 window.didEmpWorkNightBefore = function(emp, dateIso) {
@@ -1117,7 +1184,6 @@ window.getEmpProbableLinesText = function(emp) {
   return "";
 };
 
-/* LOGIK-FIX #5: Berechnet Bringschichten direkt pro genehmigtem Block (ohne 120-Tage-Abbruch bei Pausen zwischen + Blöcken) */
 window.generateCoveragePromptForLeave = function(sl, defaultDayStatus) {
   if (!sl || sl.isOnboardingNotice || sl.lineRequestData || !sl.startDate || !sl.endDate) return null;
   const emp = employees.find(e => e.id === sl.empId);
@@ -1182,9 +1248,14 @@ window.generateCoveragePromptForLeave = function(sl, defaultDayStatus) {
   return null;
 };
 
+/* LOGIK-FIX #18: Bereinigt beim Löschen eines Ersatzbedarfs auch alle noch offenen (pending) Bewerbungen dafür */
 window.removeCoveragePromptForLeave = function(slId) {
   if (!slId) return;
-  leaveRequests = (Array.isArray(leaveRequests) ? leaveRequests : []).filter(r => r.leaveId !== slId && r.id !== ("cov_" + slId));
+  const covId = "cov_" + slId;
+  leaveRequests = (Array.isArray(leaveRequests) ? leaveRequests : []).filter(r => r.leaveId !== slId && r.id !== covId);
+  if (Array.isArray(extraShifts)) {
+    extraShifts = extraShifts.filter(es => !(es && es.status === "pending" && es.coverageId === covId));
+  }
 };
 
 window.formatConflictForPlanner = function(reasonText, empName) {
@@ -1216,9 +1287,12 @@ window.checkExtraShiftPlausibility = function(empId, dateIso, shiftId, ignoreExt
 
   const warnings = [];
   let isNightConflict = false;
+  let hasLeaveConflict = false;
+  let hasSameDayShiftConflict = false;
 
   const activeLeave = getActiveLeaveForEmpOnDate(emp.id, normDate);
   if (activeLeave) {
+    hasLeaveConflict = true;
     warnings.push("Du bist am " + formatDateDe(normDate) + " als abwesend eingetragen (" + (activeLeave.category || "Urlaub/Krank") + ").");
   }
 
@@ -1227,8 +1301,9 @@ window.checkExtraShiftPlausibility = function(empId, dateIso, shiftId, ignoreExt
     warnings.push("Der " + formatDateDe(normDate) + " ist ein Sonntag (jeder Sonntag ist regulär schichtfrei).");
   }
 
-  const regShift = window.getEmpRegularShiftOnDate(emp, normDate);
+  const regShift = !hasLeaveConflict ? window.getEmpRegularShiftOnDate(emp, normDate) : null;
   if (regShift) {
+    hasSameDayShiftConflict = true;
     if (regShift === "nacht" || shiftId === "nacht") isNightConflict = true;
     warnings.push("Du arbeitest am " + formatDateDe(normDate) + " laut Schichtplan bereits regulär in der " + (shiftsLabel[regShift] || regShift) + ".");
   }
@@ -1256,11 +1331,13 @@ window.checkExtraShiftPlausibility = function(empId, dateIso, shiftId, ignoreExt
       ok: false,
       isWorkingConflict: true,
       isNightShiftConflict: isNightConflict,
+      hasLeaveConflict: hasLeaveConflict,
+      hasSameDayShiftConflict: hasSameDayShiftConflict,
       reason: warnings.join(" ")
     };
   }
 
-  return { ok: true, isWorkingConflict: false, isNightShiftConflict: false, reason: "" };
+  return { ok: true, isWorkingConflict: false, isNightShiftConflict: false, hasLeaveConflict: false, hasSameDayShiftConflict: false, reason: "" };
 };
 
 function checkExtraShiftConflict(emp, dateIso, shiftId, ignoreExtraId) {
@@ -1295,6 +1372,7 @@ window.addPortalLeaveRequest = function(empId, startIso, endIso, category, reaso
     category: category || "Urlaub - bezahlt",
     reason: reason || "",
     status: isSick ? "approved" : "pending",
+    isPortalSickNotice: isSick,
     plannerUnreadInfo: true,
     createdAt: nowIso,
     createdBy: actor,
@@ -1314,6 +1392,7 @@ window.addPortalLeaveRequest = function(empId, startIso, endIso, category, reaso
   return true;
 };
 
+/* LOGIK-FIX #17: Übernahme einer gesuchten Bringschicht ist gesperrt, wenn man am selben Tag selbst im Urlaub/Krank ist */
 window.applyForCoverageDay = function(covId, dateIso, empId) {
   const cov = (leaveRequests || []).find(r => r.id === covId);
   const emp = employees.find(e => e.id === empId);
@@ -1322,9 +1401,10 @@ window.applyForCoverageDay = function(covId, dateIso, empId) {
   const dayObj = (cov.days || []).find(d => window.normalizeDateIso(d.date) === normDate && !d.takenBy && d.dayStatus === "open" && d.explicitlyApproved);
   if (!dayObj) return false;
 
+  if (getActiveLeaveForEmpOnDate(emp.id, normDate)) return false;
   if (extraShifts.some(es => es.empId === emp.id && window.normalizeDateIso(es.date) === normDate && es.status !== "rejected")) return false;
   const check = window.checkExtraShiftPlausibility(emp.id, normDate, dayObj.shift);
-  if (!check.ok && !dayObj.allowWithRestWarning) return false;
+  if (!check.ok && (!dayObj.allowWithRestWarning || check.hasLeaveConflict || check.hasSameDayShiftConflict)) return false;
 
   const probTxt = cov.probableLines ? (" · " + cov.probableLines) : "";
   const nowIso = new Date().toISOString();
@@ -1370,8 +1450,6 @@ function isExtraShiftInActiveWindow(es, nowObj) {
   return now >= new Date(y, m, d, startHour - 1, 0, 0) && now < new Date(y, m, d, endHour, 0, 0);
 }
 
-/* Prüft, ob ein Mitarbeiter am heutigen Produktionstag eine genehmigte Bringschicht hat
-   (damit er gleich morgens ab 05:00 Uhr übersichtlich mit F / S / N im grünen Feld bereitsteht) */
 function getApprovedExtraShiftForToday(empId, nowObj) {
   const now = nowObj || new Date();
   const prodToday = getLogicalDateIso(now);
@@ -1384,16 +1462,17 @@ function getApprovedExtraShiftForToday(empId, nowObj) {
 }
 window.getApprovedExtraShiftForToday = getApprovedExtraShiftForToday;
 
+/* LOGIK-FIX #12 & #13: Strikt nach Produktionstag (05:00 Uhr Wechsel) prüfen (kein Mitternachts-Bug) und kein Geister-Rückwurf durch alte Bringschichten */
 window.syncAbsentAndExtraZones = function() {
   if (!hasLoadedFromCloud) return false;
   const now = new Date();
   const prodToday = getLogicalDateIso(now);
-  const calToday = getTodayIso(now);
+  const prevProdDay = getPrevDateIso(prodToday);
   const activeShiftNow = getCurrentActiveShiftId(now);
   let changed = false;
 
   employees.forEach(emp => {
-    let activeLeave = getActiveLeaveForEmpOnDate(emp.id, prodToday) || getActiveLeaveForEmpOnDate(emp.id, calToday);
+    const activeLeave = getActiveLeaveForEmpOnDate(emp.id, prodToday);
 
     if (activeLeave) {
       if (emp.zone !== "absent") { emp.zone = "absent"; changed = true; }
@@ -1402,8 +1481,6 @@ window.syncAbsentAndExtraZones = function() {
       emp.zone = "pool"; changed = true;
     }
 
-    /* Am Schichttag (ab 05:00 Uhr morgens) rutscht jeder Mitarbeiter mit genehmigter Bringschicht
-       direkt in das grüne Feld "➕ Bringschichten" (#extra) */
     const activeExtraToday = getApprovedExtraShiftForToday(emp.id, now);
     if (activeExtraToday && emp.zone === "pool") {
       emp.zone = "extra"; changed = true;
@@ -1412,8 +1489,12 @@ window.syncAbsentAndExtraZones = function() {
     } else if (!activeExtraToday && emp.zone && ["pool", "review", "absent", "extra"].indexOf(emp.zone) === -1) {
       const zShift = extractShiftIdFromZone(emp.zone);
       if (zShift && shiftRotation[zShift] !== emp.team && !emp.noRotation && zShift !== activeShiftNow) {
-        const hadPastExtra = extraShifts.some(es => es.empId === emp.id && es.status === "approved" && es.shift === zShift);
-        if (hadPastExtra) {
+        const hadYesterdayOrTodayExtra = extraShifts.some(es =>
+          es.empId === emp.id &&
+          es.shift === zShift &&
+          (window.normalizeDateIso(es.date) === prodToday || window.normalizeDateIso(es.date) === prevProdDay)
+        );
+        if (hadYesterdayOrTodayExtra) {
           emp.zone = "pool";
           changed = true;
         }
@@ -1555,6 +1636,7 @@ window.adjustEmpTrainingHoursManual = function(empId, lineId, deltaHours) {
   }
 };
 
+/* LOGIK-FIX #18: Entfernt die Linie aus mainLines, falls vorhanden, und schaltet sie sauber als Sekundärlinie frei */
 window.confirmSecondaryLineUnlock = function() {
   if (!pendingSecLineUnlockData) return;
   const { empId, lineId } = pendingSecLineUnlockData;
@@ -1564,8 +1646,9 @@ window.confirmSecondaryLineUnlock = function() {
   const emp = employees.find(e => e.id === empId);
   if (!emp) return;
 
+  if (!Array.isArray(emp.mainLines)) emp.mainLines = [];
   if (!Array.isArray(emp.secLines)) emp.secLines = [];
-  if (emp.secLines.indexOf(lineId) === -1) {
+  if (emp.mainLines.indexOf(lineId) === -1 && emp.secLines.indexOf(lineId) === -1) {
     emp.secLines.push(lineId);
     addHistoryLog("Sekundär-Anlage freigeschaltet: " + getLineNameById(lineId) + " für " + fullName(emp), "EMP");
     saveToFirebase();
@@ -1713,7 +1796,6 @@ function renderUnqualifiedHoursOverview() {
    5. STRATEGISCHE QUALIFIKATIONS- & ROTATIONS-MATRIX (INKL. 5%-100% FOKUS)
    ========================================================================== */
 
-/* LOGIK-FIX #4: Snapshot sichert auch Lernstunden & Historie für 100% sauberes "Zurück korrigieren" */
 function createBoardSnapshotForUndo() {
   return employees.map(e => ({
     id: e.id,
@@ -1888,7 +1970,6 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
   const teamKey = shiftRotation[shiftId];
   const activeLines = lines.filter(l => !l.ausgeplant);
 
-  /* LOGIK-FIX #4: Beim Zurücksetzen der Schicht vor Neuverteilung evtl. heutige Lernstunden-Gutschrift bereinigen */
   employees.forEach(emp => {
     if (extractShiftIdFromZone(emp.zone) === shiftId && !isEmpAnchorActiveToday(emp, todayIso)) {
       emp.zone = "pool";
@@ -1902,7 +1983,6 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
   window.syncAbsentAndExtraZones();
   restoreActiveAnchorEmployeesForShift(shiftId, todayIso);
 
-  /* LOGIK-FIX #3: Heutige genehmigte Bringschichten (F, S, N) werden auch bei "🪄 Alle Auto" und um 05:00 Uhr direkt ihrer Schichtzeile zugewiesen */
   const slotCandidates = employees.filter(emp => {
     if (emp.zone === "absent") return false;
     if (getActiveLeaveForEmpOnDate(emp.id, todayIso)) return false;
@@ -1967,23 +2047,18 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     return Math.max(0, roleSoll - currentRoleCount);
   }
 
-  function placeEmpOnLine(emp, line, countTrainingHours) {
+  const finalAssignmentRecords = [];
+
+  /* LOGIK-FIX #14 & #19: Memory-Pin wird niemals durch eine fremde Bringschicht überschrieben, und Einsatz-Zähler erst nach dem Ringtausch verbucht */
+  function placeEmpOnLineRaw(emp, line, isFocusTrainee) {
     const isRegularTeamMember = (emp.team === teamKey);
     const hasQuals = (Array.isArray(emp.mainLines) && emp.mainLines.length > 0) || (Array.isArray(emp.secLines) && emp.secLines.length > 0);
     emp.zone = line.id + "_" + shiftId;
-    /* Memory-Pin: Speichert die Nadel nur bei qualifizierten Anlagen (oder falls noch keine Qualifikation hinterlegt ist) */
-    if ((isRegularTeamMember && (isEmployeeQualifiedForLine(emp, line.id) || !hasQuals)) || !emp.pinnedZone) {
+    if (isRegularTeamMember && (isEmployeeQualifiedForLine(emp, line.id) || !hasQuals)) {
       emp.pinnedZone = emp.zone;
       emp.lastShiftId = shiftId;
     }
-    trackEmployeeLineAssignment(emp, line.id, todayIso);
-    const defaultShiftHours = (shiftModelConfig && typeof shiftModelConfig.defaultShiftHours === "number") ? shiftModelConfig.defaultShiftHours : 8;
-    if (countTrainingHours) {
-      window.recordManualAssignmentHours(emp.id, line.id, defaultShiftHours, true, false);
-    } else if (isEmployeeQualifiedForLine(emp, line.id)) {
-      /* Falls zuvor am selben Tag auf einer Fremdlinie gewesen, etwaige Gutschrift sauber zurücknehmen */
-      window.recordManualAssignmentHours(emp.id, line.id, defaultShiftHours, true, false);
-    }
+    finalAssignmentRecords.push({ emp: emp, lineId: line.id, isFocusTrainee: isFocusTrainee });
     assignedCount++;
   }
 
@@ -1999,7 +2074,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     for (let i = 0; i < orderedIds.length; i++) {
       const line = sortedLines.find(l => l.id === orderedIds[i]);
       if (line && getLineEmps(line.id).length < getLineTotalTarget(line) && getRoleDeficitForLine(line, rName) > 0) {
-        placeEmpOnLine(protectedEmp, line, false);
+        placeEmpOnLineRaw(protectedEmp, line, false);
         break;
       }
     }
@@ -2024,7 +2099,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
           );
         }
         if (!cand) break;
-        placeEmpOnLine(cand, line, false);
+        placeEmpOnLineRaw(cand, line, false);
       }
     });
   });
@@ -2043,7 +2118,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     });
   }
 
-  /* PHASE 2: Reguläre Linien (nicht mainOnly) mit 5%-100% Fokus-Quote, Stammpersonal & fairer Sekundär-Balance besetzen */
+  /* PHASE 2: Reguläre Linien (nicht mainOnly) mit Fokus-Quote, Stammpersonal & fairer Sekundär-Balance besetzen */
   sortedLines.filter(l => !l.mainOnly).forEach(line => {
     const totalSoll = getLineTotalTarget(line);
     roles.forEach(rName => {
@@ -2060,7 +2135,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
           if (focusCands.length > 0) {
             cand = focusCands[0];
             focusCount++;
-            placeEmpOnLine(cand, line, true);
+            placeEmpOnLineRaw(cand, line, true);
             continue;
           }
         }
@@ -2102,7 +2177,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
         }
 
         if (!cand) break;
-        placeEmpOnLine(cand, line, false);
+        placeEmpOnLineRaw(cand, line, false);
       }
     });
   });
@@ -2119,12 +2194,12 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
           Array.isArray(e.secLines) && e.secLines.indexOf(line.id) !== -1
         ).sort((a, b) => compareSecondaryFairness(a, b, line.id, todayIso));
         if (!secFallback.length) break;
-        placeEmpOnLine(secFallback[0], line, false);
+        placeEmpOnLineRaw(secFallback[0], line, false);
       }
     });
   });
 
-  /* PHASE 4: Intelligenter Ringtausch */
+  /* PHASE 4: Intelligenter Ringtausch (Fokus-Lernende werden vor dem Wegtauschen geschützt) */
   if (shiftModelConfig.smartAllowSwap !== false) {
     const unplaced = slotCandidates.filter(isAvailableInPool);
     unplaced.forEach(cand => {
@@ -2141,14 +2216,15 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
         }
 
         if (getLineEmps(targetLine.id).length < getLineTotalTarget(targetLine) && getRoleDeficitForLine(targetLine, cRole) > 0) {
-          placeEmpOnLine(cand, targetLine, false);
+          placeEmpOnLineRaw(cand, targetLine, false);
           break;
         }
 
         const currentRoleOccupants = getLineEmps(targetLine.id).filter(occ =>
           !occ.noRotation &&
           !window.shouldHoldEmpOnMainLineToday(occ, todayIso) &&
-          (occ.role || "Bediener") === cRole
+          (occ.role || "Bediener") === cRole &&
+          !finalAssignmentRecords.some(r => r.emp.id === occ.id && r.isFocusTrainee)
         );
         let swapped = false;
 
@@ -2166,9 +2242,14 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
             if (altLine.mainOnly && (!Array.isArray(occ.mainLines) || occ.mainLines.indexOf(altLine.id) === -1)) continue;
             if (getLineEmps(altLine.id).length < getLineTotalTarget(altLine) && getRoleDeficitForLine(altLine, cRole) > 0) {
               occ.zone = altLine.id + "_" + shiftId;
-              if (occ.team === teamKey || !occ.pinnedZone) occ.pinnedZone = occ.zone;
-              trackEmployeeLineAssignment(occ, altLine.id, todayIso);
-              placeEmpOnLine(cand, targetLine, false);
+              if (occ.team === teamKey) occ.pinnedZone = occ.zone;
+              const recIdx = finalAssignmentRecords.findIndex(r => r.emp.id === occ.id);
+              if (recIdx !== -1) {
+                finalAssignmentRecords[recIdx].lineId = altLine.id;
+              } else {
+                finalAssignmentRecords.push({ emp: occ, lineId: altLine.id, isFocusTrainee: false });
+              }
+              placeEmpOnLineRaw(cand, targetLine, false);
               swapCount++;
               swapped = true;
               break;
@@ -2181,7 +2262,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     });
   }
 
-  /* PHASE 5: Förder-Zyklus & anteiliger Fokus (5%-100%) für noch offene Linien-Plätze */
+  /* PHASE 5: Förder-Zyklus & anteiliger Fokus für noch offene Linien-Plätze */
   sortedLines.filter(l => !l.mainOnly).forEach(line => {
     const totalSoll = getLineTotalTarget(line);
     roles.forEach(rName => {
@@ -2194,7 +2275,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
         );
         if (!learner) break;
         focusCount++;
-        placeEmpOnLine(learner, line, true);
+        placeEmpOnLineRaw(learner, line, true);
       }
     });
   });
@@ -2202,6 +2283,17 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
   slotCandidates.forEach(cand => {
     if (isAvailableInPool(cand) && cand.zone !== "extra" && cand.team === teamKey && window.canRoleBeAssignedToLine(cand.role || "Bediener")) {
       cand.zone = "review";
+    }
+  });
+
+  /* Finale Verbuchung der Einsatz-Historie und Lernstunden nach Abschluss aller Ringtausch-Phasen */
+  finalAssignmentRecords.forEach(rec => {
+    trackEmployeeLineAssignment(rec.emp, rec.lineId, todayIso);
+    const defaultShiftHours = (shiftModelConfig && typeof shiftModelConfig.defaultShiftHours === "number") ? shiftModelConfig.defaultShiftHours : 8;
+    if (rec.isFocusTrainee) {
+      window.recordManualAssignmentHours(rec.emp.id, rec.lineId, defaultShiftHours, true, false);
+    } else if (isEmployeeQualifiedForLine(rec.emp, rec.lineId)) {
+      window.recordManualAssignmentHours(rec.emp.id, rec.lineId, defaultShiftHours, true, false);
     }
   });
 
@@ -2238,6 +2330,7 @@ window.runAllShiftsAutoAssignment = function(silent) {
    6. KUGELSICHERE 05:00-UHR-AUTOMATIK (INKL. 1H-BRINGSCHICHT-EINPLANUNG)
    ========================================================================== */
 
+/* LOGIK-FIX #9: Wartende Bringschichtler werden automatisch nur auf qualifizierte Linien (und keine gesperrten mainOnly-Fremdlinien) gesetzt */
 function autoAssignWaitingExtraWorkersForActiveShift(shiftId, todayIso) {
   if (shiftModelConfig.smartAssignEnabled === false || isIsoDateSunday(todayIso)) return false;
   const waitingExtras = employees.filter(emp =>
@@ -2253,10 +2346,11 @@ function autoAssignWaitingExtraWorkersForActiveShift(shiftId, todayIso) {
   waitingExtras.forEach(emp => {
     const rName = emp.role || "Bediener";
     const prefIds = [].concat(emp.mainLines || [], emp.secLines || []);
-    const candidateLines = prefIds.map(id => activeLines.find(l => l.id === id)).filter(Boolean).concat(activeLines);
+    const candidateLines = prefIds.map(id => activeLines.find(l => l.id === id)).filter(Boolean);
 
     for (let i = 0; i < candidateLines.length; i++) {
       const line = candidateLines[i];
+      if (line.mainOnly && (!Array.isArray(emp.mainLines) || emp.mainLines.indexOf(line.id) === -1)) continue;
       const curEmps = employees.filter(e => extractLineIdFromZone(e.zone) === line.id && extractShiftIdFromZone(e.zone) === shiftId);
       const roleSoll = Number((line.roleTargets || {})[rName] || 0);
       const curRoleCnt = curEmps.filter(e => (e.role || "Bediener") === rName).length;
@@ -2272,6 +2366,7 @@ function autoAssignWaitingExtraWorkersForActiveShift(shiftId, todayIso) {
   return placedAny;
 }
 
+/* LOGIK-FIX #16: Berücksichtigt getrennt die eingestellten Schalter (resetEnabled / loadEnabled), Wochentage und Uhrzeiten */
 function checkScheduledAutomations() {
   if (!hasLoadedFromCloud || isDraggingCard || isRunningAutoTransition) return false;
   const now = new Date();
@@ -2282,7 +2377,6 @@ function checkScheduledAutomations() {
 
   isRunningAutoTransition = true;
   try {
-    /* 1. Automatischer Ablauf des Stamm-Schutzes prüfen */
     employees.forEach(emp => {
       if (emp.inTrainingPhase) {
         const before = emp.inTrainingPhase;
@@ -2310,40 +2404,76 @@ function checkScheduledAutomations() {
       didChange = true;
     }
 
-    if (shiftModelConfig.lastProcessedProductionDate !== prodTodayIso) {
-      shiftModelConfig.lastProcessedProductionDate = prodTodayIso;
-
-      if (isSundayNow) {
+    if (isSundayNow) {
+      if (shiftModelConfig.lastProcessedProductionDate !== prodTodayIso) {
+        shiftModelConfig.lastProcessedProductionDate = prodTodayIso;
         employees.forEach(e => {
           if (e.zone && ["pool", "absent", "extra"].indexOf(e.zone) === -1) {
             e.zone = "pool";
+            window.recordManualAssignmentHours(e.id, null, 0, true, true);
           }
         });
         window.syncAbsentAndExtraZones();
         addHistoryLog("Sonntags-Ruhe ab 05:00 Uhr aktiviert (Board in Pool geleert)", "SHIFT");
         didChange = true;
-      } else {
-        if (shiftModelConfig.resetEnabled !== false || shiftModelConfig.autoRotate !== false) {
-          employees.forEach(e => {
-            if (e.zone && ["pool", "absent", "extra"].indexOf(e.zone) === -1 && !isEmpAnchorActiveToday(e, prodTodayIso)) {
-              e.zone = "pool";
-            }
-          });
-        }
-        window.syncAbsentAndExtraZones();
+      }
+    } else {
+      const currentWeekday = now.getDay();
+      const currentHour = now.getHours();
+      const resetDayCfg = Number(shiftModelConfig.resetDay ?? -1);
+      const resetHourCfg = Number(shiftModelConfig.resetHour ?? 5);
+      const loadDayCfg = Number(shiftModelConfig.loadDay ?? -1);
+      const loadHourCfg = Number(shiftModelConfig.loadHour ?? 5);
 
+      const resetRunKey = prodTodayIso + "_R_" + resetHourCfg;
+      const loadRunKey = prodTodayIso + "_L_" + loadHourCfg;
+
+      const isResetDue = shiftModelConfig.resetEnabled !== false &&
+        (resetDayCfg === -1 || resetDayCfg === currentWeekday) &&
+        currentHour >= resetHourCfg &&
+        shiftModelConfig.lastResetRunKey !== resetRunKey;
+
+      const isLoadDue = shiftModelConfig.loadEnabled !== false &&
+        (loadDayCfg === -1 || loadDayCfg === currentWeekday) &&
+        currentHour >= loadHourCfg &&
+        shiftModelConfig.lastLoadRunKey !== loadRunKey;
+
+      if (isResetDue) {
+        shiftModelConfig.lastResetRunKey = resetRunKey;
+        shiftModelConfig.lastProcessedProductionDate = prodTodayIso;
+        employees.forEach(e => {
+          if (e.zone && ["pool", "absent", "extra"].indexOf(e.zone) === -1 && !isEmpAnchorActiveToday(e, prodTodayIso)) {
+            e.zone = "pool";
+            window.recordManualAssignmentHours(e.id, null, 0, true, true);
+          }
+        });
+        window.syncAbsentAndExtraZones();
+        addHistoryLog("Zeitgesteuerter Pool-Reset für " + formatDateDe(prodTodayIso) + " ausgeführt", "SHIFT");
+        didChange = true;
+      }
+
+      if (isLoadDue) {
+        shiftModelConfig.lastLoadRunKey = loadRunKey;
+        shiftModelConfig.lastProcessedProductionDate = prodTodayIso;
+        window.syncAbsentAndExtraZones();
         if (shiftModelConfig.smartAssignEnabled !== false) {
           lastBoardSnapshotForUndo = createBoardSnapshotForUndo();
           shifts.forEach(s => {
             window.smartAssignShiftSlot(s.id, true);
           });
-        } else if (shiftModelConfig.loadEnabled !== false) {
+        } else {
           ["frueh", "spaet", "nacht", "frei"].forEach(slot => {
             const tKey = shiftRotation[slot];
             if (tKey) distributeTeamToSlotInternal(tKey, slot);
           });
         }
-        addHistoryLog("Tages-Automatik (05:00 Uhr / Catch-Up) für " + formatDateDe(prodTodayIso) + " ausgeführt", "AUTO");
+        addHistoryLog("Zeitgesteuerte Team-Verteilung für " + formatDateDe(prodTodayIso) + " ausgeführt", "AUTO");
+        didChange = true;
+      }
+
+      if (shiftModelConfig.lastProcessedProductionDate !== prodTodayIso && !shiftModelConfig.resetEnabled && !shiftModelConfig.loadEnabled) {
+        shiftModelConfig.lastProcessedProductionDate = prodTodayIso;
+        window.syncAbsentAndExtraZones();
         didChange = true;
       }
     }
@@ -2840,10 +2970,10 @@ function initDragAndDrop() {
           if (["pool", "review", "absent", "extra"].indexOf(newZone) === -1) {
             const targetShiftId = extractShiftIdFromZone(newZone);
             const targetLineId = extractLineIdFromZone(newZone);
-            const isRegTeam = targetShiftId && shiftRotation[targetShiftId] === emp.team;
+            const isRegTeam = targetShiftId && (shiftRotation[targetShiftId] === emp.team || emp.noRotation);
             const hasQuals = (Array.isArray(emp.mainLines) && emp.mainLines.length > 0) || (Array.isArray(emp.secLines) && emp.secLines.length > 0);
 
-            if ((isRegTeam && (isEmployeeQualifiedForLine(emp, targetLineId) || !hasQuals)) || !emp.pinnedZone) {
+            if (isRegTeam && (isEmployeeQualifiedForLine(emp, targetLineId) || !hasQuals)) {
               emp.pinnedZone = newZone;
               emp.lastShiftId = targetShiftId || emp.lastShiftId;
             }
@@ -3285,6 +3415,18 @@ window.getCoverageTargetInfoForDay = function(dateIso, shiftId, reqRole) {
   };
 };
 
+function cleanupPendingExtrasForCoverageDay(covId, dateIso, shiftId) {
+  if (!covId || !dateIso || !Array.isArray(extraShifts)) return;
+  const normD = window.normalizeDateIso(dateIso);
+  extraShifts = extraShifts.filter(es => {
+    if (!es || es.status !== "pending") return true;
+    if (es.coverageId === covId && window.normalizeDateIso(es.date) === normD && (!shiftId || es.shift === shiftId)) {
+      return false;
+    }
+    return true;
+  });
+}
+
 window.openCoverageReleaseModal = function(leaveId) {
   activeCoverageReleaseLeaveId = leaveId;
   const sl = sickLeaves.find(x => x.id === leaveId);
@@ -3292,7 +3434,7 @@ window.openCoverageReleaseModal = function(leaveId) {
     sl.plannerUnreadInfo = false;
   }
   let req = (leaveRequests || []).find(r => r.leaveId === leaveId || r.id === leaveId || r.id === ("cov_" + leaveId));
-  if (!req && sl && !sl.isOnboardingNotice) {
+  if (!req && sl && !sl.isOnboardingNotice && !sl.lineRequestData) {
     req = window.generateCoveragePromptForLeave(sl, "pending");
   }
 
@@ -3401,9 +3543,12 @@ window.openCoverageReleaseModal = function(leaveId) {
     }).join("");
   }
 
+  saveToFirebase();
+  window.updateInboxBadge();
   modal.style.display = "flex";
 };
 
+/* LOGIK-FIX #18: Wird ein Ersatzbedarfs-Tag auf "Nein" (rejected) gestellt, werden offene (pending) Bewerbungen dafür bereinigt */
 window.setCoverageDayDecision = function(leaveId, dayIdx, decisionStatus) {
   const req = (leaveRequests || []).find(r => r.leaveId === leaveId || r.id === leaveId || r.id === ("cov_" + leaveId));
   if (!req || !req.days || !req.days[dayIdx]) return;
@@ -3415,6 +3560,7 @@ window.setCoverageDayDecision = function(leaveId, dayIdx, decisionStatus) {
     d.allowWithRestWarning = (info.eligibleTotalCount === 0);
   } else {
     d.allowWithRestWarning = false;
+    cleanupPendingExtrasForCoverageDay(req.id, d.date, d.shift);
   }
   saveToFirebase();
   const modal = document.getElementById("coverageReleaseModal");
@@ -3422,6 +3568,7 @@ window.setCoverageDayDecision = function(leaveId, dayIdx, decisionStatus) {
     window.openCoverageReleaseModal(req.leaveId);
   }
   window.renderInboxLists();
+  window.updateInboxBadge();
 };
 
 window.toggleCoverageDayStatus = function(leaveId, dayIdx) {
@@ -3454,6 +3601,7 @@ window.setAllModalCoverageDaysStatus = function(mode) {
         d.dayStatus = "rejected";
         d.explicitlyApproved = false;
         d.allowWithRestWarning = false;
+        cleanupPendingExtrasForCoverageDay(req.id, d.date, d.shift);
       }
     } else if (mode === "open_all" || mode === "open") {
       d.dayStatus = "open";
@@ -3464,12 +3612,14 @@ window.setAllModalCoverageDaysStatus = function(mode) {
       d.dayStatus = "rejected";
       d.explicitlyApproved = false;
       d.allowWithRestWarning = false;
+      cleanupPendingExtrasForCoverageDay(req.id, d.date, d.shift);
     }
   });
 
   saveToFirebase();
   window.openCoverageReleaseModal(req.leaveId);
   window.renderInboxLists();
+  window.updateInboxBadge();
 
   if (mode === "open_green") {
     showToast("🟢 " + openCount + " regulär fahrbare Tage mit JA freigegeben (Ruhezeit-Konflikte auf Nein)");
@@ -3624,7 +3774,6 @@ window.addCounterOfferBlockRow = function(startVal, endVal, statusVal) {
   container.appendChild(row);
 };
 
-/* LOGIK-FIX #5: Abgelehnte Teilblöcke verfälschen nicht mehr das Start-/Enddatum */
 window.saveCounterOfferAndSplitLeave = function() {
   const sl = sickLeaves.find(x => x.id === activeCounterOfferLeaveId);
   if (!sl) return;
@@ -3675,7 +3824,11 @@ window.saveCounterOfferAndSplitLeave = function() {
   addHistoryLog("Urlaubsantrag von " + (emp ? fullName(emp) : "") + " bedingt angenommen / angepasst (" + rangesTxt + ")", "ABSENCE");
 
   if (hasApproved) {
-    window.generateCoveragePromptForLeave(sl, "pending");
+    const newCov = window.generateCoveragePromptForLeave(sl, "pending");
+    const validDates = new Set(newCov && Array.isArray(newCov.days) ? newCov.days.map(d => window.normalizeDateIso(d.date)) : []);
+    if (Array.isArray(extraShifts)) {
+      extraShifts = extraShifts.filter(es => !(es && es.status === "pending" && es.coverageId === ("cov_" + sl.id) && !validDates.has(window.normalizeDateIso(es.date))));
+    }
   } else {
     window.removeCoveragePromptForLeave(sl.id);
   }
@@ -3849,9 +4002,18 @@ function initSettingsDragAndDrop() {
   }
 }
 
-window.onEmpLineCheckboxChange = function() {
+/* LOGIK-FIX #17 / #18: Verhindert direkt bei der Auswahl, dass dieselbe Linie gleichzeitig als Stamm- und Sekundärlinie angehakt ist */
+window.onEmpLineCheckboxChange = function(changedChk) {
+  if (changedChk && changedChk.checked) {
+    const val = changedChk.value;
+    if (changedChk.classList.contains("emp-main-line-chk")) {
+      document.querySelectorAll(".emp-sec-line-chk").forEach(c => { if (c.value === val) c.checked = false; });
+    } else if (changedChk.classList.contains("emp-sec-line-chk")) {
+      document.querySelectorAll(".emp-main-line-chk").forEach(c => { if (c.value === val) c.checked = false; });
+    }
+  }
   window._tempEditEmpMainLines = Array.from(document.querySelectorAll(".emp-main-line-chk:checked")).map(c => c.value);
-  window._tempEditEmpSecLines = Array.from(document.querySelectorAll(".emp-sec-line-chk:checked")).map(c => c.value);
+  window._tempEditEmpSecLines = Array.from(document.querySelectorAll(".emp-sec-line-chk:checked")).map(c => c.value).filter(id => window._tempEditEmpMainLines.indexOf(id) === -1);
 };
 
 function ensureStrategicMatrixSettingsControls() {
@@ -3970,16 +4132,16 @@ function renderSettingsLists() {
   const mainLinesBox = document.getElementById("mainLinesCheckboxes");
   const secLinesBox = document.getElementById("secLinesCheckboxes");
   const currentMain = window._tempEditEmpMainLines || [];
-  const currentSec = window._tempEditEmpSecLines || [];
+  const currentSec = (window._tempEditEmpSecLines || []).filter(id => currentMain.indexOf(id) === -1);
 
   if (mainLinesBox) {
     mainLinesBox.innerHTML = lines.map(l =>
-      '<label style="font-size:0.74rem; display:inline-flex; align-items:center; gap:3px; cursor:pointer; background:#fff; padding:3px 6px; border:1px solid #cbd5e1; border-radius:6px;"><input type="checkbox" value="' + l.id + '" class="emp-main-line-chk" ' + (currentMain.indexOf(l.id) !== -1 ? 'checked' : '') + ' onchange="onEmpLineCheckboxChange()"> ' + l.name + '</label>'
+      '<label style="font-size:0.74rem; display:inline-flex; align-items:center; gap:3px; cursor:pointer; background:#fff; padding:3px 6px; border:1px solid #cbd5e1; border-radius:6px;"><input type="checkbox" value="' + l.id + '" class="emp-main-line-chk" ' + (currentMain.indexOf(l.id) !== -1 ? 'checked' : '') + ' onchange="onEmpLineCheckboxChange(this)"> ' + l.name + '</label>'
     ).join("");
   }
   if (secLinesBox) {
     secLinesBox.innerHTML = lines.map(l =>
-      '<label style="font-size:0.74rem; display:inline-flex; align-items:center; gap:3px; cursor:pointer; background:#fff; padding:3px 6px; border:1px solid #cbd5e1; border-radius:6px;"><input type="checkbox" value="' + l.id + '" class="emp-sec-line-chk" ' + (currentSec.indexOf(l.id) !== -1 ? 'checked' : '') + ' onchange="onEmpLineCheckboxChange()"> ' + l.name + '</label>'
+      '<label style="font-size:0.74rem; display:inline-flex; align-items:center; gap:3px; cursor:pointer; background:#fff; padding:3px 6px; border:1px solid #cbd5e1; border-radius:6px;"><input type="checkbox" value="' + l.id + '" class="emp-sec-line-chk" ' + (currentSec.indexOf(l.id) !== -1 ? 'checked' : '') + ' onchange="onEmpLineCheckboxChange(this)"> ' + l.name + '</label>'
     ).join("");
   }
 
@@ -4276,6 +4438,7 @@ function renderHistoryList() {
   }).join("");
 }
 
+/* LOGIK-FIX #8: System-Backups sichern und laden nun auch leaveRequests, shiftModelConfig, securityConfig und approvedShiftKey */
 window.createManualBackup = function() {
   const now = new Date();
   backups = Array.isArray(backups) ? backups : [];
@@ -4283,7 +4446,19 @@ window.createManualBackup = function() {
     id: "bak_" + now.getTime(),
     createdAt: now.toISOString(),
     createdBy: currentPlannerName || "Planer",
-    data: JSON.stringify({ lines, roles, employees, teamsConfig, shiftRotation, sickLeaves, extraShifts })
+    data: JSON.stringify({
+      lines,
+      roles,
+      employees,
+      teamsConfig,
+      shiftRotation,
+      sickLeaves,
+      leaveRequests,
+      extraShifts,
+      shiftModelConfig,
+      securityConfig,
+      approvedShiftKey
+    })
   });
   if (backups.length > 20) backups = backups.slice(0, 20);
   addHistoryLog("Manuelles System-Backup erstellt", "BACKUP");
@@ -4305,7 +4480,16 @@ window.restoreBackup = function(id) {
     if (parsed.teamsConfig) teamsConfig = parsed.teamsConfig;
     if (parsed.shiftRotation) shiftRotation = parsed.shiftRotation;
     if (Array.isArray(parsed.sickLeaves)) sickLeaves = parsed.sickLeaves;
+    if (Array.isArray(parsed.leaveRequests)) leaveRequests = parsed.leaveRequests;
     if (Array.isArray(parsed.extraShifts)) extraShifts = parsed.extraShifts;
+    if (parsed.shiftModelConfig && typeof parsed.shiftModelConfig === "object") {
+      shiftModelConfig = Object.assign(shiftModelConfig, parsed.shiftModelConfig);
+    }
+    if (parsed.securityConfig && typeof parsed.securityConfig === "object") {
+      securityConfig = Object.assign(securityConfig, parsed.securityConfig);
+    }
+    if (typeof parsed.approvedShiftKey === "string") approvedShiftKey = parsed.approvedShiftKey;
+    window.sanitizeTeamReferences();
     ensureUniqueShiftRotationTeams();
     addHistoryLog("Backup wiederhergestellt vom " + dStr, "BACKUP");
     saveToFirebase();
@@ -4407,24 +4591,52 @@ window.resetEmployeeOnboarding = function(id) {
   showToast("🔄 Onboarding für " + fullName(emp) + " zurückgesetzt");
 };
 
+/* LOGIK-FIX #6: Entfernt gelöschte Rollen auch aus allen Linien-Sollwerten (roleTargets) und setzt betroffene Mitarbeiter auf die Standardrolle */
 window.deleteRole = function(idx) {
   if (roles.length <= 1) return showToast("Mindestens eine Rolle muss erhalten bleiben!", true);
   const rName = roles[idx];
   if (!confirm("Sind Sie sicher, dass Sie die Rolle '" + rName + "' dauerhaft löschen möchten?")) return;
   roles.splice(idx, 1);
+  delete activeRoleFilters[rName];
+  if (shiftModelConfig.roleRequiresLines) delete shiftModelConfig.roleRequiresLines[rName];
+  if (shiftModelConfig.roleAllowLineAssign) delete shiftModelConfig.roleAllowLineAssign[rName];
+
+  lines.forEach(l => {
+    if (l.roleTargets && typeof l.roleTargets[rName] !== "undefined") {
+      delete l.roleTargets[rName];
+    }
+  });
+  const fallbackRole = roles[0] || "Bediener";
+  employees.forEach(emp => {
+    if (emp.role === rName) emp.role = fallbackRole;
+  });
+
   addHistoryLog("Rolle gelöscht: " + rName, "EMP");
   saveToFirebase();
+  window.initBoard();
   renderSettingsLists();
   renderRoleFilterCheckboxes();
   showToast("Rolle gelöscht");
 };
 
+/* LOGIK-FIX #7: Entfernt gelöschte Linien sauber aus allen Mitarbeiter-Qualifikationen, PIN-Nadeln, Zonen und Stundenzählern */
 window.deleteLine = function(id) {
   if (lines.length <= 1) return showToast("Mindestens eine Linie muss erhalten bleiben!", true);
   const lObj = lines.find(l => l.id === id);
   const lName = lObj ? lObj.name : id;
   if (!confirm("Sind Sie sicher, dass Sie " + lName + " dauerhaft löschen möchten?")) return;
   lines = lines.filter(l => l.id !== id);
+
+  employees.forEach(emp => {
+    if (Array.isArray(emp.mainLines)) emp.mainLines = emp.mainLines.filter(x => x !== id);
+    if (Array.isArray(emp.secLines)) emp.secLines = emp.secLines.filter(x => x !== id);
+    if (extractLineIdFromZone(emp.zone) === id) emp.zone = "pool";
+    if (extractLineIdFromZone(emp.pinnedZone) === id) emp.pinnedZone = null;
+    if (emp.trainingHoursByLine) delete emp.trainingHoursByLine[id];
+    if (emp.lineHistory) delete emp.lineHistory[id];
+    if (emp.lineAssignCounts) delete emp.lineAssignCounts[id];
+  });
+
   addHistoryLog(lName + " dauerhaft gelöscht", "EMP");
   saveToFirebase();
   window.initBoard();
@@ -4502,7 +4714,7 @@ window.editEmployee = function(id) {
   if (trStart) trStart.value = emp.trainingStartDate || getLogicalDateIso();
 
   window._tempEditEmpMainLines = Array.isArray(emp.mainLines) ? emp.mainLines.slice() : [];
-  window._tempEditEmpSecLines = Array.isArray(emp.secLines) ? emp.secLines.slice() : [];
+  window._tempEditEmpSecLines = Array.isArray(emp.secLines) ? emp.secLines.filter(x => window._tempEditEmpMainLines.indexOf(x) === -1) : [];
 
   document.getElementById("btnCancelEditEmp").style.display = "inline-block";
   document.getElementById("btnSaveEmp").textContent = "Änderungen speichern";
@@ -4546,7 +4758,7 @@ window.saveEmployee = function() {
   if (!fName || !lName) return showToast("Bitte Vor- und Nachname eingeben", true);
 
   const mainChecked = Array.from(document.querySelectorAll(".emp-main-line-chk:checked")).map(c => c.value);
-  const secChecked = Array.from(document.querySelectorAll(".emp-sec-line-chk:checked")).map(c => c.value);
+  const secChecked = Array.from(document.querySelectorAll(".emp-sec-line-chk:checked")).map(c => c.value).filter(lId => mainChecked.indexOf(lId) === -1);
 
   const teamVal = document.getElementById("newEmpTeam").value;
   const roleVal = document.getElementById("newEmpRole").value;
@@ -4793,6 +5005,7 @@ window.addManualSickLeave = function() {
     category: cat,
     reason: reason,
     status: "approved",
+    plannerUnreadInfo: false,
     createdAt: nowIso,
     createdBy: actor,
     reviewedBy: actor,
@@ -4858,6 +5071,7 @@ window.addManualExtraShift = function() {
     note: noteVal,
     plausibilityWarning: !!conflictWarning,
     conflictDetails: conflictWarning || "",
+    plannerUnreadInfo: false,
     status: "approved",
     createdAt: nowIso,
     createdBy: actor,
@@ -4882,16 +5096,22 @@ window.addManualExtraShift = function() {
   selectedManualExtraEmpId = null;
 };
 
+/* LOGIK-FIX #17: Entfernt bei Hochstufung auf Stammlinie (prio) die Linie automatisch aus den Sekundärlinien */
 function applyLineRequestToEmployee(sl) {
   if (!sl || !sl.lineRequestData || !sl.lineRequestData.lineId) return;
   const emp = employees.find(e => e.id === sl.empId);
   if (!emp) return;
+  const lineId = sl.lineRequestData.lineId;
+  if (!Array.isArray(emp.mainLines)) emp.mainLines = [];
+  if (!Array.isArray(emp.secLines)) emp.secLines = [];
+
   if (sl.lineRequestData.type === "prio") {
-    if (!Array.isArray(emp.mainLines)) emp.mainLines = [];
-    if (emp.mainLines.indexOf(sl.lineRequestData.lineId) === -1) emp.mainLines.push(sl.lineRequestData.lineId);
+    if (emp.mainLines.indexOf(lineId) === -1) emp.mainLines.push(lineId);
+    emp.secLines = emp.secLines.filter(id => id !== lineId);
   } else {
-    if (!Array.isArray(emp.secLines)) emp.secLines = [];
-    if (emp.secLines.indexOf(sl.lineRequestData.lineId) === -1) emp.secLines.push(sl.lineRequestData.lineId);
+    if (emp.mainLines.indexOf(lineId) === -1 && emp.secLines.indexOf(lineId) === -1) {
+      emp.secLines.push(lineId);
+    }
   }
 }
 
@@ -4909,7 +5129,47 @@ function releaseCoverageTakenForExtra(es) {
   });
 }
 
-/* LOGIK-FIX #2: "Info-Hinweise gelesen" markiert NUR reine Info-/Onboarding-Meldungen als gelesen, ohne Urlaube/Bringschichten blind zu genehmigen */
+/* LOGIK-FIX #13: Setzt einen Mitarbeiter wieder sauber in den Pool, falls seine heutige Bringschicht gelöscht oder abgelehnt wird */
+function resetEmpZoneIfRemovedExtraToday(es) {
+  if (!es) return;
+  const prodToday = getLogicalDateIso();
+  if (window.normalizeDateIso(es.date) !== prodToday) return;
+  const emp = employees.find(e => e.id === es.empId);
+  if (!emp) return;
+  if (emp.zone === "extra") {
+    emp.zone = "pool";
+  } else if (emp.zone && ["pool", "review", "absent", "extra"].indexOf(emp.zone) === -1) {
+    const zShift = extractShiftIdFromZone(emp.zone);
+    if (zShift === es.shift && shiftRotation[zShift] !== emp.team && !emp.noRotation) {
+      emp.zone = "pool";
+      window.recordManualAssignmentHours(emp.id, null, 0, true, true);
+    }
+  }
+}
+
+/* LOGIK-FIX #2 & #3: Quittiert Krankmeldungs-Infos & Gegenangebots-Antworten, ohne den Status (z.B. abgelehnt) fälschlicherweise auf genehmigt zu überschreiben */
+window.acknowledgeLeaveInfo = function(id, openCovModal) {
+  const sl = sickLeaves.find(x => x.id === id);
+  if (!sl) return;
+  const actor = getCurrentActorLabel();
+  const nowIso = new Date().toISOString();
+  sl.plannerUnreadInfo = false;
+  if (!sl.reviewedBy) sl.reviewedBy = actor;
+  if (!sl.reviewedAt) sl.reviewedAt = nowIso;
+  appendAuditEntry(sl, "Meldung vom Planer als gelesen bestätigt", actor);
+  saveToFirebase();
+  window.syncAbsentAndExtraZones();
+  renderEmployees();
+  window.renderInboxLists();
+  window.updateInboxBadge();
+  if (openCovModal && sl.status === "approved" && !sl.isOnboardingNotice && !sl.lineRequestData) {
+    window.openCoverageReleaseModal(sl.id);
+  } else {
+    showToast("✅ Meldung als gelesen bestätigt");
+  }
+};
+
+/* LOGIK-FIX #4: Markiert alle reinen Info-, Onboarding-, Krankmeldungs- und Antwort-Hinweise als gelesen, ohne offene Urlaubsanträge blind zu genehmigen */
 window.markAllSickLeavesRead = function() {
   const actor = getCurrentActorLabel();
   const nowIso = new Date().toISOString();
@@ -4926,8 +5186,11 @@ window.markAllSickLeavesRead = function() {
       }
       sl.plannerUnreadInfo = false;
       markedCount++;
-    } else if (sl.plannerUnreadInfo && sl.status === "counter_offer") {
+    } else if (sl.plannerUnreadInfo && (sl.counterOfferResponse || sl.isPortalSickNotice || sl.status === "approved" || sl.status === "rejected" || sl.status === "counter_offer")) {
       sl.plannerUnreadInfo = false;
+      if (!sl.reviewedBy) sl.reviewedBy = actor;
+      if (!sl.reviewedAt) sl.reviewedAt = nowIso;
+      appendAuditEntry(sl, "Info-/Krankmeldungs-Hinweis als gelesen markiert", actor);
       markedCount++;
     }
   });
@@ -5038,19 +5301,35 @@ window.renderInboxLists = function() {
         '</div>';
       }
 
-      /* LOGIK-FIX #1: Zeigt bei Antworten des Mitarbeiters auf bedingte Vorschläge eine klare Antwort-Info im Postfach an, statt den Antrag fälschlicherweise als offen anzuzeigen */
-      if (sl.status === "counter_offer" && sl.counterOfferResponse) {
-        const respText = sl.counterOfferResponse === "accepted" ? "🟢 Mitarbeiter hat den bedingten Vorschlag angenommen!" : "🔴 Mitarbeiter hat den bedingten Vorschlag abgelehnt!";
-        const respColor = sl.counterOfferResponse === "accepted" ? "#166534" : "#dc2626";
-        const postActionBtn = sl.counterOfferResponse === "accepted"
-          ? '<button class="btn btn-primary" style="padding:4px 11px; font-size:0.74rem; background:#0284c7;" onclick="openCoverageReleaseModal(\'' + sl.id + '\')">📢 Bringschichten (Ja/Nein) prüfen</button>'
-          : '<button class="btn btn-primary" style="padding:4px 11px; font-size:0.74rem; background:#16a34a;" onclick="approveSickLeave(\'' + sl.id + '\')">✅ Gelesen bestätigen</button>';
+      /* LOGIK-FIX #1 & #2: Reagiert zuverlässig auf counterOfferResponse (egal ob Status bereits approved oder rejected ist) und nutzt acknowledgeLeaveInfo */
+      if (sl.counterOfferResponse && sl.plannerUnreadInfo) {
+        const isAcc = (sl.counterOfferResponse === "accepted");
+        const respText = isAcc ? "🟢 Mitarbeiter hat den bedingten Vorschlag angenommen!" : "🔴 Mitarbeiter hat den bedingten Vorschlag abgelehnt!";
+        const respColor = isAcc ? "#166534" : "#dc2626";
+        const postActionBtn = isAcc
+          ? '<button class="btn btn-primary" style="padding:4px 11px; font-size:0.74rem; background:#0284c7;" onclick="acknowledgeLeaveInfo(\'' + sl.id + '\', true)">📢 Bringschichten (Ja/Nein) prüfen</button>' +
+            '<button class="btn btn-outline" style="padding:4px 11px; font-size:0.74rem; color:#166534; border-color:#86efac;" onclick="acknowledgeLeaveInfo(\'' + sl.id + '\', false)">✅ Gelesen bestätigen</button>'
+          : '<button class="btn btn-primary" style="padding:4px 11px; font-size:0.74rem; background:#16a34a;" onclick="acknowledgeLeaveInfo(\'' + sl.id + '\', false)">✅ Ablehnung zur Kenntnis genommen</button>';
 
         return '<div style="background:#fffbeb; border:1px solid #fde68a; border-left:4px solid #f59e0b; padding:10px; border-radius:8px; margin-bottom:8px; font-size:0.82rem;">' +
           '<div style="display:flex; justify-content:space-between; align-items:center;"><b>' + eName + '</b><span style="color:' + respColor + '; font-weight:800;">' + respText + '</span></div>' +
           '<div style="color:#475569; margin:3px 0;">Antrag: ' + (sl.category || 'Urlaub') + ' (' + formatDateDe(sl.startDate) + ' – ' + formatDateDe(sl.endDate) + ')</div>' +
           renderAuditTrailHtml(sl) +
-          '<div style="display:flex; gap:6px; margin-top:8px;">' + postActionBtn + '</div>' +
+          '<div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">' + postActionBtn + '</div>' +
+        '</div>';
+      }
+
+      /* LOGIK-FIX #3: Neue Krankmeldungen aus dem Portal erscheinen als klare Krankmeldungs-Info mit direkter Bringschicht-Prüfung statt mit Urlaubs-Buttons */
+      const isSickCategory = String(sl.category || "").toLowerCase().indexOf("arbeitsunfähig") !== -1 || String(sl.category || "").toLowerCase().indexOf("krank") !== -1;
+      if ((sl.isPortalSickNotice || isSickCategory) && sl.status === "approved" && sl.plannerUnreadInfo) {
+        return '<div style="background:#fff1f2; border:1px solid #fecdd3; border-left:4px solid #e11d48; padding:10px; border-radius:8px; margin-bottom:8px; font-size:0.82rem;">' +
+          '<div style="display:flex; justify-content:space-between; align-items:center;"><b>🏥 ' + eName + '</b><span style="color:#be123c; font-weight:800;">Neue Krankmeldung: ' + (sl.category || 'Arbeitsunfähigkeit') + '</span></div>' +
+          '<div style="color:#334155; margin:4px 0;">Zeitraum: <b>Von ' + formatDateDe(sl.startDate) + ' bis ' + formatDateDe(sl.endDate) + '</b>' + (sl.reason ? ' · ' + sl.reason : '') + '</div>' +
+          renderAuditTrailHtml(sl) +
+          '<div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">' +
+            '<button type="button" class="btn btn-primary" style="padding:4px 12px; font-size:0.75rem; background:#0284c7;" onclick="acknowledgeLeaveInfo(\'' + sl.id + '\', true)">📢 Bringschichten (Ja/Nein) prüfen</button>' +
+            '<button type="button" class="btn btn-outline" style="padding:4px 12px; font-size:0.75rem; color:#166534; border-color:#86efac; background:#fff;" onclick="acknowledgeLeaveInfo(\'' + sl.id + '\', false)">✅ Gelesen bestätigen</button>' +
+          '</div>' +
         '</div>';
       }
 
@@ -5213,9 +5492,10 @@ window.renderInboxLists = function() {
     }
   }
 
-  const processedLeaves = sickLeaves.filter(sl => sl.status !== "pending" && !(sl.status === "counter_offer" && !sl.counterOfferResponse));
+  /* LOGIK-FIX #3: Oben als ungelesen angezeigte Einträge (!sl.plannerUnreadInfo) werden nicht gleichzeitig doppelt unten gelistet */
+  const processedLeaves = sickLeaves.filter(sl => sl.status !== "pending" && !sl.plannerUnreadInfo);
   const processedExtrasAsItems = extraShifts
-    .filter(es => es.status === "approved" || es.status === "rejected")
+    .filter(es => (es.status === "approved" || es.status === "rejected") && !es.plannerUnreadInfo)
     .map(es => ({
       id: es.id,
       empId: es.empId,
@@ -5413,6 +5693,7 @@ window.rejectExtraShiftRequest = function(id) {
   es.reviewedAt = nowIso;
   appendAuditEntry(es, "Bringschicht [" + fsnCode + "] vom Planer abgelehnt", actor);
   releaseCoverageTakenForExtra(es);
+  resetEmpZoneIfRemovedExtraToday(es);
   const emp = employees.find(e => e.id === es.empId);
   addHistoryLog("Bringschicht [" + fsnCode + "] abgelehnt für " + (emp ? fullName(emp) : "") + " am " + formatDateDe(es.date), "ABSENCE");
   saveToFirebase();
@@ -5439,14 +5720,19 @@ window.deleteExtraShift = function(id, skipConfirm) {
   const isPortalPage = !document.getElementById("inboxModal");
   if (!skipConfirm && !isPortalPage && !confirm("Möchten Sie diese Bringschicht wirklich löschen?")) return;
   const targetEs = extraShifts.find(x => x.id === id);
-  if (targetEs) releaseCoverageTakenForExtra(targetEs);
+  if (targetEs) {
+    releaseCoverageTakenForExtra(targetEs);
+    resetEmpZoneIfRemovedExtraToday(targetEs);
+  }
   extraShifts = extraShifts.filter(x => x.id !== id);
   saveToFirebase();
   window.syncAbsentAndExtraZones();
   renderEmployees();
-  window.renderInboxLists();
-  window.updateInboxBadge();
-  showToast("Bringschicht entfernt");
+  if (!isPortalPage) {
+    window.renderInboxLists();
+    window.updateInboxBadge();
+    showToast("Bringschicht entfernt");
+  }
 };
 
 window.updateInboxSearch = function(val) {
@@ -5482,8 +5768,32 @@ window.updateInboxBadge = function() {
   }
 };
 
+/* LOGIK-FIX #15 & #18: Bereinigt abgelaufene Einträge nach 360 Tagen und löscht niemals neue offene Linien-Anfragen wegen alter genehmigter Einträge */
 function deduplicateLeaveAndExtraRecords() {
   let removedAny = false;
+  const cutoff360Iso = shiftDateIso(getLogicalDateIso(), -360);
+
+  if (Array.isArray(sickLeaves) && sickLeaves.length > 0) {
+    const beforeLen = sickLeaves.length;
+    sickLeaves = sickLeaves.filter(sl => {
+      if (!sl) return false;
+      if (sl.status === "pending" || sl.plannerUnreadInfo) return true;
+      const endIso = window.normalizeDateIso(sl.endDate || sl.startDate || "");
+      return !endIso || endIso >= cutoff360Iso;
+    });
+    if (sickLeaves.length !== beforeLen) removedAny = true;
+  }
+
+  if (Array.isArray(extraShifts) && extraShifts.length > 0) {
+    const beforeLen = extraShifts.length;
+    extraShifts = extraShifts.filter(es => {
+      if (!es) return false;
+      if (es.status === "pending" || es.plannerUnreadInfo) return true;
+      const dIso = window.normalizeDateIso(es.date || "");
+      return !dIso || dIso >= cutoff360Iso;
+    });
+    if (extraShifts.length !== beforeLen) removedAny = true;
+  }
 
   if (Array.isArray(sickLeaves) && sickLeaves.length > 1) {
     const seenLeaveKeys = {};
@@ -5503,7 +5813,7 @@ function deduplicateLeaveAndExtraRecords() {
       const sNorm = window.normalizeDateIso ? window.normalizeDateIso(sl.startDate) : sl.startDate;
       const eNorm = window.normalizeDateIso ? window.normalizeDateIso(sl.endDate) : sl.endDate;
       const key = sl.lineRequestData
-        ? ("LINE_" + sl.empId + "_" + sl.lineRequestData.lineId + "_" + sl.lineRequestData.type)
+        ? ("LINE_" + sl.empId + "_" + sl.lineRequestData.lineId + "_" + sl.lineRequestData.type + "_" + (sl.status || "pending"))
         : ("LEAVE_" + sl.empId + "_" + sNorm + "_" + eNorm);
       if (!seenLeaveKeys[key]) {
         seenLeaveKeys[key] = true;
@@ -5513,11 +5823,12 @@ function deduplicateLeaveAndExtraRecords() {
       }
     });
 
-    if (removedAny) {
+    if (sickLeaves.length !== keepIds.size) {
       sickLeaves.forEach(sl => {
         if (sl && keepIds.has(sl.id)) cleanedLeaves.push(sl);
       });
       sickLeaves = cleanedLeaves;
+      removedAny = true;
     }
   }
 
@@ -5803,7 +6114,7 @@ window.addEventListener("DOMContentLoaded", function() {
   const lastAct = Number(sessionStorage.getItem("planner_last_active") || Date.now());
   const maxMs = (Number(securityConfig.plannerTimeoutMin) || 180) * 60000;
   if (savedName && savedLvl >= 2 && (Date.now() - lastAct <= maxMs)) {
-    applyPlannerLoginState(savedName, savedLvl, savedEmpId);
+    applyPlannerLoginState(savedName, savedLvl, empId = savedEmpId);
   }
 
   window.initBoard();
