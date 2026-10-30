@@ -360,7 +360,7 @@
       <div class="header-title">
         <div class="header-title-text">
           <h1>Schicht und Linienübersicht</h1>
-          <div id="headerDateKw" class="header-meta">Lade Datum... · v4.9.71</div>
+          <div id="headerDateKw" class="header-meta">Lade Datum... · v4.9.70</div>
         </div>
         <div class="header-badges-row">
           <span id="plannerStatusBadge" class="status-badge">Planer-Modus aktiv</span>
@@ -386,7 +386,7 @@
       <button id="btnUndoAutoAssignHeader" class="undo-assign-btn" onclick="undoLastAutoAssignment()" title="Stellt den Zustand vor der letzten automatischen Zuweisung fehlerfrei wieder her">
         ↩️ Zurück korrigieren
       </button>
-      <button id="plannerApprovalIndicator" class="planner-approval-indicator" onclick="toggleShiftApprovalState()" title="Bestätigt die Schichten des heutigen Produktionstages für das Mitarbeiter-Portal">
+      <button id="plannerApprovalIndicator" class="planner-approval-indicator" onclick="toggleShiftApprovalState()" title="Gibt gezielt die aktuell laufende Schicht (ab 05:00 Früh / 13:00 Spät / 21:00 Nacht) für das Portal frei">
         <span id="indicatorDot" style="width:8px; height:8px; border-radius:50%; background:#dc2626;"></span>
         <span id="indicatorText">Freigeben</span>
       </button>
@@ -569,7 +569,7 @@
       <div style="margin-bottom: 12px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;">
           <h4 style="font-size:0.88rem; color:#dc2626;">🔔 Neue Meldungen, Urlaubsanträge & Bringschicht-Angebote</h4>
-          <button id="btnMarkAllRead" class="btn btn-outline" style="padding:3px 9px; font-size:0.72rem;" onclick="markAllSickLeavesRead()" title="Markiert reine Info-, Krankmeldungs-, Antwort- und Onboarding-Hinweise als gelesen (genehmigt keine offenen Urlaubsanträge)">Info-Hinweise gelesen</button>
+          <button id="btnMarkAllRead" class="btn btn-outline" style="padding:3px 9px; font-size:0.72rem;" onclick="markAllSickLeavesRead()" title="Markiert reine Info-, Antwort- und Onboarding-Hinweise als gelesen">Info-Hinweise gelesen</button>
         </div>
         <div id="unreadSickList"></div>
       </div>
@@ -610,7 +610,7 @@
   <div id="settingsModal" class="modal-overlay">
     <div class="modal" style="max-width: 760px;">
       <h3 style="display:flex; justify-content:space-between; color:var(--bayer-blue); margin-bottom:12px;">
-        <span>⚙️ Einstellungen <small style="font-size:0.72rem; color:#94a3b8; font-weight:600;">v4.9.71</small></span>
+        <span>⚙️ Einstellungen <small style="font-size:0.72rem; color:#94a3b8; font-weight:600;">v4.9.70</small></span>
         <button onclick="closeModal('settingsModal')" style="border:none; background:none; font-size:1.5rem; cursor:pointer;">&times;</button>
       </h3>
       <div class="tabs">
@@ -637,10 +637,10 @@
             <div class="form-group" style="flex:1.2; min-width:150px;">
               <label>Freischalt-Stufe</label>
               <select id="newEmpAccessLevel" class="form-control">
-                <option value="1">Berechtigungsstufe 1</option>
-                <option value="2">Berechtigungsstufe 2</option>
-                <option value="3">Berechtigungsstufe 3</option>
-                <option value="4">Berechtigungsstufe 4</option>
+                <option value="1">Mitarbeiter (Stufe 1)</option>
+                <option value="2">Schichtführer (Stufe 2)</option>
+                <option value="3">Planer (Stufe 3)</option>
+                <option value="4">Admin (Stufe 4)</option>
               </select>
             </div>
           </div>
@@ -965,7 +965,7 @@
   </div>
 
   <script>
-    window.EXPECTED_HTML_VERSION = "4.9.71";
+    window.EXPECTED_HTML_VERSION = "4.9.70";
     window.closeModal = function(id) {
       var el = document.getElementById(id);
       if (el) el.style.display = "none";
@@ -1009,6 +1009,6 @@
       if (arrow) arrow.textContent = shouldOpen ? "▲ Schließen" : "▼ Öffnen";
     }
   </script>
-  <script src="planer.js?v=4.9.71"></script>
+  <script src="planer.js?v=4.9.70"></script>
 </body>
 </html>
