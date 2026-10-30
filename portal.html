@@ -304,9 +304,9 @@
 
         <div style="border-top:1px solid #e2e8f0; padding-top:12px;">
           <h3 style="font-size:0.88rem; color:#334155; margin-bottom:10px;">➕ Eigene Bringschicht / Zusatzschicht anbieten (F / S / N)</h3>
-          <div style="display:flex; gap:12px; flex-wrap:wrap;">
-            <div class="form-group" style="flex:1; min-width:140px;"><label>Datum der Schicht</label><input type="date" id="portalExtraDate" class="form-control" onchange="updateExtraShiftPreviewHint()"></div>
-            <div class="form-group" style="flex:1; min-width:140px;">
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; align-items:start; margin-bottom:14px;">
+            <div class="form-group" style="margin-bottom:0;"><label>Datum der Schicht</label><input type="date" id="portalExtraDate" class="form-control" onchange="updateExtraShiftPreviewHint()"></div>
+            <div class="form-group" style="margin-bottom:0;">
               <label>Gewünschte Schicht (F / S / N)</label>
               <select id="portalExtraShift" class="form-control" onchange="updateExtraShiftPreviewHint()">
                 <option value="frueh">Frühschicht (F)</option>
@@ -315,6 +315,7 @@
               </select>
             </div>
           </div>
+
           <div id="extraShiftPlausibilityHint" style="display:none; padding:8px 10px; border-radius:6px; font-size:0.78rem; font-weight:700; margin-bottom:10px; line-height:1.4;"></div>
           <div class="form-group"><label>Bemerkung / Linie (optional)</label><input type="text" id="portalExtraNote" class="form-control" placeholder="z.B. bevorzugte Linie oder Zeitfenster..."></div>
           <button id="btnSubmitPortalExtra" class="btn btn-primary" style="width:100%;" onclick="submitPortalExtraShift()">Bringschicht eintragen</button>
