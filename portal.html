@@ -81,6 +81,29 @@
     .role-select-option { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; cursor: pointer; font-size: 0.86rem; font-weight: 600; transition: 0.15s; }
     .role-select-option:hover { background: #f0f9ff; border-color: #7dd3fc; }
   </style>
+
+      /* Kalender-Stile für das Mitarbeiter-Portal */
+    .calendar-container { margin-top: 6px; }
+    .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .calendar-header h3 { font-size: 0.95rem; font-weight: 700; color: #0f172a; margin: 0; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+    .calendar-weekday { font-size: 0.7rem; font-weight: 700; color: #64748b; padding-bottom: 4px; }
+    .calendar-day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 3px 2px; border-radius: 6px; background: #f8fafc; border: 1px solid #e2e8f0; font-size: 0.76rem; font-weight: 600; color: #0f172a; position: relative; }
+    .calendar-day.empty { background: transparent; border: none; }
+    .calendar-day.today { border-color: var(--bayer-blue); box-shadow: 0 0 0 1px var(--bayer-blue); }
+    .calendar-day.shift-frueh { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+    .calendar-day.shift-spaet { background: #fef3c7; color: #b45309; border-color: #fde68a; }
+    .calendar-day.shift-nacht { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
+    .calendar-day.shift-frei { background: #f1f5f9; color: #64748b; border-color: #cbd5e1; }
+    .calendar-day.status-leave { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+    .calendar-day.status-sick { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+    .calendar-day.status-extra { background: #16a34a; color: #ffffff; border-color: #15803d; }
+    .cal-day-num { font-weight: 700; line-height: 1; margin-bottom: 2px; }
+    .cal-day-badge { font-size: 0.55rem; padding: 1px 2px; border-radius: 3px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-top: auto; }
+    .calendar-legend { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; font-size: 0.7rem; color: #475569; justify-content: center; border-top: 1px solid #f1f5f9; padding-top: 8px; }
+    .legend-item { display: inline-flex; align-items: center; gap: 3px; }
+    .legend-box { width: 10px; height: 10px; border-radius: 2px; }
+
   <!-- 🧱 [LEGO-MODUL PRT-01 ENDE: CSS & DESIGN-STYLES] -->
 </head>
 <body class="portal-locked">
@@ -241,6 +264,28 @@
         <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="submitPortalLineRequest()">+ Anfragen</button>
       </div>
     </div>
+
+    <!-- 🧱 [LEGO-MODUL PRT-07.01: MONATS-KALENDER FÜR SCHICHTEN, URLAUB & KRANK] -->
+    <div class="card">
+      <div class="calendar-container">
+        <div class="calendar-header">
+          <button type="button" class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem;" onclick="changePortalCalendarMonth(-1)">◀ Vorheriger</button>
+          <h3 id="portalCalendarTitle">Monat Jahr</h3>
+          <button type="button" class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem;" onclick="changePortalCalendarMonth(1)">Nächster ▶</button>
+        </div>
+        <div class="calendar-grid" id="portalCalendarGrid"></div>
+        <div class="calendar-legend">
+          <span class="legend-item"><span class="legend-box" style="background:#e0f2fe; border:1px solid #bae6fd;"></span>Früh</span>
+          <span class="legend-item"><span class="legend-box" style="background:#fef3c7; border:1px solid #fde68a;"></span>Spät</span>
+          <span class="legend-item"><span class="legend-box" style="background:#f5f3ff; border:1px solid #ddd6fe;"></span>Nacht</span>
+          <span class="legend-item"><span class="legend-box" style="background:#f0fdf4; border:1px solid #bbf7d0;"></span>Urlaub</span>
+          <span class="legend-item"><span class="legend-box" style="background:#fef2f2; border:1px solid #fecaca;"></span>Krank</span>
+          <span class="legend-item"><span class="legend-box" style="background:#16a34a;"></span>Bringschicht</span>
+        </div>
+      </div>
+    </div>
+
+
     <!-- 🧱 [LEGO-MODUL PRT-07 ENDE: MEINE SCHICHT, GEGENANGEBOTE & MEINE LINIEN] -->
 
     <!-- 🧱 [LEGO-MODUL PRT-08 START: ANTRAGS-TABS (URLAUB, KRANK/ABWESEND, BRINGSCHICHT)] -->
@@ -1081,6 +1126,8 @@
       renderOpenCoverageRequests(emp);
       renderMyRequestsList(emp.id);
       updateExtraShiftPreviewHint();
+      renderPortalCalendar(emp.id);
+
     }
 
     function renderOpenCoverageRequests(emp) {
@@ -1469,6 +1516,98 @@
       return "";
     }
 
+        let portalCalendarCursorDate = new Date();
+
+    window.changePortalCalendarMonth = function(delta) {
+      portalCalendarCursorDate.setMonth(portalCalendarCursorDate.getMonth() + delta);
+      renderPortalCalendar(loggedInPortalEmpId);
+    };
+
+    function renderPortalCalendar(empId) {
+      const gridEl = document.getElementById("portalCalendarGrid");
+      const titleEl = document.getElementById("portalCalendarTitle");
+      if (!gridEl || !titleEl || !empId) return;
+
+      const emp = employees.find(x => x.id === empId);
+      if (!emp) return;
+
+      const year = portalCalendarCursorDate.getFullYear();
+      const month = portalCalendarCursorDate.getMonth();
+      const monthNames = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+      titleEl.textContent = monthNames[month] + " " + year;
+
+      const firstDayOfMonth = new Date(year, month, 1);
+      const lastDayOfMonth = new Date(year, month + 1, 0);
+      
+      let startDayOfWeek = firstDayOfMonth.getDay() - 1; // Montag als Start (0 = Mo, 6 = So)
+      if (startDayOfWeek === -1) startDayOfWeek = 6;
+
+      const totalDays = lastDayOfMonth.getDate();
+      const todayIso = getPortalProdDateIso();
+
+      let html = '<div class="calendar-weekday">Mo</div>' +
+                 '<div class="calendar-weekday">Di</div>' +
+                 '<div class="calendar-weekday">Mi</div>' +
+                 '<div class="calendar-weekday">Do</div>' +
+                 '<div class="calendar-weekday">Fr</div>' +
+                 '<div class="calendar-weekday">Sa</div>' +
+                 '<div class="calendar-weekday" style="color:#dc2626;">So</div>';
+
+      // Leere Felder für Tage vor dem Monatsersten
+      for (let i = 0; i < startDayOfWeek; i++) {
+        html += '<div class="calendar-day empty"></div>';
+      }
+
+      for (let day = 1; day <= totalDays; day++) {
+        const dObj = new Date(year, month, day);
+        const dIso = dObj.getFullYear() + "-" + String(dObj.getMonth() + 1).padStart(2, "0") + "-" + String(dObj.getDate()).padStart(2, "0");
+        const isToday = (dIso === todayIso);
+        const isSunday = (dObj.getDay() === 0);
+
+        // Prüfen auf Abwesenheit (Urlaub / Krank)
+        const activeLeave = (typeof getActiveLeaveForEmpOnDate === "function") ? getActiveLeaveForEmpOnDate(emp.id, dIso) : null;
+        // Prüfen auf Bringschicht
+        const extraShift = (typeof extraShifts !== "undefined" && Array.isArray(extraShifts)) ? extraShifts.find(es => es.empId === emp.id && es.status === "approved" && normIsoLocal(es.date) === dIso) : null;
+        // Reguläre Schicht
+        const regShift = (isSunday || activeLeave) ? null : (typeof window.getEmpRegularShiftOnDate === "function" ? window.getEmpRegularShiftOnDate(emp, dIso) : null);
+
+        let dayCls = "calendar-day" + (isToday ? " today" : "");
+        let badgeHtml = "";
+
+        if (extraShift) {
+          dayCls += " status-extra";
+          badgeHtml = '<span class="cal-day-badge" style="background:#ffffff; color:#15803d;">➕ ' + getShiftFsnLetter(extraShift.shift) + '</span>';
+        } else if (activeLeave) {
+          const isSick = String(activeLeave.category || "").toLowerCase().indexOf("krank") !== -1 || String(activeLeave.category || "").toLowerCase().indexOf("arbeitsunfähig") !== -1;
+          dayCls += isSick ? " status-sick" : " status-leave";
+          badgeHtml = '<span class="cal-day-badge" style="background:' + (isSick ? '#fee2e2' : '#dcfce7') + '; color:' + (isSick ? '#b91c1c' : '#166534') + ';">' + (isSick ? 'Krank' : 'Urlaub') + '</span>';
+        } else if (isSunday) {
+          dayCls += " shift-frei";
+          badgeHtml = '<span class="cal-day-badge" style="color:#0284c7;">Frei</span>';
+        } else if (regShift === "frueh") {
+          dayCls += " shift-frueh";
+          badgeHtml = '<span class="cal-day-badge">Früh</span>';
+        } else if (regShift === "spaet") {
+          dayCls += " shift-spaet";
+          badgeHtml = '<span class="cal-day-badge">Spät</span>';
+        } else if (regShift === "nacht") {
+          dayCls += " shift-nacht";
+          badgeHtml = '<span class="cal-day-badge">Nacht</span>';
+        } else {
+          dayCls += " shift-frei";
+          badgeHtml = '<span class="cal-day-badge">Frei</span>';
+        }
+
+        html += '<div class="' + dayCls + '">' +
+                  '<span class="cal-day-num">' + day + '</span>' +
+                  badgeHtml +
+                '</div>';
+      }
+
+      gridEl.innerHTML = html;
+    }
+
+    
     function renderMyRequestsList(empId) {
       const listEl = document.getElementById("myPortalRequestsList");
       if (!listEl) return;
