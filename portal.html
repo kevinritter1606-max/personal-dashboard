@@ -946,12 +946,12 @@
         const isExtraHere = !!(todayExtraShift && todayExtraShift.shift === sId);
         assignEl.textContent = "🏭 " + (lineObj ? lineObj.name : lId) + " (" + shiftName + (isExtraHere ? " · ➕ Bringschicht [" + fsnCode + "]" : "") + ")";
 
-        const activeRunningShiftId = typeof getCurrentActiveShiftId === "function" ? getCurrentActiveShiftId() : sId;
-        const isEmpShiftApproved = isPortalShiftApprovedFor(prodTodayIso, activeRunningShiftId);
+        // HIER ANGEPASST: Prüft exakt die Schicht des Mitarbeiters (z. B. Spätschicht), in der er eingeteilt ist
+        const isEmpShiftApproved = isPortalShiftApprovedFor(prodTodayIso, sId);
         noteEl.style.color = isEmpShiftApproved ? "#166534" : "#b91c1c";
         noteEl.textContent = isEmpShiftApproved
-          ? ("✅ " + (shiftsLabel[activeRunningShiftId] || activeRunningShiftId) + " ist vom Planer bestätigt")
-          : ("⏳ " + (shiftsLabel[activeRunningShiftId] || activeRunningShiftId) + " noch nicht bestätigt");
+          ? ("✅ " + shiftName + " ist vom Planer bestätigt")
+          : ("⏳ " + shiftName + " noch nicht bestätigt");
       } else if (todayExtraShift) {
         const sId = todayExtraShift.shift;
         const fsnCode = getShiftFsnLetter(sId);
@@ -959,12 +959,11 @@
         const noteSuffix = todayExtraShift.note ? (" · " + todayExtraShift.note) : "";
         assignEl.textContent = "➕ Bringschicht [" + fsnCode + "]: " + shiftName + (emp.zone === "extra" ? " (Im grünen Feld bereitgestellt)" : " (Noch in Einteilung)") + noteSuffix;
 
-        const activeRunningShiftId = typeof getCurrentActiveShiftId === "function" ? getCurrentActiveShiftId() : sId;
-        const isExtraApproved = isPortalShiftApprovedFor(prodTodayIso, activeRunningShiftId);
+        const isExtraApproved = isPortalShiftApprovedFor(prodTodayIso, sId);
         noteEl.style.color = isExtraApproved ? "#166534" : "#b91c1c";
         noteEl.textContent = isExtraApproved
-          ? ("✅ " + (shiftsLabel[activeRunningShiftId] || activeRunningShiftId) + " (Bringschicht [" + fsnCode + "]) ist vom Planer bestätigt")
-          : ("⏳ " + (shiftsLabel[activeRunningShiftId] || activeRunningShiftId) + " (Bringschicht [" + fsnCode + "]) noch nicht bestätigt");
+          ? ("✅ " + shiftName + " (Bringschicht [" + fsnCode + "]) ist vom Planer bestätigt")
+          : ("⏳ " + shiftName + " (Bringschicht [" + fsnCode + "]) noch nicht bestätigt");
       } else if (sundayFree) {
         assignEl.textContent = "☀️ Sonntag – Regulär Schichtfrei (im Pool)";
         noteEl.style.color = "#0284c7";
@@ -974,12 +973,11 @@
         if (regShift) {
           const shiftName = (typeof shiftsLabel !== "undefined" && shiftsLabel[regShift]) ? shiftsLabel[regShift] : regShift;
           assignEl.textContent = "📋 " + shiftName + " (Im Pool / Noch in Einteilung)";
-          const activeRunningShiftId = typeof getCurrentActiveShiftId === "function" ? getCurrentActiveShiftId() : regShift;
-          const isEmpShiftApproved = isPortalShiftApprovedFor(prodTodayIso, activeRunningShiftId);
+          const isEmpShiftApproved = isPortalShiftApprovedFor(prodTodayIso, regShift);
           noteEl.style.color = isEmpShiftApproved ? "#166534" : "#b91c1c";
           noteEl.textContent = isEmpShiftApproved
-            ? ("✅ " + (shiftsLabel[activeRunningShiftId] || activeRunningShiftId) + " ist vom Planer bestätigt")
-            : ("⏳ " + (shiftsLabel[activeRunningShiftId] || activeRunningShiftId) + " noch nicht bestätigt");
+            ? ("✅ " + shiftName + " ist vom Planer bestätigt")
+            : ("⏳ " + shiftName + " noch nicht bestätigt");
         } else {
           assignEl.textContent = "🌴 Heute regulär Freischicht (im Pool)";
           noteEl.style.color = "#0369a1";
