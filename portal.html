@@ -369,7 +369,7 @@
       if (typeof approvedShiftKey === "undefined" || !approvedShiftKey) return false;
       const targetKey = prodDateIso + "_" + shiftId;
       const allKey = prodDateIso + "_ALL";
-      const parts = String(approvedShiftKey).split(",").map(s => s.trim()).filter(Boolean);
+      const parts = String(approvedShiftKey).split(",");
       return parts.indexOf(targetKey) !== -1 || parts.indexOf(allKey) !== -1;
     }
 
@@ -408,89 +408,25 @@
       dEl.textContent = dateStr + (kw ? " · KW " + kw : "") + " · Aktuell: " + activeShiftName + " · v4.9.71";
     }
 
-    /* LOGIK-FIX: Zeigt oben im Header exakt den Bestätigungsstatus für die Schicht des angemeldeten Mitarbeiters */
     function updatePortalShiftApprovalBanner() {
+      const approved = typeof isCurrentShiftApproved === "function" ? isCurrentShiftApproved() : false;
       const sundayFree = typeof isSundayDaytimeFree === "function" ? isSundayDaytimeFree() : false;
-      const prodTodayIso = getPortalProdDateIso();
-      const nowObj = new Date();
+      const activeShiftId = typeof getCurrentActiveShiftId === "function" ? getCurrentActiveShiftId() : "frueh";
+      const activeShiftName = (typeof shiftsLabel !== "undefined" && shiftsLabel[activeShiftId]) ? shiftsLabel[activeShiftId] : "Aktuelle Schicht";
 
       const bar = document.getElementById("brandGradientBar");
+      if (bar) bar.className = (approved || sundayFree) ? "brand-gradient approved" : "brand-gradient pending";
+
       const badge = document.getElementById("portalShiftStatusBadge");
       const dot = document.getElementById("portalStatusDot");
       const txt = document.getElementById("portalStatusText");
       if (!badge || !dot || !txt) return;
 
       if (sundayFree) {
-        if (bar) bar.className = "brand-gradient approved";
         badge.className = "portal-shift-status sunday";
         dot.style.background = "#0284c7";
         txt.textContent = "☀️ Sonntag – Regulär Schichtfrei";
-        return;
-      }
-
-      const emp = (loggedInPortalEmpId && Array.isArray(employees))
-        ? employees.find(x => x.id === loggedInPortalEmpId)
-        : null;
-
-      if (emp) {
-        const activeLeaveToday = (typeof getActiveLeaveForEmpOnDate === "function")
-          ? getActiveLeaveForEmpOnDate(emp.id, prodTodayIso)
-          : null;
-
-        if (emp.zone === "absent" || activeLeaveToday) {
-          if (bar) bar.className = "brand-gradient approved";
-          badge.className = "portal-shift-status sunday";
-          dot.style.background = "#0284c7";
-          txt.textContent = "🏥 Heute als abwesend eingetragen";
-          return;
-        }
-
-        const isOnLine = !!(emp.zone && ["pool", "review", "absent", "extra"].indexOf(emp.zone) === -1);
-        const todayExtraShift = (typeof extraShifts !== "undefined" ? extraShifts : []).find(es =>
-          es.empId === emp.id &&
-          es.status === "approved" &&
-          (normIsoLocal(es.date) === prodTodayIso || (typeof isExtraShiftInActiveWindow === "function" && isExtraShiftInActiveWindow(es, nowObj)))
-        );
-
-        let targetShiftId = null;
-        if (isOnLine) {
-          targetShiftId = typeof extractShiftIdFromZone === "function" ? extractShiftIdFromZone(emp.zone) : null;
-        } else if (todayExtraShift) {
-          targetShiftId = todayExtraShift.shift;
-        } else if (typeof window.getEmpRegularShiftOnDate === "function") {
-          targetShiftId = window.getEmpRegularShiftOnDate(emp, prodTodayIso);
-        }
-
-        if (!targetShiftId) {
-          if (bar) bar.className = "brand-gradient approved";
-          badge.className = "portal-shift-status sunday";
-          dot.style.background = "#0284c7";
-          txt.textContent = "🌴 Heute regulär Freischicht";
-          return;
-        }
-
-        const shiftName = (typeof shiftsLabel !== "undefined" && shiftsLabel[targetShiftId]) ? shiftsLabel[targetShiftId] : targetShiftId;
-        const isMyShiftApproved = isPortalShiftApprovedFor(prodTodayIso, targetShiftId);
-
-        if (bar) bar.className = isMyShiftApproved ? "brand-gradient approved" : "brand-gradient pending";
-        if (isMyShiftApproved) {
-          badge.className = "portal-shift-status approved";
-          dot.style.background = "#16a34a";
-          txt.textContent = "✅ " + shiftName + " ist vom Planer bestätigt";
-        } else {
-          badge.className = "portal-shift-status pending";
-          dot.style.background = "#dc2626";
-          txt.textContent = "⏳ " + shiftName + " ist noch nicht bestätigt";
-        }
-        return;
-      }
-
-      const activeShiftId = typeof getCurrentActiveShiftId === "function" ? getCurrentActiveShiftId() : "frueh";
-      const activeShiftName = (typeof shiftsLabel !== "undefined" && shiftsLabel[activeShiftId]) ? shiftsLabel[activeShiftId] : "Aktuelle Schicht";
-      const approved = isPortalShiftApprovedFor(prodTodayIso, activeShiftId);
-
-      if (bar) bar.className = approved ? "brand-gradient approved" : "brand-gradient pending";
-      if (approved) {
+      } else if (approved) {
         badge.className = "portal-shift-status approved";
         dot.style.background = "#16a34a";
         txt.textContent = "✅ " + activeShiftName + " ist vom Planer bestätigt";
@@ -711,7 +647,7 @@
       if (requiresLines) {
         emp.mainLines = window._tempOnboardingMain || [];
         const rawSec = fromSecStep ? Array.from(document.querySelectorAll(".onboarding-sec-chk:checked")).map(c => c.value) : [];
-        emp.secLines = rawSec.filter(id => emp.mainLines.indexOf(id) !== -1 ? false : true);
+        emp.secLines = rawSec.filter(id => emp.mainLines.indexOf(id) === -1);
       } else {
         emp.mainLines = [];
         emp.secLines = [];
@@ -836,7 +772,6 @@
       document.getElementById("portalLoginNameInput").value = "";
       document.getElementById("portalLoginPinInput").value = "";
       document.getElementById("portalLoginModal").style.display = "flex";
-      updatePortalShiftApprovalBanner();
     }
 
     function renderMyTrainingProgress(emp) {
@@ -1011,6 +946,7 @@
         const isExtraHere = !!(todayExtraShift && todayExtraShift.shift === sId);
         assignEl.textContent = "🏭 " + (lineObj ? lineObj.name : lId) + " (" + shiftName + (isExtraHere ? " · ➕ Bringschicht [" + fsnCode + "]" : "") + ")";
 
+        // HIER ANGEPASST: Prüft exakt die Schicht des Mitarbeiters (z. B. Spätschicht), in der er eingeteilt ist
         const isEmpShiftApproved = isPortalShiftApprovedFor(prodTodayIso, sId);
         noteEl.style.color = isEmpShiftApproved ? "#166534" : "#b91c1c";
         noteEl.textContent = isEmpShiftApproved
@@ -1196,12 +1132,6 @@
         hintEl.style.border = "1px solid #86efac";
         hintEl.textContent = "✅ Du hast am " + formatDateDe(dateVal) + " regulär Freischicht (keine Ruhezeit- oder Schichtkonflikte für Bringschicht [" + fsnCode + "]).";
         hintEl.style.display = "block";
-      } else if (res.hasLeaveConflict || res.hasSameDayShiftConflict) {
-        hintEl.style.background = "#fee2e2";
-        hintEl.style.color = "#991b1b";
-        hintEl.style.border = "1px solid #f87171";
-        hintEl.textContent = "⛔ Nicht möglich: " + res.reason;
-        hintEl.style.display = "block";
       } else if (res.isWorkingConflict) {
         hintEl.style.background = "#fef2f2";
         hintEl.style.color = "#b91c1c";
@@ -1279,9 +1209,7 @@
       }
 
       const plaus = typeof window.checkExtraShiftPlausibility === "function" ? window.checkExtraShiftPlausibility(loggedInPortalEmpId, dateVal, shiftVal) : { ok: true };
-      
-      // HARTE SPERRE: Wenn am selben Tag bereits regulär Schicht oder Urlaub/Krank vorliegt, nicht absendbar!
-      if (!plaus.ok && (plaus.hasLeaveConflict || plaus.hasSameDayShiftConflict || !plaus.isWorkingConflict)) {
+      if (!plaus.ok && !plaus.isWorkingConflict) {
         showPortalInlineMsg("⛔ " + plaus.reason, false);
         return;
       }
@@ -1577,6 +1505,7 @@
 
     boardRef.onSnapshot(doc => {
       updatePortalHeaderClock();
+      if (typeof updateShiftApprovalUI === "function") updateShiftApprovalUI();
       updatePortalShiftApprovalBanner();
       if (!initialSessionChecked && employees && employees.length > 0) {
         initialSessionChecked = true;
@@ -1592,6 +1521,7 @@
 
     window.addEventListener("DOMContentLoaded", () => {
       updatePortalHeaderClock();
+      if (typeof updateShiftApprovalUI === "function") updateShiftApprovalUI();
       updatePortalShiftApprovalBanner();
       const todayIso = getPortalProdDateIso();
       if (document.getElementById("portalExtraDate") && todayIso) document.getElementById("portalExtraDate").value = todayIso;
