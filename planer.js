@@ -919,11 +919,11 @@ window.updateShiftApprovalUI = function() {
   if (dot && text && btn) {
     const approvedLabels = shifts
       .filter(s => window.isShiftApprovedOnDate(prodToday, s.id))
-      .map(s => shiftsCodeLetter[s.id] || s.name);
+      .map(s => shiftsShortLabel[s.id] || s.name);
     dot.style.background = approved ? "#16a34a" : "#dc2626";
     text.textContent = approved
-      ? ("Freigegeben (" + (approvedLabels.length > 1 ? approvedLabels.join("/") : activeShort) + ")")
-      : (activeShort + " / Tag freigeben");
+      ? ("Freigegeben: " + (approvedLabels.length > 0 ? approvedLabels.join(", ") : activeShort))
+      : (activeShort + " freigeben");
     btn.style.borderColor = approved ? "#86efac" : "#fecaca";
     btn.style.background = approved ? "#f0fdf4" : "#fef2f2";
     btn.style.color = approved ? "#166534" : "#b91c1c";
