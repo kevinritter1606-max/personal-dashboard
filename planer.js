@@ -866,25 +866,113 @@ window.updateHeaderDateKw = function() {
 };
 
 window.updateShiftApprovalUI = function() {
-  const approved = isCurrentShiftApproved();
+  const prodToday = getLogicalDateIso();
   const sundayFree = isSundayDaytimeFree();
   const activeShiftId = getCurrentActiveShiftId();
   const activeShort = shiftsShortLabel[activeShiftId] || "Schicht";
   const activeLong = shiftsLabel[activeShiftId] || "Aktuelle Schicht";
 
   const bar = document.getElementById("brandGradientBar");
-  if (bar) bar.className = (approved || sundayFree) ? "brand-gradient approved" : "brand-gradient pending";
-
   const dot = document.getElementById("indicatorDot");
   const text = document.getElementById("indicatorText");
   const btn = document.getElementById("plannerApprovalIndicator");
-  if (dot && text && btn) {
+
+  // Planer-Board Indikator (bleibt wie gewohnt zehnbasiert für den Planer)
+  if (btn && dot && text) {
+    const approved = isCurrentShiftApproved();
+    const approvedLabels = shifts
+      .filter(s => window.isShiftApprovedOnDate(prodToday, s.id))
+      .map(s => shiftsShortLabel[s.id] || s.name);
     dot.style.background = approved ? "#16a34a" : "#dc2626";
-    text.textContent = approved ? ("Freigegeben (" + activeShort + ")") : (activeShort + " freigeben");
+    text.textContent = approved
+      ? ("Freigegeben: " + (approvedLabels.length > 0 ? approvedLabels.join(", ") : activeShort))
+      : (activeShort + " freigeben");
     btn.style.borderColor = approved ? "#86efac" : "#fecaca";
     btn.style.background = approved ? "#f0fdf4" : "#fef2f2";
     btn.style.color = approved ? "#166534" : "#b91c1c";
+    if (bar) bar.className = (approved || sundayFree) ? "brand-gradient approved" : "brand-gradient pending";
   }
+
+  // Portal-Header Banner: Prüft exakt die Schicht des angemeldeten Mitarbeiters
+  const portalBadge = document.getElementById("portalShiftStatusBadge");
+  const portalDot = document.getElementById("portalStatusDot");
+  const portalText = document.getElementById("portalStatusText");
+  
+  if (portalBadge && portalDot && portalText) {
+    if (sundayFree) {
+      if (bar) bar.className = "brand-gradient approved";
+      portalBadge.className = "portal-shift-status sunday";
+      portalDot.style.background = "#0284c7";
+      portalText.textContent = "☀️ Sonntag – Regulär Schichtfrei";
+      return;
+    }
+
+    const portalEmpId = sessionStorage.getItem("portal_logged_emp_id");
+    const emp = (portalEmpId && Array.isArray(employees)) ? employees.find(x => x.id === portalEmpId) : null;
+
+    if (emp) {
+      const activeLeaveToday = (typeof getActiveLeaveForEmpOnDate === "function") ? getActiveLeaveForEmpOnDate(emp.id, prodToday) : null;
+      if (emp.zone === "absent" || activeLeaveToday) {
+        if (bar) bar.className = "brand-gradient approved";
+        portalBadge.className = "portal-shift-status sunday";
+        portalDot.style.background = "#0284c7";
+        portalText.textContent = "🏥 Heute als abwesend eingetragen";
+        return;
+      }
+
+      const isOnLine = !!(emp.zone && ["pool", "review", "absent", "extra"].indexOf(emp.zone) === -1);
+      const todayExtraShift = (typeof extraShifts !== "undefined" ? extraShifts : []).find(es =>
+        es.empId === emp.id && es.status === "approved" && window.normalizeDateIso(es.date) === prodToday
+      );
+
+      let targetShiftId = null;
+      if (isOnLine) {
+        targetShiftId = extractShiftIdFromZone(emp.zone);
+      } else if (todayExtraShift) {
+        targetShiftId = todayExtraShift.shift;
+      } else if (typeof window.getEmpRegularShiftOnDate === "function") {
+        targetShiftId = window.getEmpRegularShiftOnDate(emp, prodToday);
+      }
+
+      if (!targetShiftId) {
+        if (bar) bar.className = "brand-gradient approved";
+        portalBadge.className = "portal-shift-status sunday";
+        portalDot.style.background = "#0284c7";
+        portalText.textContent = "🌴 Heute regulär Freischicht";
+        return;
+      }
+
+      const shiftName = shiftsLabel[targetShiftId] || targetShiftId;
+      const isMyShiftApproved = window.isShiftApprovedOnDate(prodToday, targetShiftId);
+
+      if (bar) bar.className = isMyShiftApproved ? "brand-gradient approved" : "brand-gradient pending";
+      if (isMyShiftApproved) {
+        portalBadge.className = "portal-shift-status approved";
+        portalDot.style.background = "#16a34a";
+        portalText.textContent = "✅ " + shiftName + " ist vom Planer bestätigt";
+      } else {
+        portalBadge.className = "portal-shift-status pending";
+        portalDot.style.background = "#dc2626";
+        portalText.textContent = "⏳ " + shiftName + " ist noch nicht bestätigt";
+      }
+      return;
+    }
+
+    // Fallback falls niemand eingeloggt ist
+    const approved = window.isShiftApprovedOnDate(prodToday, activeShiftId);
+    if (bar) bar.className = approved ? "brand-gradient approved" : "brand-gradient pending";
+    if (approved) {
+      portalBadge.className = "portal-shift-status approved";
+      portalDot.style.background = "#16a34a";
+      portalText.textContent = "✅ " + activeLong + " ist vom Planer bestätigt";
+    } else {
+      portalBadge.className = "portal-shift-status pending";
+      portalDot.style.background = "#dc2626";
+      portalText.textContent = "⏳ " + activeLong + " ist noch nicht bestätigt";
+    }
+  }
+};
+
 
   const portalBadge = document.getElementById("portalShiftStatusBadge");
   const portalDot = document.getElementById("portalStatusDot");
