@@ -7,6 +7,8 @@
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+  <!-- 🧱 [LEGO-MODUL IDX-01 START: CSS & DESIGN-STYLES] -->
   <style>
     :root { --bayer-blue: #0091df; --bg-gray: #f1f5f9; }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
@@ -257,12 +259,13 @@
     body.planner-lvl-2 #tabProfile { display: block !important; }
     body.planner-lvl-2 #tabBtnTeams, body.planner-lvl-2 #tabRolesBtn, body.planner-lvl-2 #tabLinesBtn, body.planner-lvl-2 #tabSecurityBtn, body.planner-lvl-2 #tabHistoryBtn, body.planner-lvl-2 #tabBackupsBtn { display: none !important; }
   </style>
+  <!-- 🧱 [LEGO-MODUL IDX-01 ENDE: CSS & DESIGN-STYLES] -->
 </head>
 <body>
   <div id="brandGradientBar" class="brand-gradient pending"></div>
   <div id="toastBanner" class="toast-banner">Gespeichert</div>
 
-  <!-- MODAL: KOMPAKTE BRINGSCHICHT-EINZELFREIGABE MIT SMARTER 3ER-SCHNELLAUSWAHL -->
+  <!-- 🧱 [LEGO-MODUL IDX-02 START: MODAL BRINGSCHICHT-FREIGABE (JA/NEIN)] -->
   <div id="coverageReleaseModal" class="modal-overlay" style="display:none;">
     <div class="modal" style="max-width: 620px; padding: 16px;">
       <h3 style="display:flex; justify-content:space-between; align-items:center; color:var(--bayer-blue); margin-bottom:6px; font-size:1rem;">
@@ -281,8 +284,9 @@
       </div>
     </div>
   </div>
+  <!-- 🧱 [LEGO-MODUL IDX-02 ENDE: MODAL BRINGSCHICHT-FREIGABE (JA/NEIN)] -->
 
-  <!-- MODAL: URLAUB ANNEHMEN, ABLEHNEN ODER BEDINGT ANNEHMEN (MIT PLUS + FÜR MEHRERE ZEITRÄUME) -->
+  <!-- 🧱 [LEGO-MODUL IDX-03 START: MODAL URLAUB BEDINGT ANNEHMEN (+ ZEITRAUM)] -->
   <div id="leaveCounterOfferModal" class="modal-overlay" style="display:none;">
     <div class="modal" style="max-width: 600px; padding: 18px;">
       <h3 style="display:flex; justify-content:space-between; align-items:center; color:var(--bayer-blue); margin-bottom:6px; font-size:1.02rem;">
@@ -307,7 +311,9 @@
       </div>
     </div>
   </div>
+  <!-- 🧱 [LEGO-MODUL IDX-03 ENDE: MODAL URLAUB BEDINGT ANNEHMEN (+ ZEITRAUM)] -->
 
+  <!-- 🧱 [LEGO-MODUL IDX-04 START: SYSTEM-MODALS (START-PIN, SEK-FREISCHALTUNG, BOARD-LOCK)] -->
   <div id="plannerForcePinModal" class="modal-overlay" style="display:none; z-index: 2500; background: rgba(15,23,42,0.85);">
     <div class="modal" style="max-width: 380px; background:#fff; padding:24px; border-radius:12px;">
       <h3 style="color:var(--bayer-blue); margin-bottom:8px;">🔐 Eigene PIN festlegen</h3>
@@ -351,7 +357,9 @@
       </div>
     </div>
   </div>
-  
+  <!-- 🧱 [LEGO-MODUL IDX-04 ENDE: SYSTEM-MODALS (START-PIN, SEK-FREISCHALTUNG, BOARD-LOCK)] -->
+
+  <!-- 🧱 [LEGO-MODUL IDX-05 START: HEADER & SCHNELLSCHALTER] -->
   <header>
     <div class="header-left">
       <div class="bayer-logo-btn" onclick="handleLogoClick()">
@@ -395,7 +403,9 @@
       <button class="btn btn-outline admin-element" onclick="logoutPlanner()">Abmelden</button>
     </div>
   </header>
+  <!-- 🧱 [LEGO-MODUL IDX-05 ENDE: HEADER & SCHNELLSCHALTER] -->
 
+  <!-- 🧱 [LEGO-MODUL IDX-06 START: SIDEBAR (POOL, NOCH ZUZUTEILEN, BRINGSCHICHTEN, ABWESEND)] -->
   <main>
     <aside class="sidebar">
       <div class="team-filter-box">
@@ -452,7 +462,9 @@
         <div id="absent" class="card-list drop-zone" data-zone="absent" style="background: #fff1f2;"></div>
       </div>
     </aside>
+    <!-- 🧱 [LEGO-MODUL IDX-06 ENDE: SIDEBAR (POOL, NOCH ZUZUTEILEN, BRINGSCHICHTEN, ABWESEND)] -->
 
+    <!-- 🧱 [LEGO-MODUL IDX-07 START: SCHICHT- & LINIEN-MATRIX TABELLE] -->
     <section class="board-container">
       <table class="board-table">
         <thead><tr id="headerRow"><th class="shift-header">Schicht</th></tr></thead>
@@ -460,7 +472,9 @@
       </table>
     </section>
   </main>
+  <!-- 🧱 [LEGO-MODUL IDX-07 ENDE: SCHICHT- & LINIEN-MATRIX TABELLE] -->
 
+  <!-- 🧱 [LEGO-MODUL IDX-08 START: MODAL PLANER-ANMELDUNG] -->
   <div id="pinModal" class="modal-overlay" style="background: #f4f6f9;">
     <div class="modal" style="max-width: 380px; padding: 0; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
       <div style="height: 6px; background: linear-gradient(90deg, #0091df 0%, #00bcff 50%, #89d329 100%); width: 100%;"></div>
@@ -486,7 +500,9 @@
       </div>
     </div>
   </div>
+  <!-- 🧱 [LEGO-MODUL IDX-08 ENDE: MODAL PLANER-ANMELDUNG] -->
 
+  <!-- 🧱 [LEGO-MODUL IDX-09 START: MODAL POSTFACH, URLAUB & BRINGSCHICHTEN] -->
   <div id="inboxModal" class="modal-overlay">
     <div class="modal" style="max-width: 700px;">
       <h3 style="display:flex; justify-content:space-between; align-items:center; color:var(--bayer-blue); margin-bottom:8px;">
@@ -574,7 +590,6 @@
         <div id="unreadSickList"></div>
       </div>
 
-      <!-- KOMPAKTE PLANER-STEUERUNG: GESUCHTE BRINGSCHICHTEN -->
       <div style="border-top: 1px solid #e2e8f0; padding-top: 10px; margin-bottom: 12px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px; flex-wrap:wrap; gap:4px;">
           <h4 style="font-size:0.86rem; color:#0369a1; margin:0;">📢 Gesuchte Bringschichten (Kompakt-Steuerung fürs Portal)</h4>
@@ -606,7 +621,9 @@
       </div>
     </div>
   </div>
+  <!-- 🧱 [LEGO-MODUL IDX-09 ENDE: MODAL POSTFACH, URLAUB & BRINGSCHICHTEN] -->
 
+  <!-- 🧱 [LEGO-MODUL IDX-10 START: MODAL EINSTELLUNGEN (ALLE TABS)] -->
   <div id="settingsModal" class="modal-overlay">
     <div class="modal" style="max-width: 760px;">
       <h3 style="display:flex; justify-content:space-between; color:var(--bayer-blue); margin-bottom:12px;">
@@ -893,7 +910,9 @@
       </div>
     </div>
   </div>
+  <!-- 🧱 [LEGO-MODUL IDX-10 ENDE: MODAL EINSTELLUNGEN (ALLE TABS)] -->
 
+  <!-- 🧱 [LEGO-MODUL IDX-11 START: MODAL LINIE BEARBEITEN] -->
   <div id="lineEditModal" class="modal-overlay">
     <div class="modal" style="max-width: 500px;">
       <h3 style="display:flex; justify-content:space-between; align-items:center; color: var(--bayer-blue); margin-bottom: 12px;">
@@ -963,7 +982,9 @@
       <div class="modal-actions"><button class="btn btn-primary" onclick="saveLineDetails(false)">Fertig</button></div>
     </div>
   </div>
+  <!-- 🧱 [LEGO-MODUL IDX-11 ENDE: MODAL LINIE BEARBEITEN] -->
 
+  <!-- 🧱 [LEGO-MODUL IDX-12 START: INLINE BASIS-SCRIPT & POSTFACH-TOGGLES] -->
   <script>
     window.EXPECTED_HTML_VERSION = "4.9.70";
     window.closeModal = function(id) {
@@ -1009,6 +1030,10 @@
       if (arrow) arrow.textContent = shouldOpen ? "▲ Schließen" : "▼ Öffnen";
     }
   </script>
+  <!-- 🧱 [LEGO-MODUL IDX-12 ENDE: INLINE BASIS-SCRIPT & POSTFACH-TOGGLES] -->
+
+  <!-- 🧱 [LEGO-MODUL IDX-13 START: MASTER-SCRIPT EINBINDUNG] -->
   <script src="planer.js?v=4.9.70"></script>
+  <!-- 🧱 [LEGO-MODUL IDX-13 ENDE: MASTER-SCRIPT EINBINDUNG] -->
 </body>
 </html>
