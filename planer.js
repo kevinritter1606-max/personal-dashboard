@@ -956,31 +956,32 @@ window.toggleShiftApprovalState = function() {
   const activeShiftId = getCurrentActiveShiftId();
   const activeLong = shiftsLabel[activeShiftId] || "Schicht";
 
-  const existingKeys = String(approvedShiftKey || "")
-    .split(",")
-    .map(s => s.trim())
-    .filter(s => s.indexOf(prodToday + "_") === 0);
+  // Prüfen, ob die aktuell aktive Schicht bereits freigegeben ist
+  const isAlreadyApproved = window.isShiftApprovedOnDate(prodToday, activeShiftId);
 
-  if (window.isShiftApprovedOnDate(prodToday, activeShiftId)) {
-    approvedShiftKey = "";
+  if (isAlreadyApproved) {
+    // Nur diese aktuelle Schicht wieder sperren
+    const existingKeys = String(approvedShiftKey || "").split(",").map(s => s.trim()).filter(Boolean);
+    const targetKey = prodToday + "_" + activeShiftId;
+    const allKey = prodToday + "_ALL";
+    const filteredKeys = existingKeys.filter(k => k !== targetKey && k !== allKey);
+    approvedShiftKey = filteredKeys.join(",");
+
     addHistoryLog("Schicht-Freigabe für " + formatDateDe(prodToday) + " (" + activeLong + ") zurückgenommen", "SHIFT");
-    showToast("Freigabe für heute zurückgenommen");
+    showToast("Freigabe für " + activeLong + " zurückgenommen");
   } else {
-    const newSet = new Set(existingKeys);
-    newSet.add(prodToday + "_" + activeShiftId);
-    /* Alle Schichten des heutigen Tages, in denen bereits Mitarbeiter auf Linien eingeteilt sind, direkt mitbestätigen */
-    shifts.forEach(s => {
-      const hasAssigned = employees.some(e => extractShiftIdFromZone(e.zone) === s.id);
-      if (hasAssigned) newSet.add(prodToday + "_" + s.id);
-    });
-    approvedShiftKey = Array.from(newSet).join(",");
-    const approvedNames = shifts
-      .filter(s => newSet.has(prodToday + "_" + s.id))
-      .map(s => shiftsShortLabel[s.id] || s.name)
-      .join(", ");
-    addHistoryLog("Schicht-Freigabe fürs Portal erteilt (" + approvedNames + ")", "SHIFT");
-    showToast("✅ Für Portal bestätigt: " + approvedNames + "!");
+    // Nur die aktuell aktive Schicht freigeben
+    const existingKeys = String(approvedShiftKey || "").split(",").map(s => s.trim()).filter(Boolean);
+    const targetKey = prodToday + "_" + activeShiftId;
+    if (existingKeys.indexOf(targetKey) === -1) {
+      existingKeys.push(targetKey);
+    }
+    approvedShiftKey = existingKeys.join(",");
+
+    addHistoryLog("Schicht-Freigabe für " + activeLong + " fürs Portal erteilt", "SHIFT");
+    showToast("✅ " + activeLong + " für das Portal freigegeben!");
   }
+
   window.updateShiftApprovalUI();
   saveToFirebase();
 };
