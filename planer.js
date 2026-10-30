@@ -4845,10 +4845,16 @@ window.addManualExtraShift = function() {
 
   const emp = employees.find(e => e.id === selectedManualExtraEmpId);
   const newExtraId = "es_" + Date.now();
-  const conflictWarning = checkExtraShiftConflict(emp, dateVal, shiftVal, newExtraId);
+  
+  // HARTER SCHUTZ: Bei Schicht- oder Urlaubskonflikt direkt abbrechen
+  const conflictReason = checkExtraShiftConflict(emp, dateVal, shiftVal, newExtraId);
+  if (conflictReason) {
+    showToast("⛔ " + conflictReason, true);
+    return; // Blockiert den Eintrag hart!
+  }
+
   const nowIso = new Date().toISOString();
-  const actor = getCurrentActorLabel();
-  const fsnCode = getShiftCodeLetter(shiftVal);
+
 
   const newExtra = {
     id: newExtraId,
@@ -4856,8 +4862,8 @@ window.addManualExtraShift = function() {
     date: dateVal,
     shift: shiftVal,
     note: noteVal,
-    plausibilityWarning: !!conflictWarning,
-    conflictDetails: conflictWarning || "",
+    plausibilityWarning: false,
+    conflictDetails: "",
     status: "approved",
     createdAt: nowIso,
     createdBy: actor,
@@ -4865,6 +4871,7 @@ window.addManualExtraShift = function() {
     reviewedAt: nowIso,
     auditLog: []
   };
+
   appendAuditEntry(newExtra, "Bringschicht [" + fsnCode + "] am " + formatDateDe(dateVal) + " direkt eingetragen & aktiviert", actor);
   extraShifts.push(newExtra);
 
