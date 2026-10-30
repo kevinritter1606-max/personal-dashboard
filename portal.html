@@ -1037,12 +1037,11 @@
         const isExtraHere = !!(todayExtraShift && todayExtraShift.shift === sId);
         assignEl.textContent = "🏭 " + (lineObj ? lineObj.name : lId) + " (" + shiftName + (isExtraHere ? " · ➕ Bringschicht [" + fsnCode + "]" : "") + ")";
 
-        const empShiftApprovalKey = prodTodayIso + "_" + sId;
+        const empShiftApprovalKey = prodTodayIso + "_" + targetShiftId;
         const isEmpShiftApproved = (typeof approvedShiftKey !== "undefined" && approvedShiftKey === empShiftApprovalKey);
-        noteEl.style.color = isEmpShiftApproved ? "#166534" : "#b91c1c";
-        noteEl.textContent = isEmpShiftApproved
-          ? ("✅ " + shiftName + " ist vom Planer bestätigt")
-          : ("⏳ " + shiftName + " noch nicht bestätigt");
+        noteEl.style.color = isEmpShiftApproved ? "#166534" : "#166534";
+        noteEl.textContent = isEmpShiftApproved ? ("✅ " + shiftName + " ist vom Planer bestätigt") : "";
+
       } else if (todayExtraShift) {
         const sId = todayExtraShift.shift;
         const fsnCode = getShiftFsnLetter(sId);
