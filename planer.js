@@ -5059,6 +5059,64 @@ window.addManualExtraShift = function() {
 
   const emp = employees.find(e => e.id === selectedManualExtraEmpId);
   const newExtraId = "es_" + Date.now();
+  
+  // HARTER SCHUTZ: Prüfen, ob ein echter Konflikt (z. B. reguläre Schicht am selben Tag) vorliegt
+  const conflictReason = checkExtraShiftConflict(emp, dateVal, shiftVal, newExtraId);
+  if (conflictReason) {
+    showToast("⛔ " + conflictReason, true);
+    return; // Blockiert den Eintrag hart!
+  }
+
+  const nowIso = new Date().toISOString();
+  const actor = getCurrentActorLabel();
+  const fsnCode = getShiftCodeLetter(shiftVal);
+
+  const newExtra = {
+    id: newExtraId,
+    empId: selectedManualExtraEmpId,
+    date: dateVal,
+    shift: shiftVal,
+    note: noteVal,
+    plausibilityWarning: false,
+    conflictDetails: "",
+    plannerUnreadInfo: false,
+    status: "approved",
+    createdAt: nowIso,
+    createdBy: actor,
+    reviewedBy: actor,
+    reviewedAt: nowIso,
+    auditLog: []
+  };
+  appendAuditEntry(newExtra, "Bringschicht [" + fsnCode + "] am " + formatDateDe(dateVal) + " direkt eingetragen & aktiviert", actor);
+  extraShifts.push(newExtra);
+
+  addHistoryLog("Bringschicht [" + fsnCode + "] für " + (emp ? fullName(emp) : "") + " am " + formatDateDe(dateVal) + " (" + (shiftsShortLabel[shiftVal] || shiftVal) + ")", "ABSENCE");
+  saveToFirebase();
+  window.syncAbsentAndExtraZones();
+  renderEmployees();
+  window.renderInboxLists();
+
+  showToast("Bringschicht [" + fsnCode + "] eingetragen & aktiviert!");
+
+  document.getElementById("manualExtraDate").value = "";
+  document.getElementById("manualExtraNote").value = "";
+  document.getElementById("manualExtraEmpInput").value = "";
+  selectedManualExtraEmpId = null;
+};
+  if (!selectedManualExtraEmpId) return showToast("Bitte Mitarbeiter auswählen", true);
+
+  const dateVal = window.normalizeDateIso(document.getElementById("manualExtraDate").value);
+  const shiftVal = document.getElementById("manualExtraShift").value;
+  const noteVal = document.getElementById("manualExtraNote").value.trim();
+  if (!dateVal) return showToast("Bitte Datum auswählen", true);
+
+  const existingSameDay = extraShifts.find(es => es.empId === selectedManualExtraEmpId && window.normalizeDateIso(es.date) === dateVal && es.status !== "rejected");
+  if (existingSameDay) {
+    return showToast("⛔ Für diesen Mitarbeiter ist am " + formatDateDe(dateVal) + " bereits eine Bringschicht (" + (shiftsLabel[existingSameDay.shift] || existingSameDay.shift) + ") eingetragen!", true);
+  }
+
+  const emp = employees.find(e => e.id === selectedManualExtraEmpId);
+  const newExtraId = "es_" + Date.now();
   const conflictWarning = checkExtraShiftConflict(emp, dateVal, shiftVal, newExtraId);
   const nowIso = new Date().toISOString();
   const actor = getCurrentActorLabel();
