@@ -127,7 +127,7 @@
     </div>
   </div>
 
-  <!-- LOGIN MODAL -->
+  <!-- LOGIN MODAL (3-BUCHSTABEN-SUCHE OHNE STÖRENDEN HINWEISTEXT) -->
   <div id="portalLoginModal" class="modal-overlay" style="display: flex; z-index: 999; background: #f4f6f9;">
     <div class="modal" style="background: #fff; border: 1px solid #e2e8f0; padding: 0; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
       <div style="height: 6px; background: linear-gradient(90deg, #0091df 0%, #00bcff 50%, #89d329 100%); width: 100%;"></div>
@@ -331,7 +331,7 @@
       </div>
     </div>
   </main>
-  <script src="planer.js?v=4.9.71"></script>
+  <script src="planer.js?v=4.9.70"></script>
   <script>
     let loggedInPortalEmpId = null, selectedLoginPortalEmpId = null, initialSessionChecked = false, pendingExtraSubmission = null, pendingForceEmp = null;
     let activeMyRequestsCategory = "ALL";
@@ -360,17 +360,6 @@
       if (typeof getLogicalDateIso === "function") return getLogicalDateIso();
       if (typeof getTodayIso === "function") return getTodayIso();
       return new Date().toISOString().slice(0, 10);
-    }
-
-    function isPortalShiftApprovedFor(prodDateIso, shiftId) {
-      if (typeof window.isShiftApprovedOnDate === "function") {
-        return window.isShiftApprovedOnDate(prodDateIso, shiftId);
-      }
-      if (typeof approvedShiftKey === "undefined" || !approvedShiftKey) return false;
-      const targetKey = prodDateIso + "_" + shiftId;
-      const allKey = prodDateIso + "_ALL";
-      const parts = String(approvedShiftKey).split(",");
-      return parts.indexOf(targetKey) !== -1 || parts.indexOf(allKey) !== -1;
     }
 
     function hasPortalLeaveOverlapLocal(empId, startIso, endIso) {
@@ -405,7 +394,7 @@
       const activeShiftId = typeof getCurrentActiveShiftId === "function" ? getCurrentActiveShiftId(now) : "frueh";
       const activeShiftName = (typeof shiftsLabel !== "undefined" && shiftsLabel[activeShiftId]) ? shiftsLabel[activeShiftId] : "Frühschicht";
       const dateStr = now.toLocaleDateString("de-DE", { weekday: "long", year: "numeric", month: "2-digit", day: "2-digit" });
-      dEl.textContent = dateStr + (kw ? " · KW " + kw : "") + " · Aktuell: " + activeShiftName + " · v4.9.71";
+      dEl.textContent = dateStr + (kw ? " · KW " + kw : "") + " · Aktuell: " + activeShiftName + " · v4.9.70";
     }
 
     function updatePortalShiftApprovalBanner() {
@@ -646,8 +635,7 @@
       emp.role = finalRole;
       if (requiresLines) {
         emp.mainLines = window._tempOnboardingMain || [];
-        const rawSec = fromSecStep ? Array.from(document.querySelectorAll(".onboarding-sec-chk:checked")).map(c => c.value) : [];
-        emp.secLines = rawSec.filter(id => emp.mainLines.indexOf(id) === -1);
+        emp.secLines = fromSecStep ? Array.from(document.querySelectorAll(".onboarding-sec-chk:checked")).map(c => c.value) : [];
       } else {
         emp.mainLines = [];
         emp.secLines = [];
@@ -922,10 +910,11 @@
       const sundayFree = typeof isSundayDaytimeFree === "function" ? isSundayDaytimeFree() : false;
       const nowObj = new Date();
       const prodTodayIso = getPortalProdDateIso();
+      const calTodayIso = typeof getTodayIso === "function" ? getTodayIso(nowObj) : prodTodayIso;
 
       const isOnLine = !!(emp.zone && ["pool", "review", "absent", "extra"].indexOf(emp.zone) === -1);
       const activeLeaveToday = (typeof getActiveLeaveForEmpOnDate === "function")
-        ? getActiveLeaveForEmpOnDate(emp.id, prodTodayIso)
+        ? (getActiveLeaveForEmpOnDate(emp.id, prodTodayIso) || getActiveLeaveForEmpOnDate(emp.id, calTodayIso))
         : null;
       const todayExtraShift = (typeof extraShifts !== "undefined" ? extraShifts : []).find(es =>
         es.empId === emp.id &&
@@ -946,8 +935,8 @@
         const isExtraHere = !!(todayExtraShift && todayExtraShift.shift === sId);
         assignEl.textContent = "🏭 " + (lineObj ? lineObj.name : lId) + " (" + shiftName + (isExtraHere ? " · ➕ Bringschicht [" + fsnCode + "]" : "") + ")";
 
-        // HIER ANGEPASST: Prüft exakt die Schicht des Mitarbeiters (z. B. Spätschicht), in der er eingeteilt ist
-        const isEmpShiftApproved = isPortalShiftApprovedFor(prodTodayIso, sId);
+        const empShiftApprovalKey = prodTodayIso + "_" + sId;
+        const isEmpShiftApproved = (typeof approvedShiftKey !== "undefined" && approvedShiftKey === empShiftApprovalKey);
         noteEl.style.color = isEmpShiftApproved ? "#166534" : "#b91c1c";
         noteEl.textContent = isEmpShiftApproved
           ? ("✅ " + shiftName + " ist vom Planer bestätigt")
@@ -959,7 +948,8 @@
         const noteSuffix = todayExtraShift.note ? (" · " + todayExtraShift.note) : "";
         assignEl.textContent = "➕ Bringschicht [" + fsnCode + "]: " + shiftName + (emp.zone === "extra" ? " (Im grünen Feld bereitgestellt)" : " (Noch in Einteilung)") + noteSuffix;
 
-        const isExtraApproved = isPortalShiftApprovedFor(prodTodayIso, sId);
+        const extraApprovalKey = prodTodayIso + "_" + sId;
+        const isExtraApproved = (typeof approvedShiftKey !== "undefined" && approvedShiftKey === extraApprovalKey);
         noteEl.style.color = isExtraApproved ? "#166534" : "#b91c1c";
         noteEl.textContent = isExtraApproved
           ? ("✅ " + shiftName + " (Bringschicht [" + fsnCode + "]) ist vom Planer bestätigt")
@@ -973,7 +963,8 @@
         if (regShift) {
           const shiftName = (typeof shiftsLabel !== "undefined" && shiftsLabel[regShift]) ? shiftsLabel[regShift] : regShift;
           assignEl.textContent = "📋 " + shiftName + " (Im Pool / Noch in Einteilung)";
-          const isEmpShiftApproved = isPortalShiftApprovedFor(prodTodayIso, regShift);
+          const empShiftApprovalKey = prodTodayIso + "_" + regShift;
+          const isEmpShiftApproved = (typeof approvedShiftKey !== "undefined" && approvedShiftKey === empShiftApprovalKey);
           noteEl.style.color = isEmpShiftApproved ? "#166534" : "#b91c1c";
           noteEl.textContent = isEmpShiftApproved
             ? ("✅ " + shiftName + " ist vom Planer bestätigt")
@@ -1017,10 +1008,6 @@
           const dNorm = normIsoLocal(d.date);
           if (dNorm < today || d.takenBy || d.dayStatus !== "open" || !d.explicitlyApproved) return false;
           
-          if (typeof getActiveLeaveForEmpOnDate === "function" && getActiveLeaveForEmpOnDate(emp.id, dNorm)) {
-            return false;
-          }
-
           const regShiftOnDay = (typeof window.getEmpRegularShiftOnDate === "function")
             ? window.getEmpRegularShiftOnDate(emp, dNorm)
             : ((emp.team === getRotationForDate(dNorm).frei) ? null : "working");
@@ -1035,9 +1022,9 @@
             return myExistingForDay.shift === d.shift;
           }
 
-          if (typeof window.checkExtraShiftPlausibility === "function") {
+          if (typeof window.checkExtraShiftPlausibility === "function" && !d.allowWithRestWarning) {
             const check = window.checkExtraShiftPlausibility(emp.id, dNorm, d.shift);
-            if (!check.ok && (!d.allowWithRestWarning || check.hasLeaveConflict || check.hasSameDayShiftConflict)) return false;
+            if (!check.ok) return false;
           }
           return true;
         });
@@ -1100,7 +1087,7 @@
         showPortalInlineMsg("✅ Deine Meldung für die Bringschicht am " + formatDateDe(dateIso) + " wurde an den Planer gesendet!", true);
         renderPortalView();
       } else {
-        showPortalInlineMsg("⛔ Du hast für diesen Tag bereits eine Bringschicht eingetragen, bist als abwesend gemeldet oder die Ruhezeit passt nicht.", false);
+        showPortalInlineMsg("⛔ Du hast für diesen Tag bereits eine Bringschicht eingetragen oder die Ruhezeit passt nicht.", false);
       }
     };
 
