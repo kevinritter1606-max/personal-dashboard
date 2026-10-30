@@ -127,7 +127,7 @@
     </div>
   </div>
 
-  <!-- LOGIN MODAL (3-BUCHSTABEN-SUCHE OHNE STÖRENDEN HINWEISTEXT) -->
+  <!-- LOGIN MODAL -->
   <div id="portalLoginModal" class="modal-overlay" style="display: flex; z-index: 999; background: #f4f6f9;">
     <div class="modal" style="background: #fff; border: 1px solid #e2e8f0; padding: 0; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
       <div style="height: 6px; background: linear-gradient(90deg, #0091df 0%, #00bcff 50%, #89d329 100%); width: 100%;"></div>
@@ -921,7 +921,6 @@
       const assignEl = document.getElementById("empLiveAssignment"), noteEl = document.getElementById("empLiveApprovalNote");
       const sundayFree = typeof isSundayDaytimeFree === "function" ? isSundayDaytimeFree() : false;
       const nowObj = new Date();
-      /* Mitternachts-Schutz (#12): Strikt nach Produktionstag (05:00 Uhr Wechsel) prüfen */
       const prodTodayIso = getPortalProdDateIso();
 
       const isOnLine = !!(emp.zone && ["pool", "review", "absent", "extra"].indexOf(emp.zone) === -1);
@@ -947,11 +946,12 @@
         const isExtraHere = !!(todayExtraShift && todayExtraShift.shift === sId);
         assignEl.textContent = "🏭 " + (lineObj ? lineObj.name : lId) + " (" + shiftName + (isExtraHere ? " · ➕ Bringschicht [" + fsnCode + "]" : "") + ")";
 
-        const isEmpShiftApproved = isPortalShiftApprovedFor(prodTodayIso, sId);
+        const activeRunningShiftId = typeof getCurrentActiveShiftId === "function" ? getCurrentActiveShiftId() : sId;
+        const isEmpShiftApproved = isPortalShiftApprovedFor(prodTodayIso, activeRunningShiftId);
         noteEl.style.color = isEmpShiftApproved ? "#166534" : "#b91c1c";
         noteEl.textContent = isEmpShiftApproved
-          ? ("✅ " + shiftName + " ist vom Planer bestätigt")
-          : ("⏳ " + shiftName + " noch nicht bestätigt");
+          ? ("✅ " + (shiftsLabel[activeRunningShiftId] || activeRunningShiftId) + " ist vom Planer bestätigt")
+          : ("⏳ " + (shiftsLabel[activeRunningShiftId] || activeRunningShiftId) + " noch nicht bestätigt");
       } else if (todayExtraShift) {
         const sId = todayExtraShift.shift;
         const fsnCode = getShiftFsnLetter(sId);
@@ -959,11 +959,12 @@
         const noteSuffix = todayExtraShift.note ? (" · " + todayExtraShift.note) : "";
         assignEl.textContent = "➕ Bringschicht [" + fsnCode + "]: " + shiftName + (emp.zone === "extra" ? " (Im grünen Feld bereitgestellt)" : " (Noch in Einteilung)") + noteSuffix;
 
-        const isExtraApproved = isPortalShiftApprovedFor(prodTodayIso, sId);
+        const activeRunningShiftId = typeof getCurrentActiveShiftId === "function" ? getCurrentActiveShiftId() : sId;
+        const isExtraApproved = isPortalShiftApprovedFor(prodTodayIso, activeRunningShiftId);
         noteEl.style.color = isExtraApproved ? "#166534" : "#b91c1c";
         noteEl.textContent = isExtraApproved
-          ? ("✅ " + shiftName + " (Bringschicht [" + fsnCode + "]) ist vom Planer bestätigt")
-          : ("⏳ " + shiftName + " (Bringschicht [" + fsnCode + "]) noch nicht bestätigt");
+          ? ("✅ " + (shiftsLabel[activeRunningShiftId] || activeRunningShiftId) + " (Bringschicht [" + fsnCode + "]) ist vom Planer bestätigt")
+          : ("⏳ " + (shiftsLabel[activeRunningShiftId] || activeRunningShiftId) + " (Bringschicht [" + fsnCode + "]) noch nicht bestätigt");
       } else if (sundayFree) {
         assignEl.textContent = "☀️ Sonntag – Regulär Schichtfrei (im Pool)";
         noteEl.style.color = "#0284c7";
@@ -973,11 +974,12 @@
         if (regShift) {
           const shiftName = (typeof shiftsLabel !== "undefined" && shiftsLabel[regShift]) ? shiftsLabel[regShift] : regShift;
           assignEl.textContent = "📋 " + shiftName + " (Im Pool / Noch in Einteilung)";
-          const isEmpShiftApproved = isPortalShiftApprovedFor(prodTodayIso, regShift);
+          const activeRunningShiftId = typeof getCurrentActiveShiftId === "function" ? getCurrentActiveShiftId() : regShift;
+          const isEmpShiftApproved = isPortalShiftApprovedFor(prodTodayIso, activeRunningShiftId);
           noteEl.style.color = isEmpShiftApproved ? "#166534" : "#b91c1c";
           noteEl.textContent = isEmpShiftApproved
-            ? ("✅ " + shiftName + " ist vom Planer bestätigt")
-            : ("⏳ " + shiftName + " noch nicht bestätigt");
+            ? ("✅ " + (shiftsLabel[activeRunningShiftId] || activeRunningShiftId) + " ist vom Planer bestätigt")
+            : ("⏳ " + (shiftsLabel[activeRunningShiftId] || activeRunningShiftId) + " noch nicht bestätigt");
         } else {
           assignEl.textContent = "🌴 Heute regulär Freischicht (im Pool)";
           noteEl.style.color = "#0369a1";
@@ -1017,7 +1019,6 @@
           const dNorm = normIsoLocal(d.date);
           if (dNorm < today || d.takenBy || d.dayStatus !== "open" || !d.explicitlyApproved) return false;
           
-          /* Punkt #13 / #17: Niemals für Mitarbeiter anzeigen, die an diesem Tag selbst im Urlaub oder krank sind */
           if (typeof getActiveLeaveForEmpOnDate === "function" && getActiveLeaveForEmpOnDate(emp.id, dNorm)) {
             return false;
           }
