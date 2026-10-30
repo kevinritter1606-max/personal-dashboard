@@ -81,6 +81,26 @@
     .role-select-option { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; cursor: pointer; font-size: 0.86rem; font-weight: 600; transition: 0.15s; }
     .role-select-option:hover { background: #f0f9ff; border-color: #7dd3fc; }
   </style>
+
+      /* Moderner Block-Kalender (analog Handy-Widget) */
+    .portal-calendar-card { background: #fff; border-radius: 10px; padding: 16px; border: 1px solid #e2e8f0; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .cal-top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .cal-top-nav h3 { font-size: 0.98rem; font-weight: 700; color: #0f172a; margin: 0; text-transform: uppercase; letter-spacing: 0.03em; }
+    .cal-grid-view { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; }
+    .cal-wk-header { font-size: 0.68rem; font-weight: 700; color: #64748b; padding-bottom: 6px; }
+    .cal-cell { min-height: 62px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 2px; display: flex; flex-direction: column; align-items: stretch; font-size: 0.72rem; }
+    .cal-cell.empty-cell { background: transparent; border: none; min-height: 0; }
+    .cal-cell.today-cell { border-color: var(--bayer-blue); box-shadow: 0 0 0 1px var(--bayer-blue); background: #f0f9ff; }
+    .cal-cell-num { font-weight: 700; color: #334155; font-size: 0.74rem; text-align: right; padding-right: 2px; margin-bottom: 2px; }
+    .cal-event-block { font-size: 0.6rem; font-weight: 700; padding: 2px 3px; border-radius: 3px; margin-bottom: 2px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; }
+    .cal-event-frueh { background: #e0f2fe; color: #0369a1; border-left: 2px solid #0284c7; }
+    .cal-event-spaet { background: #fef3c7; color: #b45309; border-left: 2px solid #d97706; }
+    .cal-event-nacht { background: #f5f3ff; color: #6d28d9; border-left: 2px solid #7c3aed; }
+    .cal-event-leave { background: #dcfce7; color: #166534; border-left: 2px solid #16a34a; }
+    .cal-event-sick { background: #fee2e2; color: #b91c1c; border-left: 2px solid #dc2626; }
+    .cal-event-extra { background: #16a34a; color: #ffffff; border-left: 2px solid #15803d; }
+    .cal-event-frei { background: #f1f5f9; color: #64748b; }
+
   <!-- 🧱 [LEGO-MODUL PRT-01 ENDE: CSS & DESIGN-STYLES] -->
 </head>
 <body class="portal-locked">
@@ -241,6 +261,18 @@
         <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="submitPortalLineRequest()">+ Anfragen</button>
       </div>
     </div>
+
+        <!-- 🧱 [LEGO-MODUL PRT-07.01: MODERNER BLOCK-KALENDER] -->
+    <div class="portal-calendar-card">
+      <div class="cal-top-nav">
+        <button type="button" class="btn btn-outline" style="padding: 3px 8px; font-size: 0.72rem;" onclick="changePortalCalendarMonth(-1)">◀</button>
+        <h3 id="portalCalendarTitle">Monat Jahr</h3>
+        <button type="button" class="btn btn-outline" style="padding: 3px 8px; font-size: 0.72rem;" onclick="changePortalCalendarMonth(1)">▶</button>
+      </div>
+      <div class="cal-grid-view" id="portalCalendarGrid"></div>
+    </div>
+    <!-- 🧱 [LEGO-MODUL PRT-07.01 ENDE] -->
+
     <!-- 🧱 [LEGO-MODUL PRT-07 ENDE: MEINE SCHICHT, GEGENANGEBOTE & MEINE LINIEN] -->
 
     <!-- 🧱 [LEGO-MODUL PRT-08 START: ANTRAGS-TABS (URLAUB, KRANK/ABWESEND, BRINGSCHICHT)] -->
@@ -1081,6 +1113,12 @@
       renderOpenCoverageRequests(emp);
       renderMyRequestsList(emp.id);
       updateExtraShiftPreviewHint();
+      renderOpenCoverageRequests(emp);
+      renderMyRequestsList(emp.id);
+      updateExtraShiftPreviewHint();
+      renderPortalCalendar(emp.id); // <--- Genau diese Zeile muss hier rein!
+    }
+
     }
 
     function renderOpenCoverageRequests(emp) {
@@ -1637,6 +1675,90 @@
         showPortalInlineMsg("⛔ Meldung konnte nicht gespeichert werden (Zeitraum bereits belegt).", false);
       }
     }
+
+        /* 🧱 [LEGO-MODUL PRT-15.01 START: KALENDER LOGIK & NAVIGATION] */
+    let portalCalendarCursorDate = new Date();
+
+    window.changePortalCalendarMonth = function(delta) {
+      portalCalendarCursorDate.setMonth(portalCalendarCursorDate.getMonth() + delta);
+      renderPortalCalendar(loggedInPortalEmpId);
+    };
+
+    function renderPortalCalendar(empId) {
+      const gridEl = document.getElementById("portalCalendarGrid");
+      const titleEl = document.getElementById("portalCalendarTitle");
+      if (!gridEl || !titleEl || !empId) return;
+
+      const emp = employees.find(x => x.id === empId);
+      if (!emp) return;
+
+      const year = portalCalendarCursorDate.getFullYear();
+      const month = portalCalendarCursorDate.getMonth();
+      const monthNames = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+      titleEl.textContent = monthNames[month] + " " + year;
+
+      const firstDayOfMonth = new Date(year, month, 1);
+      const lastDayOfMonth = new Date(year, month + 1, 0);
+      
+      let startDayOfWeek = firstDayOfMonth.getDay() - 1;
+      if (startDayOfWeek === -1) startDayOfWeek = 6;
+
+      const totalDays = lastDayOfMonth.getDate();
+      const todayIso = getPortalProdDateIso();
+
+      let html = '<div class="cal-wk-header">Mo</div>' +
+                 '<div class="cal-wk-header">Di</div>' +
+                 '<div class="cal-wk-header">Mi</div>' +
+                 '<div class="cal-wk-header">Do</div>' +
+                 '<div class="cal-wk-header">Fr</div>' +
+                 '<div class="cal-wk-header">Sa</div>' +
+                 '<div class="cal-wk-header" style="color:#dc2626;">So</div>';
+
+      for (let i = 0; i < startDayOfWeek; i++) {
+        html += '<div class="cal-cell empty-cell"></div>';
+      }
+
+      for (let day = 1; day <= totalDays; day++) {
+        const dObj = new Date(year, month, day);
+        const dIso = dObj.getFullYear() + "-" + String(dObj.getMonth() + 1).padStart(2, "0") + "-" + String(dObj.getDate()).padStart(2, "0");
+        const isToday = (dIso === todayIso);
+        const isSunday = (dObj.getDay() === 0);
+
+        const activeLeave = (typeof getActiveLeaveForEmpOnDate === "function") ? getActiveLeaveForEmpOnDate(emp.id, dIso) : null;
+        const extraShift = (typeof extraShifts !== "undefined" && Array.isArray(extraShifts)) ? extraShifts.find(es => es.empId === emp.id && es.status === "approved" && normIsoLocal(es.date) === dIso) : null;
+        const regShift = (isSunday || activeLeave) ? null : (typeof window.getEmpRegularShiftOnDate === "function" ? window.getEmpRegularShiftOnDate(emp, dIso) : null);
+
+        let cellCls = "cal-cell" + (isToday ? " today-cell" : "");
+        let eventHtml = "";
+
+        if (extraShift) {
+          eventHtml = '<div class="cal-event-block cal-event-extra">Bringschicht</div>';
+        } else if (activeLeave) {
+          const isSick = String(activeLeave.category || "").toLowerCase().indexOf("krank") !== -1 || String(activeLeave.category || "").toLowerCase().indexOf("arbeitsunfähig") !== -1;
+          eventHtml = '<div class="cal-event-block ' + (isSick ? 'cal-event-sick' : 'cal-event-leave') + '">' + (isSick ? 'Krank' : 'Urlaub') + '</div>';
+        } else if (isSunday) {
+          eventHtml = '<div class="cal-event-block cal-event-frei">Frei</div>';
+        } else if (regShift === "frueh") {
+          eventHtml = '<div class="cal-event-block cal-event-frueh">Frühschicht</div>';
+        } else if (regShift === "spaet") {
+          eventHtml = '<div class="cal-event-block cal-event-spaet">Spätschicht</div>';
+        } else if (regShift === "nacht") {
+          eventHtml = '<div class="cal-event-block cal-event-nacht">Nachtschicht</div>';
+        } else {
+          eventHtml = '<div class="cal-event-block cal-event-frei">Frei</div>';
+        }
+
+        html += '<div class="' + cellCls + '">' +
+                  '<div class="cal-cell-num">' + day + '</div>' +
+                  eventHtml +
+                '</div>';
+      }
+
+      gridEl.innerHTML = html;
+    }
+    /* 🧱 [LEGO-MODUL PRT-15.01 ENDE] */
+
+
     /* ==========================================================================
        🧱 [LEGO-MODUL PRT-15 ENDE: URLAUB, KRANKMELDUNG, GEGENANGEBOTE & ANTRAGS-HISTORIE]
        ========================================================================== */
