@@ -3465,35 +3465,21 @@ window.openCoverageReleaseModal = function(leaveId) {
   const listEl = document.getElementById("coverageReleaseDaysList");
   if (!modal || !listEl) return;
 
-  const bulkBtns = modal.querySelectorAll("button[onclick*='setAllModalCoverageDaysStatus']");
-  if (bulkBtns.length > 0 && bulkBtns[0].parentElement) {
-    const bulkWrap = bulkBtns[0].parentElement;
-    bulkWrap.style.cssText = "display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid #f1f5f9;";
-    bulkWrap.innerHTML =
-      '<span style="font-size:0.74rem; font-weight:700; color:#475569;">Schnellauswahl:</span>' +
-      '<div style="display:flex; gap:5px; flex-wrap:wrap;">' +
-        '<button type="button" onclick="setAllModalCoverageDaysStatus(\'open_green\')" style="background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; border-radius:6px; padding:4px 9px; font-size:0.71rem; font-weight:700; cursor:pointer;" title="Schaltet nur Tage frei, an denen das freie Team ohne Ruhezeit-Konflikt fahren darf">🟢 Alle fahrbaren Tage (Ja)</button>' +
-        '<button type="button" onclick="setAllModalCoverageDaysStatus(\'open_all\')" style="background:#fffbeb; color:#b45309; border-color:#fde68a; border-radius:6px; padding:4px 9px; font-size:0.71rem; font-weight:700; cursor:pointer;" title="Schaltet alle Tage inkl. gelber Ruhezeit-Warnung fürs Portal frei">🟡 Alle inkl. Warnung (Ja)</button>' +
-        '<button type="button" onclick="setAllModalCoverageDaysStatus(\'rejected\')" style="background:#fef2f2; color:#b91c1c; border-color:#fecaca; border-radius:6px; padding:4px 9px; font-size:0.71rem; font-weight:700; cursor:pointer;" title="Lehnt alle Tage ab (im Portal gesperrt)">❌ Alle ablehnen (Nein)</button>' +
-      '</div>';
-  }
-
   const emp = sl ? employees.find(e => e.id === sl.empId) : (req ? employees.find(e => e.id === req.empId) : null);
   const nameTxt = emp ? fullName(emp) : "Mitarbeiter";
   const roleTxt = (req && req.role) ? req.role : (emp ? emp.role : "Bediener");
   const probLineTxt = (req && req.probableLines) ? (" · " + req.probableLines) : "";
 
   if (subEl) {
-    subEl.style.cssText = "font-size:0.8rem; color:#475569; margin-bottom:10px; line-height:1.4;";
     subEl.innerHTML =
       "Ausfall: <b style='color:#0f172a;'>" + nameTxt + "</b> <span style='color:#64748b;'>(" + roleTxt + probLineTxt + ")</span><br>" +
-      "<span style='font-size:0.74rem; color:#64748b;'>Du kannst diese Auswahl jederzeit auch nachträglich im Postfach wieder öffnen und einzelne Tage auf <b>Ja</b> oder <b>Nein</b> umstellen.</span>";
+      "<span style='font-size:0.74rem; color:#64748b;'>Schalte einzelne Tage im Portal für das freie Team per <b>Ja</b> frei oder sperre sie per <b>Nein</b>.</span>";
   }
 
   const validDays = (req && Array.isArray(req.days)) ? req.days : [];
 
   if (!validDays.length) {
-    listEl.innerHTML = '<p style="font-size:0.8rem; color:#64748b; padding:8px;">In diesem Zeitraum fallen laut 2-2-2-Schichtplan (Sonntag frei) keine regulären Arbeitstage für ' + nameTxt + ' an.</p>';
+    listEl.innerHTML = '<p style="font-size:0.8rem; color:#64748b; padding:8px;">In diesem Zeitraum fallen laut Schichtplan keine regulären Arbeitstage an.</p>';
   } else {
     listEl.innerHTML = validDays.map((d, dIdx) => {
       const st = d.dayStatus || "pending";
@@ -3503,6 +3489,7 @@ window.openCoverageReleaseModal = function(leaveId) {
       const takenEmp = isTaken ? employees.find(x => x.id === d.takenBy) : null;
       const wdShort = getWeekdayShortDe(d.date);
       const fsnCode = getShiftCodeLetter(d.shift);
+      const shiftLongName = shiftsLabel[d.shift] || d.shift;
 
       const targetInfo = window.getCoverageTargetInfoForDay(d.date, d.shift, roleTxt);
       const hasYellowWarning = !targetInfo.isPast && targetInfo.eligibleTotalCount === 0;
@@ -3511,53 +3498,37 @@ window.openCoverageReleaseModal = function(leaveId) {
       if (targetInfo.isPast) {
         teamMetaHtml = '<span style="color:#94a3b8;">⌛ Datum bereits vergangen</span>';
       } else if (targetInfo.eligibleTotalCount > 0) {
-        const namesHint = targetInfo.eligibleNames.slice(0, 4).join(", ") + (targetInfo.eligibleNames.length > 4 ? "..." : "");
-        teamMetaHtml =
-          '<span style="color:' + targetInfo.freiTeamColor + '; font-weight:700;">■ ' + targetInfo.freiTeamName + ' (Frei)</span>' +
-          ' · <span style="color:#15803d; font-weight:600;" title="Mögliche Mitarbeiter: ' + namesHint + '">🟢 ' + targetInfo.eligibleTotalCount + ' ' + roleTxt + ' regulär fahrbar</span>';
+        teamMetaHtml = '<span style="color:' + targetInfo.freiTeamColor + '; font-weight:700;">■ ' + targetInfo.freiTeamName + ' (Frei)</span> · <span style="color:#15803d; font-weight:600;">🟢 ' + targetInfo.eligibleTotalCount + ' ' + roleTxt + ' fahrbar</span>';
       } else {
-        teamMetaHtml =
-          '<span style="color:' + targetInfo.freiTeamColor + '; font-weight:600;">■ ' + targetInfo.freiTeamName + ' (Frei)</span>' +
-          ' · <span style="color:#d97706; font-weight:700;" title="Wegen Vor-/Nachschicht-Ruhezeit (z.B. Ausschlaftag nach Nachtschicht) aktuell kein passender ' + roleTxt + ' ohne Ruhezeit-Warnung frei">🟡 Ruhezeit-Warnung (0 ohne Konflikt frei)</span>';
+        teamMetaHtml = '<span style="color:' + targetInfo.freiTeamColor + '; font-weight:600;">■ ' + targetInfo.freiTeamName + ' (Frei)</span> · <span style="color:#d97706; font-weight:700;">🟡 Ruhezeit-Warnung</span>';
       }
 
       let rightControlHtml = "";
       if (isTaken) {
-        rightControlHtml =
-          '<span style="background:#f0f9ff; color:#0369a1; border:1px solid #bae6fd; padding:3px 9px; border-radius:999px; font-size:0.7rem; font-weight:700; white-space:nowrap;">' +
-            '🤝 ' + (takenEmp ? fullName(takenEmp) : 'Übernommen') +
-          '</span>';
+        rightControlHtml = '<span style="background:#f0f9ff; color:#0369a1; border:1px solid #bae6fd; padding:4px 10px; border-radius:999px; font-size:0.72rem; font-weight:700;">🤝 Übernommen von ' + (takenEmp ? fullName(takenEmp) : 'Kollege') + '</span>';
       } else {
-        const yesStyle = isOpen
-          ? (hasYellowWarning
-              ? "background:#f59e0b; color:#ffffff; border-color:#f59e0b; box-shadow:0 1px 2px rgba(245,158,11,0.25);"
-              : "background:#10b981; color:#ffffff; border-color:#10b981; box-shadow:0 1px 2px rgba(16,185,129,0.25);")
-          : "background:#ffffff; color:#64748b; border-color:#e2e8f0;";
-        const noStyle = isRejected
-          ? "background:#ef4444; color:#ffffff; border-color:#ef4444; box-shadow:0 1px 2px rgba(239,68,68,0.25);"
-          : "background:#ffffff; color:#64748b; border-color:#e2e8f0;";
+        const yesStyle = isOpen ? (hasYellowWarning ? "background:#f59e0b; color:#fff; border-color:#f59e0b;" : "background:#10b981; color:#fff; border-color:#10b981;") : "background:#fff; color:#64748b; border-color:#cbd5e1;";
+        const noStyle = isRejected ? "background:#ef4444; color:#fff; border-color:#ef4444;" : "background:#fff; color:#64748b; border-color:#cbd5e1;";
 
         rightControlHtml =
-          '<div style="display:inline-flex; background:#f8fafc; padding:2px; border-radius:8px; border:1px solid #e2e8f0; gap:3px; flex-shrink:0;">' +
-            '<button type="button" onclick="setCoverageDayDecision(\'' + req.leaveId + '\', ' + dIdx + ', \'open\')" style="border:1px solid transparent; border-radius:6px; padding:4px 10px; font-size:0.73rem; font-weight:700; cursor:pointer; transition:all 0.15s ease; ' + yesStyle + '">Ja</button>' +
-            '<button type="button" onclick="setCoverageDayDecision(\'' + req.leaveId + '\', ' + dIdx + ', \'rejected\')" style="border:1px solid transparent; border-radius:6px; padding:4px 10px; font-size:0.73rem; font-weight:700; cursor:pointer; transition:all 0.15s ease; ' + noStyle + '">Nein</button>' +
+          '<div style="display:inline-flex; background:#f1f5f9; padding:2px; border-radius:8px; border:1px solid #cbd5e1; gap:4px;">' +
+            '<button type="button" onclick="setCoverageDayDecision(\'' + req.leaveId + '\', ' + dIdx + ', \'open\')" style="border-radius:6px; padding:5px 14px; font-size:0.75rem; font-weight:700; cursor:pointer; border:1px solid transparent; ' + yesStyle + '">✓ Ja</button>' +
+            '<button type="button" onclick="setCoverageDayDecision(\'' + req.leaveId + '\', ' + dIdx + ', \'rejected\')" style="border-radius:6px; padding:5px 14px; font-size:0.75rem; font-weight:700; cursor:pointer; border:1px solid transparent; ' + noStyle + '">✕ Nein</button>' +
           '</div>';
       }
 
-      const rowBorderColor = isTaken ? "#bae6fd" : (isOpen ? (hasYellowWarning ? "#fde68a" : "#bbf7d0") : (isRejected ? "#fecaca" : "#e2e8f0"));
       const rowBg = isOpen ? (hasYellowWarning ? "#fffbeb" : "#f0fdf4") : (isRejected ? "#fff1f2" : "#ffffff");
-      const statusDot = isOpen ? (hasYellowWarning ? "🟡" : "🟢") : (isRejected ? "🔴" : "⚪");
+      const rowBorder = isOpen ? (hasYellowWarning ? "#fde68a" : "#86efac") : (isRejected ? "#fecaca" : "#cbd5e1");
 
       return (
-        '<div style="display:flex; justify-content:space-between; align-items:center; background:' + rowBg + '; border:1px solid ' + rowBorderColor + '; padding:8px 11px; border-radius:10px; margin-bottom:6px; gap:10px; transition:all 0.15s ease;">' +
-          '<div style="min-width:0; flex:1;">' +
-            '<div style="font-size:0.84rem; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:5px;">' +
-              '<span style="font-size:0.65rem;">' + statusDot + '</span>' +
-              '<span>' + (wdShort ? wdShort + ', ' : '') + formatDateDe(d.date) + ' · ' + (shiftsShortLabel[d.shift] || d.shift) + ' [' + fsnCode + ']</span>' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; background:' + rowBg + '; border:1px solid ' + rowBorder + '; padding:10px 14px; border-radius:8px; gap:12px;">' +
+          '<div>' +
+            '<div style="font-size:0.86rem; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:6px;">' +
+              '<span>📅 ' + (wdShort ? wdShort + ', ' : '') + formatDateDe(d.date) + '</span>' +
+              '<span class="fsn-code-pill">' + fsnCode + '</span>' +
+              '<span style="color:#475569; font-weight:600;">' + shiftLongName + '</span>' +
             '</div>' +
-            '<div style="font-size:0.71rem; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
-              teamMetaHtml +
-            '</div>' +
+            '<div style="font-size:0.72rem; margin-top:3px;">' + teamMetaHtml + '</div>' +
           '</div>' +
           rightControlHtml +
         '</div>'
@@ -3586,14 +3557,6 @@ window.setCoverageDayDecision = function(leaveId, dayIdx, decisionStatus) {
     window.openCoverageReleaseModal(req.leaveId);
   }
   window.renderInboxLists();
-};
-
-window.toggleCoverageDayStatus = function(leaveId, dayIdx) {
-  const req = (leaveRequests || []).find(r => r.leaveId === leaveId || r.id === leaveId || r.id === ("cov_" + leaveId));
-  if (!req || !req.days || !req.days[dayIdx]) return;
-  const cur = req.days[dayIdx].dayStatus;
-  const next = (cur === "open") ? "rejected" : "open";
-  window.setCoverageDayDecision(leaveId, dayIdx, next);
 };
 
 window.setAllModalCoverageDaysStatus = function(mode) {
@@ -3634,281 +3597,7 @@ window.setAllModalCoverageDaysStatus = function(mode) {
   saveToFirebase();
   window.openCoverageReleaseModal(req.leaveId);
   window.renderInboxLists();
-
-  if (mode === "open_green") {
-    showToast("🟢 " + openCount + " regulär fahrbare Tage mit JA freigegeben (Ruhezeit-Konflikte auf Nein)");
-  } else if (mode === "open_all" || mode === "open") {
-    showToast("🟡 Alle " + openCount + " Tage (inkl. Ruhezeit-Warnung) fürs Portal freigegeben!");
-  } else {
-    showToast("❌ Alle Schichttage mit NEIN abgelehnt (gesperrt)");
-  }
-};
-
-window.toggleInlineConditionalBox = function(leaveId) {
-  const box = document.getElementById("inlineCondBox_" + leaveId);
-  if (!box) return;
-  const isHidden = (box.style.display === "none" || !box.style.display);
-  box.style.display = isHidden ? "block" : "none";
-  if (isHidden) {
-    const rowsWrap = document.getElementById("inlineCondRows_" + leaveId);
-    if (rowsWrap && rowsWrap.children.length === 0) {
-      const sl = sickLeaves.find(x => x.id === leaveId);
-      const initBlocks = (sl && Array.isArray(sl.blocks) && sl.blocks.length > 0)
-        ? sl.blocks
-        : [{ start: sl ? sl.startDate : getLogicalDateIso(), end: sl ? sl.endDate : getLogicalDateIso() }];
-      initBlocks.forEach(b => window.addInlineConditionalBlockRow(leaveId, b.start, b.end));
-    }
-  }
-};
-
-window.addInlineConditionalBlockRow = function(leaveId, startVal, endVal) {
-  const rowsWrap = document.getElementById("inlineCondRows_" + leaveId);
-  if (!rowsWrap) return;
-  const sl = sickLeaves.find(x => x.id === leaveId);
-  const sIso = window.normalizeDateIso(startVal || (sl ? sl.startDate : getLogicalDateIso()));
-  const eIso = window.normalizeDateIso(endVal || (sl ? sl.endDate : getLogicalDateIso()));
-
-  const row = document.createElement("div");
-  row.className = "inline-cond-row";
-  row.style.cssText = "display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:5px; background:#ffffff; padding:5px 7px; border-radius:6px; border:1px solid #cbd5e1;";
-  row.innerHTML =
-    '<span style="font-size:0.74rem; font-weight:700; color:#334155;">Von:</span>' +
-    '<input type="date" class="form-control inline-cond-start" value="' + sIso + '" style="flex:1; min-width:125px; padding:4px 7px; font-size:0.78rem;">' +
-    '<span style="font-size:0.74rem; font-weight:700; color:#334155;">Bis:</span>' +
-    '<input type="date" class="form-control inline-cond-end" value="' + eIso + '" style="flex:1; min-width:125px; padding:4px 7px; font-size:0.78rem;">' +
-    '<button type="button" class="btn btn-outline" style="padding:3px 9px; font-weight:900; color:#0284c7; border-color:#7dd3fc; background:#f0f9ff;" onclick="addInlineConditionalBlockRow(\'' + leaveId + '\')" title="Weiteren Zeitraum (Von – Bis) hinzufügen">+</button>' +
-    '<button type="button" class="btn btn-outline" style="padding:3px 8px; color:#dc2626; border-color:#fca5a5;" onclick="if(this.parentElement.parentElement.children.length > 1) this.parentElement.remove();" title="Zeile entfernen">✕</button>';
-  rowsWrap.appendChild(row);
-};
-
-window.saveInlineConditionalLeave = function(leaveId) {
-  const sl = sickLeaves.find(x => x.id === leaveId);
-  if (!sl) return;
-  const rowsWrap = document.getElementById("inlineCondRows_" + leaveId);
-  if (!rowsWrap) return;
-  const rows = Array.from(rowsWrap.querySelectorAll(".inline-cond-row"));
-  if (!rows.length) return showToast("Bitte mindestens einen Zeitraum (Von – Bis) eingeben!", true);
-
-  const parsedBlocks = [];
-  for (let i = 0; i < rows.length; i++) {
-    const s = window.normalizeDateIso(rows[i].querySelector(".inline-cond-start").value);
-    const e = window.normalizeDateIso(rows[i].querySelector(".inline-cond-end").value);
-    if (!s || !e || s > e) {
-      return showToast("Bitte gültiges Datum (Von – Bis) in Zeile " + (i + 1) + " wählen!", true);
-    }
-    parsedBlocks.push({ start: s, end: e, status: "counter_offer" });
-  }
-
-  if (!sl.originalStartDate) sl.originalStartDate = sl.startDate;
-  if (!sl.originalEndDate) sl.originalEndDate = sl.endDate;
-
-  const allStarts = parsedBlocks.map(b => b.start).sort();
-  const allEnds = parsedBlocks.map(b => b.end).sort();
-  sl.startDate = allStarts[0];
-  sl.endDate = allEnds[allEnds.length - 1];
-  sl.blocks = parsedBlocks;
-
-  const noteInp = document.getElementById("inlineCondNote_" + leaveId);
-  sl.plannerCounterNote = noteInp ? noteInp.value.trim() : "";
-
-  const actor = getCurrentActorLabel();
-  const nowIso = new Date().toISOString();
-  sl.status = "counter_offer";
-  sl.counterOfferResponse = "";
-  sl.plannerUnreadInfo = false;
-  sl.reviewedBy = actor;
-  sl.reviewedAt = nowIso;
-
-  const rangesTxt = parsedBlocks.map(b => formatDateDe(b.start) + "–" + formatDateDe(b.end)).join(", ");
-  appendAuditEntry(sl, "Bedingt angenommen vom Planer (" + rangesTxt + ")", actor);
-
-  const emp = employees.find(e => e.id === sl.empId);
-  addHistoryLog("Urlaubsantrag von " + (emp ? fullName(emp) : "") + " bedingt angenommen (" + rangesTxt + ")", "ABSENCE");
-
-  window.removeCoveragePromptForLeave(sl.id);
-  saveToFirebase();
-  window.syncAbsentAndExtraZones();
-  renderEmployees();
-  window.renderInboxLists();
-  window.updateInboxBadge();
-  showToast("🟡 Bedingt angenommen an Mitarbeiter im Portal gesendet!");
-};
-
-window.openLeaveCounterOfferModal = function(leaveId) {
-  const sl = sickLeaves.find(x => x.id === leaveId);
-  if (!sl) return;
-  activeCounterOfferLeaveId = sl.id;
-  const emp = employees.find(e => e.id === sl.empId);
-  const infoEl = document.getElementById("counterOfferOriginalInfo");
-  if (infoEl) {
-    infoEl.innerHTML =
-      "<b>Mitarbeiter:</b> " + (emp ? fullName(emp) : "Unbekannt") +
-      " · <b>Ursprünglicher Antrag:</b> " + formatDateDe(sl.originalStartDate || sl.startDate) + " bis " + formatDateDe(sl.originalEndDate || sl.endDate) +
-      " (" + (sl.category || "Urlaub") + ")";
-  }
-  const container = document.getElementById("counterOfferBlocksContainer");
-  if (container) {
-    container.innerHTML = "";
-    const initBlocks = (Array.isArray(sl.blocks) && sl.blocks.length > 0)
-      ? sl.blocks
-      : [{ start: sl.startDate, end: sl.endDate, status: "counter_offer" }];
-    initBlocks.forEach(b => window.addCounterOfferBlockRow(b.start, b.end, b.status));
-  }
-  const noteEl = document.getElementById("counterOfferPlannerNote");
-  if (noteEl) noteEl.value = sl.plannerCounterNote || "";
-  const modal = document.getElementById("leaveCounterOfferModal");
-  if (modal) modal.style.display = "flex";
-};
-
-window.addCounterOfferBlockRow = function(startVal, endVal, statusVal) {
-  const container = document.getElementById("counterOfferBlocksContainer");
-  if (!container) return;
-  const sl = sickLeaves.find(x => x.id === activeCounterOfferLeaveId);
-  const defStart = startVal || (sl ? sl.startDate : getLogicalDateIso());
-  const defEnd = endVal || (sl ? sl.endDate : getLogicalDateIso());
-  const defSt = statusVal || "counter_offer";
-
-  const row = document.createElement("div");
-  row.className = "co-block-row";
-  row.style.cssText = "display:flex; gap:6px; align-items:center; flex-wrap:wrap; background:#f8fafc; border:1px solid #cbd5e1; padding:7px 9px; border-radius:7px;";
-  row.innerHTML =
-    '<input type="date" class="form-control co-start-inp" value="' + window.normalizeDateIso(defStart) + '" style="flex:1; min-width:125px; padding:5px 7px; font-size:0.78rem;">' +
-    '<span style="font-size:0.76rem; font-weight:700;">bis</span>' +
-    '<input type="date" class="form-control co-end-inp" value="' + window.normalizeDateIso(defEnd) + '" style="flex:1; min-width:125px; padding:5px 7px; font-size:0.78rem;">' +
-    '<select class="form-control co-status-sel" style="flex:1.2; min-width:160px; padding:5px 7px; font-size:0.78rem; font-weight:700;">' +
-      '<option value="counter_offer" ' + (defSt === "counter_offer" ? "selected" : "") + '>🟡 Bedingt annehmen</option>' +
-      '<option value="approved" ' + (defSt === "approved" ? "selected" : "") + '>✅ Direkt annehmen</option>' +
-      '<option value="rejected" ' + (defSt === "rejected" ? "selected" : "") + '>❌ Ablehnen</option>' +
-    '</select>' +
-    '<button type="button" class="btn btn-outline" style="padding:4px 9px; font-weight:900; color:#0284c7; border-color:#7dd3fc; background:#f0f9ff;" onclick="addCounterOfferBlockRow()" title="Weiteren Zeitraum hinzufügen">+</button>' +
-    '<button type="button" class="btn btn-outline" style="padding:4px 8px; color:#dc2626; border-color:#fca5a5;" onclick="this.parentElement.remove()">✕</button>';
-  container.appendChild(row);
-};
-
-window.saveCounterOfferAndSplitLeave = function() {
-  const sl = sickLeaves.find(x => x.id === activeCounterOfferLeaveId);
-  if (!sl) return;
-  const rows = Array.from(document.querySelectorAll("#counterOfferBlocksContainer .co-block-row"));
-  if (!rows.length) {
-    showToast("Bitte mindestens einen Zeitraum definieren!", true);
-    return;
-  }
-
-  const parsedBlocks = [];
-  for (let i = 0; i < rows.length; i++) {
-    const s = window.normalizeDateIso(rows[i].querySelector(".co-start-inp").value);
-    const e = window.normalizeDateIso(rows[i].querySelector(".co-end-inp").value);
-    const st = rows[i].querySelector(".co-status-sel").value;
-    if (!s || !e || s > e) {
-      showToast("Bitte gültige Von/Bis-Daten in Zeile " + (i + 1) + " eingeben!", true);
-      return;
-    }
-    parsedBlocks.push({ start: s, end: e, status: st });
-  }
-
-  if (!sl.originalStartDate) sl.originalStartDate = sl.startDate;
-  if (!sl.originalEndDate) sl.originalEndDate = sl.endDate;
-
-  const nonRejectedBlocks = parsedBlocks.filter(b => b.status !== "rejected");
-  const blocksForSpan = nonRejectedBlocks.length > 0 ? nonRejectedBlocks : parsedBlocks;
-  const allStarts = blocksForSpan.map(b => b.start).sort();
-  const allEnds = blocksForSpan.map(b => b.end).sort();
-  sl.startDate = allStarts[0];
-  sl.endDate = allEnds[allEnds.length - 1];
-  sl.blocks = parsedBlocks;
-
-  const noteEl = document.getElementById("counterOfferPlannerNote");
-  sl.plannerCounterNote = noteEl ? noteEl.value.trim() : "";
-
-  const hasCounter = parsedBlocks.some(b => b.status === "counter_offer");
-  const hasApproved = parsedBlocks.some(b => b.status === "approved");
-  sl.status = hasCounter ? "counter_offer" : (hasApproved ? "approved" : "rejected");
-  sl.counterOfferResponse = "";
-  sl.plannerUnreadInfo = false;
-  sl.reviewedBy = getCurrentActorLabel();
-  sl.reviewedAt = new Date().toISOString();
-
-  const rangesTxt = parsedBlocks.map(b => formatDateDe(b.start) + "–" + formatDateDe(b.end)).join(", ");
-  appendAuditEntry(sl, "Bedingt angenommen / Zeitraum angepasst (" + rangesTxt + ")");
-
-  const emp = employees.find(e => e.id === sl.empId);
-  addHistoryLog("Urlaubsantrag von " + (emp ? fullName(emp) : "") + " bedingt angenommen / angepasst (" + rangesTxt + ")", "ABSENCE");
-
-  if (hasApproved) {
-    window.generateCoveragePromptForLeave(sl, "pending");
-  } else {
-    window.removeCoveragePromptForLeave(sl.id);
-  }
-
-  window.closeModal("leaveCounterOfferModal");
-  saveToFirebase();
-  window.syncAbsentAndExtraZones();
-  renderEmployees();
-  window.renderInboxLists();
-  window.updateInboxBadge();
-  showToast("🟡 Bedingte Annahme gespeichert & an Mitarbeiter gesendet!");
-};
-
-window.acceptLeaveCounterOffer = function(leaveId) {
-  const sl = sickLeaves.find(x => x.id === leaveId);
-  if (!sl) return;
-  const emp = employees.find(e => e.id === sl.empId);
-  const actor = (emp ? fullName(emp) : "Mitarbeiter") + " (Portal)";
-  if (Array.isArray(sl.blocks) && sl.blocks.length > 0) {
-    sl.blocks.forEach(b => {
-      if (b.status === "counter_offer") b.status = "approved";
-    });
-    const activeBlocks = sl.blocks.filter(b => b.status === "approved");
-    if (activeBlocks.length > 0) {
-      const starts = activeBlocks.map(b => b.start).sort();
-      const ends = activeBlocks.map(b => b.end).sort();
-      sl.startDate = starts[0];
-      sl.endDate = ends[ends.length - 1];
-    }
-  }
-  sl.status = "approved";
-  sl.counterOfferResponse = "accepted";
-  sl.plannerUnreadInfo = true;
-  appendAuditEntry(sl, "Bedingt angenommener Urlaub vom Mitarbeiter im Portal bestätigt", actor);
-  window.generateCoveragePromptForLeave(sl, "pending");
-  addHistoryLog((emp ? fullName(emp) : "Mitarbeiter") + " hat den bedingt angenommenen Urlaub bestätigt", "ABSENCE");
-  saveToFirebase();
-  window.syncAbsentAndExtraZones();
-};
-
-window.rejectLeaveCounterOffer = function(leaveId) {
-  const sl = sickLeaves.find(x => x.id === leaveId);
-  if (!sl) return;
-  const emp = employees.find(e => e.id === sl.empId);
-  const actor = (emp ? fullName(emp) : "Mitarbeiter") + " (Portal)";
-  if (Array.isArray(sl.blocks) && sl.blocks.length > 0) {
-    sl.blocks.forEach(b => {
-      if (b.status === "counter_offer") b.status = "rejected";
-    });
-    const activeBlocks = sl.blocks.filter(b => b.status === "approved");
-    if (activeBlocks.length > 0) {
-      const starts = activeBlocks.map(b => b.start).sort();
-      const ends = activeBlocks.map(b => b.end).sort();
-      sl.startDate = starts[0];
-      sl.endDate = ends[ends.length - 1];
-      sl.status = "approved";
-    } else {
-      sl.status = "rejected";
-    }
-  } else {
-    sl.status = "rejected";
-  }
-  sl.counterOfferResponse = "rejected";
-  sl.plannerUnreadInfo = true;
-  appendAuditEntry(sl, "Bedingt angenommener Urlaub vom Mitarbeiter im Portal abgelehnt", actor);
-  if (sl.status === "approved") {
-    window.generateCoveragePromptForLeave(sl, "pending");
-  } else {
-    window.removeCoveragePromptForLeave(sl.id);
-  }
-  addHistoryLog((emp ? fullName(emp) : "Mitarbeiter") + " hat den bedingt angenommenen Urlaub abgelehnt", "ABSENCE");
-  saveToFirebase();
-  window.syncAbsentAndExtraZones();
+  showToast("✅ Status für alle Tage aktualisiert!");
 };
 /* ==========================================================================
    🧱 [LEGO-MODUL PLN-11 ENDE: BRINGSCHICHT-FREIGABE (JA/NEIN) & BEDINGT ANNEHMEN]
