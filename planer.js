@@ -3465,31 +3465,55 @@ window.openCoverageReleaseModal = function(leaveId) {
   const listEl = document.getElementById("coverageReleaseDaysList");
   if (!modal || !listEl) return;
 
+  listEl.style.display = "flex";
+  listEl.style.flexDirection = "column";
+  listEl.style.overflowX = "hidden";
+
   const emp = sl ? employees.find(e => e.id === sl.empId) : (req ? employees.find(e => e.id === req.empId) : null);
   const nameTxt = emp ? fullName(emp) : "Mitarbeiter";
   const roleTxt = (req && req.role) ? req.role : (emp ? emp.role : "Bediener");
   const probLineTxt = (req && req.probableLines) ? (" · " + req.probableLines) : "";
 
+  const validDays = (req && Array.isArray(req.days)) ? req.days : [];
+  let countOpen = 0, countRej = 0, countPending = 0, countTaken = 0;
+  validDays.forEach(d => {
+    if (d.takenBy) countTaken++;
+    else if (d.dayStatus === "open" && d.explicitlyApproved) countOpen++;
+    else if (d.dayStatus === "rejected" || d.dayStatus === "closed") countRej++;
+    else countPending++;
+  });
+
   if (subEl) {
     subEl.innerHTML =
-      "Ausfall: <b style='color:#0f172a;'>" + nameTxt + "</b> <span style='color:#64748b;'>(" + roleTxt + probLineTxt + ")</span><br>" +
-      "<span style='font-size:0.74rem; color:#64748b;'>Schalte einzelne Tage im Portal für das freie Team per <b>Ja</b> frei oder sperre sie per <b>Nein</b>.</span>";
+      "<div style='display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-top:2px;'>" +
+        "<span>👤 <b style='color:#0f172a;'>" + nameTxt + "</b> <span style='color:#64748b;'>(" + roleTxt + probLineTxt + ")</span></span>" +
+        "<span style='display:inline-flex; gap:5px; font-size:0.71rem; font-weight:700;'>" +
+          "<span style='background:#dcfce7; color:#166534; padding:2px 7px; border-radius:999px;'>🟢 " + countOpen + " Ja</span>" +
+          "<span style='background:#fee2e2; color:#991b1b; padding:2px 7px; border-radius:999px;'>🔴 " + countRej + " Nein</span>" +
+          (countPending > 0 ? "<span style='background:#f1f5f9; color:#475569; padding:2px 7px; border-radius:999px;'>⚪ " + countPending + " Offen</span>" : "") +
+          (countTaken > 0 ? "<span style='background:#e0f2fe; color:#0369a1; padding:2px 7px; border-radius:999px;'>🤝 " + countTaken + " Besetzt</span>" : "") +
+        "</span>" +
+      "</div>";
   }
 
-  const validDays = (req && Array.isArray(req.days)) ? req.days : [];
-
   if (!validDays.length) {
-    listEl.innerHTML = '<p style="font-size:0.8rem; color:#64748b; padding:8px;">In diesem Zeitraum fallen laut Schichtplan keine regulären Arbeitstage an.</p>';
+    listEl.innerHTML = '<p style="font-size:0.8rem; color:#64748b; padding:10px; text-align:center;">In diesem Zeitraum fallen laut 2-2-2 Schichtplan keine regulären Arbeitstage an.</p>';
   } else {
+    const shiftPillStyleMap = {
+      frueh: "background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;",
+      spaet: "background:#fef3c7; color:#b45309; border:1px solid #fde68a;",
+      nacht: "background:#f5f3ff; color:#6d28d9; border:1px solid #ddd6fe;"
+    };
+
     listEl.innerHTML = validDays.map((d, dIdx) => {
       const st = d.dayStatus || "pending";
-      const isOpen = (st === "open");
+      const isOpen = (st === "open" && d.explicitlyApproved);
       const isRejected = (st === "rejected" || st === "closed");
       const isTaken = !!d.takenBy;
       const takenEmp = isTaken ? employees.find(x => x.id === d.takenBy) : null;
       const wdShort = getWeekdayShortDe(d.date);
-      const fsnCode = getShiftCodeLetter(d.shift);
-      const shiftLongName = shiftsLabel[d.shift] || d.shift;
+      const shiftShort = shiftsShortLabel[d.shift] || d.shift;
+      const sPillStyle = shiftPillStyleMap[d.shift] || "background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;";
 
       const targetInfo = window.getCoverageTargetInfoForDay(d.date, d.shift, roleTxt);
       const hasYellowWarning = !targetInfo.isPast && targetInfo.eligibleTotalCount === 0;
@@ -3498,37 +3522,52 @@ window.openCoverageReleaseModal = function(leaveId) {
       if (targetInfo.isPast) {
         teamMetaHtml = '<span style="color:#94a3b8;">⌛ Datum bereits vergangen</span>';
       } else if (targetInfo.eligibleTotalCount > 0) {
-        teamMetaHtml = '<span style="color:' + targetInfo.freiTeamColor + '; font-weight:700;">■ ' + targetInfo.freiTeamName + ' (Frei)</span> · <span style="color:#15803d; font-weight:600;">🟢 ' + targetInfo.eligibleTotalCount + ' ' + roleTxt + ' fahrbar</span>';
+        const namesHint = targetInfo.eligibleNames.slice(0, 5).join(", ") + (targetInfo.eligibleNames.length > 5 ? "..." : "");
+        teamMetaHtml =
+          '<span style="color:' + targetInfo.freiTeamColor + '; font-weight:700;">■ ' + targetInfo.freiTeamName + ' hat Frei</span>' +
+          ' · <span style="color:#15803d; font-weight:700;" title="Mögliche Mitarbeiter: ' + namesHint + '">🟢 ' + targetInfo.eligibleTotalCount + ' ' + roleTxt + ' ohne Konflikt fahrbar</span>';
       } else {
-        teamMetaHtml = '<span style="color:' + targetInfo.freiTeamColor + '; font-weight:600;">■ ' + targetInfo.freiTeamName + ' (Frei)</span> · <span style="color:#d97706; font-weight:700;">🟡 Ruhezeit-Warnung</span>';
+        teamMetaHtml =
+          '<span style="color:' + targetInfo.freiTeamColor + '; font-weight:700;">■ ' + targetInfo.freiTeamName + ' hat Frei</span>' +
+          ' · <span style="color:#d97706; font-weight:700;" title="Wegen Vor-/Nachschicht-Ruhezeit nur mit Warnhinweis übernehmbar">🟡 Ruhezeit-Hinweis (Ausschlaftag/Übergang)</span>';
       }
 
       let rightControlHtml = "";
       if (isTaken) {
-        rightControlHtml = '<span style="background:#f0f9ff; color:#0369a1; border:1px solid #bae6fd; padding:4px 10px; border-radius:999px; font-size:0.72rem; font-weight:700;">🤝 Übernommen von ' + (takenEmp ? fullName(takenEmp) : 'Kollege') + '</span>';
+        rightControlHtml =
+          '<span style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; padding:5px 11px; border-radius:8px; font-size:0.73rem; font-weight:700; white-space:nowrap;">' +
+            '🤝 ' + (takenEmp ? fullName(takenEmp) : 'Übernommen') +
+          '</span>';
       } else {
-        const yesStyle = isOpen ? (hasYellowWarning ? "background:#f59e0b; color:#fff; border-color:#f59e0b;" : "background:#10b981; color:#fff; border-color:#10b981;") : "background:#fff; color:#64748b; border-color:#cbd5e1;";
-        const noStyle = isRejected ? "background:#ef4444; color:#fff; border-color:#ef4444;" : "background:#fff; color:#64748b; border-color:#cbd5e1;";
+        const yesBtnStyle = isOpen
+          ? (hasYellowWarning
+              ? "background:#f59e0b; color:#fff; border-color:#d97706; box-shadow:0 1px 3px rgba(245,158,11,0.3);"
+              : "background:#10b981; color:#fff; border-color:#059669; box-shadow:0 1px 3px rgba(16,185,129,0.3);")
+          : "background:#ffffff; color:#475569; border-color:#cbd5e1;";
+        const noBtnStyle = isRejected
+          ? "background:#ef4444; color:#fff; border-color:#dc2626; box-shadow:0 1px 3px rgba(239,68,68,0.3);"
+          : "background:#ffffff; color:#475569; border-color:#cbd5e1;";
 
         rightControlHtml =
-          '<div style="display:inline-flex; background:#f1f5f9; padding:2px; border-radius:8px; border:1px solid #cbd5e1; gap:4px;">' +
-            '<button type="button" onclick="setCoverageDayDecision(\'' + req.leaveId + '\', ' + dIdx + ', \'open\')" style="border-radius:6px; padding:5px 14px; font-size:0.75rem; font-weight:700; cursor:pointer; border:1px solid transparent; ' + yesStyle + '">✓ Ja</button>' +
-            '<button type="button" onclick="setCoverageDayDecision(\'' + req.leaveId + '\', ' + dIdx + ', \'rejected\')" style="border-radius:6px; padding:5px 14px; font-size:0.75rem; font-weight:700; cursor:pointer; border:1px solid transparent; ' + noStyle + '">✕ Nein</button>' +
+          '<div style="display:inline-flex; gap:5px; flex-shrink:0;">' +
+            '<button type="button" onclick="setCoverageDayDecision(\'' + req.leaveId + '\', ' + dIdx + ', \'open\')" style="border-radius:7px; padding:6px 13px; font-size:0.75rem; font-weight:700; cursor:pointer; border:1px solid; transition:0.15s; ' + yesBtnStyle + '">✓ Ja</button>' +
+            '<button type="button" onclick="setCoverageDayDecision(\'' + req.leaveId + '\', ' + dIdx + ', \'rejected\')" style="border-radius:7px; padding:6px 13px; font-size:0.75rem; font-weight:700; cursor:pointer; border:1px solid; transition:0.15s; ' + noBtnStyle + '">✕ Nein</button>' +
           '</div>';
       }
 
-      const rowBg = isOpen ? (hasYellowWarning ? "#fffbeb" : "#f0fdf4") : (isRejected ? "#fff1f2" : "#ffffff");
-      const rowBorder = isOpen ? (hasYellowWarning ? "#fde68a" : "#86efac") : (isRejected ? "#fecaca" : "#cbd5e1");
+      const rowBg = isTaken ? "#f0f9ff" : (isOpen ? (hasYellowWarning ? "#fffbeb" : "#f0fdf4") : (isRejected ? "#fff5f5" : "#ffffff"));
+      const rowBorder = isTaken ? "#bae6fd" : (isOpen ? (hasYellowWarning ? "#fcd34d" : "#86efac") : (isRejected ? "#fecaca" : "#e2e8f0"));
+      const leftAccent = isTaken ? "#0284c7" : (isOpen ? (hasYellowWarning ? "#f59e0b" : "#16a34a") : (isRejected ? "#ef4444" : "#cbd5e1"));
 
       return (
-        '<div style="display:flex; justify-content:space-between; align-items:center; background:' + rowBg + '; border:1px solid ' + rowBorder + '; padding:10px 14px; border-radius:8px; gap:12px;">' +
-          '<div>' +
-            '<div style="font-size:0.86rem; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:6px;">' +
-              '<span>📅 ' + (wdShort ? wdShort + ', ' : '') + formatDateDe(d.date) + '</span>' +
-              '<span class="card-extra-fsn-badge">' + fsnCode + '</span>' +
-              '<span style="color:#475569; font-weight:600;">' + shiftLongName + '</span>' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; background:' + rowBg + '; border:1px solid ' + rowBorder + '; border-left:4px solid ' + leftAccent + '; padding:9px 12px; border-radius:8px; gap:10px; width:100%; box-sizing:border-box;">' +
+          '<div style="min-width:0; flex:1;">' +
+            '<div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap;">' +
+              '<span style="font-size:0.86rem; font-weight:800; color:#0f172a; min-width:105px;">' + (wdShort ? wdShort + ', ' : '') + formatDateDe(d.date) + '</span>' +
+              '<span style="font-size:0.7rem; font-weight:800; padding:2px 8px; border-radius:6px; ' + sPillStyle + '">' + shiftShort + '</span>' +
+              (isOpen ? '<span style="font-size:0.68rem; font-weight:700; color:#15803d;">● Im Portal sichtbar</span>' : (isRejected ? '<span style="font-size:0.68rem; font-weight:700; color:#b91c1c;">● Gesperrt</span>' : '<span style="font-size:0.68rem; font-weight:600; color:#64748b;">● Noch nicht freigegeben</span>')) +
             '</div>' +
-            '<div style="font-size:0.72rem; margin-top:3px;">' + teamMetaHtml + '</div>' +
+            '<div style="font-size:0.72rem; margin-top:4px; line-height:1.3;">' + teamMetaHtml + '</div>' +
           '</div>' +
           rightControlHtml +
         '</div>'
