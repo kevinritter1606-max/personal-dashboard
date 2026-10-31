@@ -1855,7 +1855,18 @@ window.undoLastAutoAssignment = function() {
   showToast("↩️ Änderungen & Stundenzähler erfolgreich zurückkorrigiert!");
 };
 
+/* Berücksichtigt an Tag 2 eines 2-2-2 Blocks (Mo+Di, Mi+Do, Fr+Sa) den Block-Kleber vom Vortag */
 function compareSecondaryFairness(empA, empB, lineId, todayIso) {
+  const blockInfo = getBlockDayInfo(todayIso || getLogicalDateIso());
+  const prevIso = getPrevDateIso(todayIso || getLogicalDateIso());
+
+  if (!blockInfo.isSunday && blockInfo.dayInBlock === 2) {
+    const aWasHereDay1 = (extractLineIdFromZone(empA.pinnedZone) === lineId) || (empA.lineHistory && empA.lineHistory[lineId] === prevIso);
+    const bWasHereDay1 = (extractLineIdFromZone(empB.pinnedZone) === lineId) || (empB.lineHistory && empB.lineHistory[lineId] === prevIso);
+    if (aWasHereDay1 && !bWasHereDay1) return -1;
+    if (!aWasHereDay1 && bWasHereDay1) return 1;
+  }
+
   if (shiftModelConfig.fairnessBalanceEnabled === false) return 0;
   const lastA = (empA.lineHistory && empA.lineHistory[lineId]) ? empA.lineHistory[lineId] : "2000-01-01";
   const lastB = (empB.lineHistory && empB.lineHistory[lineId]) ? empB.lineHistory[lineId] : "2000-01-01";
@@ -1884,13 +1895,14 @@ window.shouldApplyTrainingFocusToday = function(emp, lineId, todayIso) {
   const pct = Math.min(100, Math.max(5, Math.round((Number(shiftModelConfig.focusModePercent) || 20) / 5) * 5));
   if (pct >= 100) return true;
 
-  const wdSerial = getWorkdaySerialIndex(todayIso || getLogicalDateIso());
+  /* Nutzt den 2-Tage-Block-Index (statt Einzeltag), damit ein Fokus-Einsatz an Tag 1 + Tag 2 des Blocks stabil bleibt */
+  const blockSerial = getWorkdayBlockIndex(todayIso || getLogicalDateIso());
   let empHash = 0;
   const idStr = String(emp.id || "");
   for (let i = 0; i < idStr.length; i++) {
     empHash = (empHash + idStr.charCodeAt(i) * (i + 1)) % 20;
   }
-  const slot20 = (((wdSerial * 7) + empHash) % 20 + 20) % 20;
+  const slot20 = (((blockSerial * 7) + empHash) % 20 + 20) % 20;
   const bucketPct = slot20 * 5;
   return bucketPct < pct;
 };
@@ -1974,6 +1986,9 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
 
   const teamKey = shiftRotation[shiftId];
   const activeLines = lines.filter(l => !l.ausgeplant);
+  const blockInfo = getBlockDayInfo(todayIso);
+  const prevIso = getPrevDateIso(todayIso);
+  const isDay2OfBlock = (!blockInfo.isSunday && blockInfo.dayInBlock === 2);
 
   employees.forEach(emp => {
     if (extractShiftIdFromZone(emp.zone) === shiftId && !isEmpAnchorActiveToday(emp, todayIso)) {
@@ -2030,6 +2045,10 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     return employees.filter(e => extractLineIdFromZone(e.zone) === lineId && extractShiftIdFromZone(e.zone) === shiftId);
   }
 
+  function hasErsthelferInShift() {
+    return employees.some(e => extractShiftIdFromZone(e.zone) === shiftId && e.ersthelfer);
+  }
+
   /* Prüft, ob für eine Rolle bereits ein erfahrener Stamm-Mitarbeiter (mainLines) auf der Linie steht */
   function hasPrimaryRoleOnLine(lineId, roleName) {
     return getLineEmps(lineId).some(e =>
@@ -2074,6 +2093,22 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     return Math.max(0, roleSoll - currentRoleCount);
   }
 
+  function canSafelyPlaceQualifiedEmpOnLine(emp, line) {
+    if (!emp || !line || line.ausgeplant) return false;
+    const rName = emp.role || "Bediener";
+    if (getLineEmps(line.id).length >= getLineTotalTarget(line)) return false;
+    if (getRoleDeficitForLine(line, rName) <= 0) return false;
+    const isMain = Array.isArray(emp.mainLines) && emp.mainLines.indexOf(line.id) !== -1;
+    const isSec = Array.isArray(emp.secLines) && emp.secLines.indexOf(line.id) !== -1;
+    if (!isMain && !isSec) return false;
+    if (line.mainOnly && !isMain) return false;
+    const roleSoll = Number((line.roleTargets || {})[rName] || 0);
+    if (!isMain && (hasNonPrimaryRoleOnLine(line.id, rName) || (roleSoll >= 2 && !hasPrimaryRoleOnLine(line.id, rName)))) {
+      return false;
+    }
+    return true;
+  }
+
   function placeEmpOnLine(emp, line, countTrainingHours) {
     const isRegularTeamMember = (emp.team === teamKey);
     const hasQuals = (Array.isArray(emp.mainLines) && emp.mainLines.length > 0) || (Array.isArray(emp.secLines) && emp.secLines.length > 0);
@@ -2109,6 +2144,31 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
       }
     }
   });
+
+  /* PHASE 0.5 (ERSTHELFER-SICHERUNG): Garantiert, dass mindestens 1 Ersthelfer (+) in der Schicht auf einer Linie steht */
+  if (!hasErsthelferInShift()) {
+    const ehCandidates = slotCandidates.filter(e => isAvailableInPool(e) && e.ersthelfer);
+    for (let i = 0; i < ehCandidates.length; i++) {
+      const ehEmp = ehCandidates[i];
+      const pinLineId = extractLineIdFromZone(ehEmp.pinnedZone);
+      const mainList = Array.isArray(ehEmp.mainLines) ? ehEmp.mainLines : [];
+      const secList = Array.isArray(ehEmp.secLines) ? ehEmp.secLines : [];
+      const prefLineIds = (pinLineId && mainList.indexOf(pinLineId) !== -1)
+        ? [pinLineId].concat(mainList.filter(id => id !== pinLineId), secList)
+        : [].concat(mainList, secList);
+
+      let placedEh = false;
+      for (let j = 0; j < prefLineIds.length; j++) {
+        const line = sortedLines.find(l => l.id === prefLineIds[j]);
+        if (line && canSafelyPlaceQualifiedEmpOnLine(ehEmp, line)) {
+          placeEmpOnLine(ehEmp, line, false);
+          placedEh = true;
+          break;
+        }
+      }
+      if (placedEh) break;
+    }
+  }
 
   /* PHASE 1: "Nur Stammmitarbeiter"-Linien zuerst strikt mit Stammpersonal besetzen */
   sortedLines.filter(l => l.mainOnly).forEach(line => {
@@ -2148,7 +2208,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     });
   }
 
-  /* PHASE 2: Reguläre Linien (nicht mainOnly) mit 5%-100% Fokus-Quote, Stammpersonal & fairer Sekundär-Balance besetzen
+  /* PHASE 2: Reguläre Linien (nicht mainOnly) mit 5%-100% Fokus-Quote, Stammpersonal, Block-Kleber (Tag 2) & fairer Sekundär-Balance besetzen
      SICHERHEITS-REGEL: Fokus-Lernende nur wenn bereits ein Stamm-Mitarbeiter derselben Rolle auf der Linie steht;
      niemals 2 Sekundär-Mitarbeiter oder Sekundär + Lernender derselben Rolle zusammen ohne Stamm-Mitarbeiter! */
   sortedLines.filter(l => !l.mainOnly).forEach(line => {
@@ -2168,7 +2228,15 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
             isAvailableInPool(e) &&
             todaysFocusMap[e.id] === line.id &&
             (e.role || "Bediener") === rName
-          ).sort((a, b) => getActiveFocusLineHours(b, line.id) - getActiveFocusLineHours(a, line.id));
+          ).sort((a, b) => {
+            if (isDay2OfBlock) {
+              const aDay1 = (extractLineIdFromZone(a.pinnedZone) === line.id) || (a.lineHistory && a.lineHistory[line.id] === prevIso);
+              const bDay1 = (extractLineIdFromZone(b.pinnedZone) === line.id) || (b.lineHistory && b.lineHistory[line.id] === prevIso);
+              if (aDay1 && !bDay1) return -1;
+              if (!aDay1 && bDay1) return 1;
+            }
+            return getActiveFocusLineHours(b, line.id) - getActiveFocusLineHours(a, line.id);
+          });
           if (focusCands.length > 0) {
             cand = focusCands[0];
             focusCount++;
@@ -2238,27 +2306,37 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     });
   });
 
-  /* PHASE 4: Intelligenter Ringtausch (unter Beachtung der Stamm-Mindestbesetzung) */
+  /* PHASE 4: Intelligenter 1-Schritt- & 2-Schritt-Dreiecks-Ringtausch (unter strikter Beachtung der Stamm-Mindestbesetzung) */
   if (shiftModelConfig.smartAllowSwap !== false) {
+    const canSwapReplaceOnLine = (incomingEmp, outgoingEmp, line) => {
+      const roleName = incomingEmp.role || "Bediener";
+      const roleSoll = Number((line.roleTargets || {})[roleName] || 0);
+      const isIncomingMain = Array.isArray(incomingEmp.mainLines) && incomingEmp.mainLines.indexOf(line.id) !== -1;
+      const isIncomingSec = Array.isArray(incomingEmp.secLines) && incomingEmp.secLines.indexOf(line.id) !== -1;
+      if (!isIncomingMain && !isIncomingSec) return false;
+      if (line.mainOnly && !isIncomingMain) return false;
+      if (!isIncomingMain) {
+        const remainingRoleEmps = getLineEmps(line.id).filter(x => x.id !== outgoingEmp.id && (x.role || "Bediener") === roleName);
+        const hasRemainingMain = remainingRoleEmps.some(x => Array.isArray(x.mainLines) && x.mainLines.indexOf(line.id) !== -1);
+        const hasOtherNonMain = remainingRoleEmps.some(x => !Array.isArray(x.mainLines) || x.mainLines.indexOf(line.id) === -1);
+        if (hasOtherNonMain || (roleSoll >= 2 && !hasRemainingMain)) return false;
+      }
+      return true;
+    };
+
     const unplaced = slotCandidates.filter(isAvailableInPool);
     unplaced.forEach(cand => {
+      if (!isAvailableInPool(cand)) return;
       const cRole = cand.role || "Bediener";
       const holdOnMain = window.shouldHoldEmpOnMainLineToday(cand, todayIso);
       const candLines = holdOnMain ? (cand.mainLines || []).slice() : [].concat(cand.mainLines || [], cand.secLines || []);
+
       for (let i = 0; i < candLines.length; i++) {
         const targetLine = sortedLines.find(l => l.id === candLines[i]);
         if (!targetLine) continue;
 
-        const targetRoleSoll = Number((targetLine.roleTargets || {})[cRole] || 0);
-        const isCandMainOnTarget = Array.isArray(cand.mainLines) && cand.mainLines.indexOf(targetLine.id) !== -1;
-        if (targetLine.mainOnly && !isCandMainOnTarget && getLineEmps(targetLine.id).length >= getLineTotalTarget(targetLine)) {
-          continue;
-        }
-
-        if (getLineEmps(targetLine.id).length < getLineTotalTarget(targetLine) && getRoleDeficitForLine(targetLine, cRole) > 0) {
-          if (!isCandMainOnTarget && (hasNonPrimaryRoleOnLine(targetLine.id, cRole) || (targetRoleSoll >= 2 && !hasPrimaryRoleOnLine(targetLine.id, cRole)))) {
-            continue;
-          }
+        /* 4a) Direkter freier Platz vorhanden? */
+        if (canSafelyPlaceQualifiedEmpOnLine(cand, targetLine)) {
           placeEmpOnLine(cand, targetLine, false);
           break;
         }
@@ -2270,15 +2348,10 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
         );
         let swapped = false;
 
+        /* 4b) 1-Schritt-Ringtausch (cand -> targetLine, occ -> altLine) */
         for (let j = 0; j < currentRoleOccupants.length; j++) {
           const occ = currentRoleOccupants[j];
-          /* Verhindert, dass durch den Tausch zwei Sekundär-Mitarbeiter zusammen auf targetLine stehen */
-          if (!isCandMainOnTarget) {
-            const otherRoleEmpsOnTarget = getLineEmps(targetLine.id).filter(x => x.id !== occ.id && (x.role || "Bediener") === cRole);
-            const hasRemainingMainOnTarget = otherRoleEmpsOnTarget.some(x => Array.isArray(x.mainLines) && x.mainLines.indexOf(targetLine.id) !== -1);
-            const hasOtherNonMainOnTarget = otherRoleEmpsOnTarget.some(x => !Array.isArray(x.mainLines) || x.mainLines.indexOf(targetLine.id) === -1);
-            if (hasOtherNonMainOnTarget || (targetRoleSoll >= 2 && !hasRemainingMainOnTarget)) continue;
-          }
+          if (!canSwapReplaceOnLine(cand, occ, targetLine)) continue;
 
           const occAltLineIds = [].concat(occ.mainLines || [], occ.secLines || []).filter(id => id !== targetLine.id);
           occAltLineIds.sort((idA, idB) => {
@@ -2286,15 +2359,10 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
             const lastB = (occ.lineHistory && occ.lineHistory[idB]) || "2000-01-01";
             return lastA < lastB ? -1 : 1;
           });
+
           for (let k = 0; k < occAltLineIds.length; k++) {
             const altLine = sortedLines.find(l => l.id === occAltLineIds[k]);
-            if (!altLine) continue;
-            const altRoleSoll = Number((altLine.roleTargets || {})[cRole] || 0);
-            const isOccMainOnAlt = Array.isArray(occ.mainLines) && occ.mainLines.indexOf(altLine.id) !== -1;
-            if (altLine.mainOnly && !isOccMainOnAlt) continue;
-            if (!isOccMainOnAlt && (hasNonPrimaryRoleOnLine(altLine.id, cRole) || (altRoleSoll >= 2 && !hasPrimaryRoleOnLine(altLine.id, cRole)))) continue;
-
-            if (getLineEmps(altLine.id).length < getLineTotalTarget(altLine) && getRoleDeficitForLine(altLine, cRole) > 0) {
+            if (altLine && canSafelyPlaceQualifiedEmpOnLine(occ, altLine)) {
               occ.zone = altLine.id + "_" + shiftId;
               if (occ.team === teamKey || !occ.pinnedZone) occ.pinnedZone = occ.zone;
               trackEmployeeLineAssignment(occ, altLine.id, todayIso);
@@ -2303,6 +2371,53 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
               swapped = true;
               break;
             }
+          }
+          if (swapped) break;
+        }
+        if (swapped) break;
+
+        /* 4c) 2-stufiger Dreiecks-Ringtausch (cand -> targetLine, occB -> midLine, occC -> freeLine) */
+        for (let j = 0; j < currentRoleOccupants.length; j++) {
+          const occB = currentRoleOccupants[j];
+          if (!canSwapReplaceOnLine(cand, occB, targetLine)) continue;
+
+          const bMidLineIds = [].concat(occB.mainLines || [], occB.secLines || []).filter(id => id !== targetLine.id);
+          for (let m = 0; m < bMidLineIds.length; m++) {
+            const midLine = sortedLines.find(l => l.id === bMidLineIds[m]);
+            if (!midLine) continue;
+
+            const midOccupants = getLineEmps(midLine.id).filter(occC =>
+              occC.id !== occB.id &&
+              !occC.noRotation &&
+              !window.shouldHoldEmpOnMainLineToday(occC, todayIso) &&
+              (occC.role || "Bediener") === cRole
+            );
+
+            for (let n = 0; n < midOccupants.length; n++) {
+              const occC = midOccupants[n];
+              if (!canSwapReplaceOnLine(occB, occC, midLine)) continue;
+
+              const cFreeLineIds = [].concat(occC.mainLines || [], occC.secLines || []).filter(id => id !== midLine.id && id !== targetLine.id);
+              for (let p = 0; p < cFreeLineIds.length; p++) {
+                const freeLine = sortedLines.find(l => l.id === cFreeLineIds[p]);
+                if (freeLine && canSafelyPlaceQualifiedEmpOnLine(occC, freeLine)) {
+                  occC.zone = freeLine.id + "_" + shiftId;
+                  if (occC.team === teamKey || !occC.pinnedZone) occC.pinnedZone = occC.zone;
+                  trackEmployeeLineAssignment(occC, freeLine.id, todayIso);
+
+                  occB.zone = midLine.id + "_" + shiftId;
+                  if (occB.team === teamKey || !occB.pinnedZone) occB.pinnedZone = occB.zone;
+                  trackEmployeeLineAssignment(occB, midLine.id, todayIso);
+
+                  placeEmpOnLine(cand, targetLine, false);
+                  swapCount += 2;
+                  swapped = true;
+                  break;
+                }
+              }
+              if (swapped) break;
+            }
+            if (swapped) break;
           }
           if (swapped) break;
         }
