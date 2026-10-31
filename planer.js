@@ -291,7 +291,7 @@ function injectModernSaaSStyles() {
       background: #ffffff !important;
       border: 1px solid #e2e8f0 !important;
       border-radius: 8px !important;
-      padding: 4px 7px !important;
+      padding: 4px 6px !important;
       margin-bottom: 3px !important;
       box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03) !important;
       transition: transform 0.16s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.16s ease, border-color 0.16s ease !important;
@@ -310,7 +310,7 @@ function injectModernSaaSStyles() {
       color: #334155 !important;
       border: 1px solid #e2e8f0 !important;
       border-radius: 999px !important;
-      padding: 1px 6px !important;
+      padding: 1px 5px !important;
       font-weight: 600 !important;
     }
     .card-pin-info {
@@ -318,7 +318,7 @@ function injectModernSaaSStyles() {
       color: #0369a1 !important;
       border: 1px solid #bae6fd !important;
       border-radius: 999px !important;
-      padding: 0 6px !important;
+      padding: 0 5px !important;
     }
     .card-extra-fsn-badge {
       display: inline-flex;
@@ -337,40 +337,38 @@ function injectModernSaaSStyles() {
     .card-quals-row {
       display: none;
       flex-wrap: wrap;
-      gap: 3px;
+      gap: 2px;
       margin-top: 2px;
       padding-top: 2px;
-      border-top: 1px dashed #f1f5f9;
-      line-height: 1.1;
+      border-top: 1px dashed #e2e8f0;
+      line-height: 1.15;
     }
     body.planner-active .card-quals-row {
       display: flex !important;
     }
     .card-qual-prio {
-      font-size: 0.53rem;
-      font-weight: 700;
+      font-size: 0.54rem;
+      font-weight: 800;
       color: #0369a1;
       background: #e0f2fe;
       border: 1px solid #bae6fd;
-      padding: 0px 4px;
+      padding: 1px 4px;
       border-radius: 4px;
-      white-space: nowrap;
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      white-space: normal;
+      word-break: break-word;
+      line-height: 1.15;
     }
     .card-qual-sec {
-      font-size: 0.53rem;
-      font-weight: 600;
-      color: #475569;
+      font-size: 0.54rem;
+      font-weight: 700;
+      color: #334155;
       background: #f1f5f9;
       border: 1px solid #cbd5e1;
-      padding: 0px 4px;
+      padding: 1px 4px;
       border-radius: 4px;
-      white-space: nowrap;
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      white-space: normal;
+      word-break: break-word;
+      line-height: 1.15;
     }
     .shift-kpi-pill.ok {
       background: #f0fdf4 !important;
@@ -452,6 +450,7 @@ function injectModernSaaSStyles() {
 /* ==========================================================================
    🧱 [LEGO-MODUL PLN-00 ENDE: FIREBASE-INIT, GLOBALE VARIABLEN & SAAS-CSS]
    ========================================================================== */
+
 
 /* ==========================================================================
    🧱 [LEGO-MODUL PLN-01 START: GLOBALE BASIS-, DATUMS-, AUDIT- & FREIGABE-LOGIK]
