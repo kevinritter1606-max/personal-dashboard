@@ -3456,7 +3456,7 @@ window.openCoverageReleaseModal = function(leaveId) {
     sl.plannerUnreadInfo = false;
   }
   let req = (leaveRequests || []).find(r => r.leaveId === leaveId || r.id === leaveId || r.id === ("cov_" + leaveId));
-  if (!req && sl && !sl.isOnboardingNotice) {
+  if (!req && sl && !sl.isOnboardingNotice && !sl.lineRequestData) {
     req = window.generateCoveragePromptForLeave(sl, "pending");
   }
 
@@ -3525,7 +3525,7 @@ window.openCoverageReleaseModal = function(leaveId) {
           '<div>' +
             '<div style="font-size:0.86rem; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:6px;">' +
               '<span>📅 ' + (wdShort ? wdShort + ', ' : '') + formatDateDe(d.date) + '</span>' +
-              '<span class="fsn-code-pill">' + fsnCode + '</span>' +
+              '<span class="card-extra-fsn-badge">' + fsnCode + '</span>' +
               '<span style="color:#475569; font-weight:600;">' + shiftLongName + '</span>' +
             '</div>' +
             '<div style="font-size:0.72rem; margin-top:3px;">' + teamMetaHtml + '</div>' +
@@ -3556,7 +3556,16 @@ window.setCoverageDayDecision = function(leaveId, dayIdx, decisionStatus) {
   if (modal && modal.style.display === "flex") {
     window.openCoverageReleaseModal(req.leaveId);
   }
-  window.renderInboxLists();
+  if (typeof window.renderInboxLists === "function") window.renderInboxLists();
+};
+
+window.toggleCoverageDayQuick = function(leaveId, dayIdx) {
+  const req = (leaveRequests || []).find(r => r.leaveId === leaveId || r.id === leaveId || r.id === ("cov_" + leaveId));
+  if (!req || !req.days || !req.days[dayIdx]) return;
+  const d = req.days[dayIdx];
+  if (d.takenBy) return;
+  const nextStatus = (d.dayStatus === "open" && d.explicitlyApproved) ? "rejected" : "open";
+  window.setCoverageDayDecision(req.leaveId, dayIdx, nextStatus);
 };
 
 window.setAllModalCoverageDaysStatus = function(mode) {
@@ -3565,7 +3574,6 @@ window.setAllModalCoverageDaysStatus = function(mode) {
   if (!req || !Array.isArray(req.days)) return;
 
   const reqRole = req.role || "Bediener";
-  let openCount = 0;
 
   req.days.forEach(d => {
     if (d.takenBy) return;
@@ -3576,7 +3584,6 @@ window.setAllModalCoverageDaysStatus = function(mode) {
         d.dayStatus = "open";
         d.explicitlyApproved = true;
         d.allowWithRestWarning = false;
-        openCount++;
       } else {
         d.dayStatus = "rejected";
         d.explicitlyApproved = false;
@@ -3586,7 +3593,6 @@ window.setAllModalCoverageDaysStatus = function(mode) {
       d.dayStatus = "open";
       d.explicitlyApproved = true;
       d.allowWithRestWarning = (info.eligibleTotalCount === 0);
-      openCount++;
     } else {
       d.dayStatus = "rejected";
       d.explicitlyApproved = false;
@@ -3596,8 +3602,199 @@ window.setAllModalCoverageDaysStatus = function(mode) {
 
   saveToFirebase();
   window.openCoverageReleaseModal(req.leaveId);
-  window.renderInboxLists();
+  if (typeof window.renderInboxLists === "function") window.renderInboxLists();
   showToast("✅ Status für alle Tage aktualisiert!");
+};
+
+window.openLeaveCounterOfferModal = function(leaveId) {
+  const sl = sickLeaves.find(x => x.id === leaveId);
+  if (!sl) return;
+  activeCounterOfferLeaveId = sl.id;
+
+  const emp = employees.find(e => e.id === sl.empId);
+  const infoEl = document.getElementById("counterOfferOriginalInfo");
+  const blocksEl = document.getElementById("counterOfferBlocksContainer");
+  const noteEl = document.getElementById("counterOfferPlannerNote");
+  const modal = document.getElementById("leaveCounterOfferModal");
+  if (!blocksEl || !modal) return;
+
+  const origStart = sl.originalStartDate || sl.startDate;
+  const origEnd = sl.originalEndDate || sl.endDate;
+
+  if (infoEl) {
+    infoEl.innerHTML =
+      "<b>👤 " + (emp ? fullName(emp) : "Mitarbeiter") + "</b> · <b>" + (sl.category || "Urlaub") + "</b><br>" +
+      "Ursprünglich beantragt: <b>Von " + formatDateDe(origStart) + " bis " + formatDateDe(origEnd) + "</b>" +
+      (sl.reason ? " · <i>„" + sl.reason + "“</i>" : "");
+  }
+  if (noteEl) noteEl.value = sl.plannerCounterNote || "";
+
+  blocksEl.innerHTML = "";
+  const initBlocks = (Array.isArray(sl.blocks) && sl.blocks.length > 0)
+    ? sl.blocks
+    : [{ start: sl.startDate, end: sl.endDate, status: "counter_offer" }];
+
+  initBlocks.forEach(b => {
+    window.addCounterOfferBlockRow(b.start, b.end, b.status || "counter_offer");
+  });
+
+  modal.style.display = "flex";
+};
+
+window.addCounterOfferBlockRow = function(startVal, endVal, statusVal) {
+  const blocksEl = document.getElementById("counterOfferBlocksContainer");
+  if (!blocksEl) return;
+  const sl = activeCounterOfferLeaveId ? sickLeaves.find(x => x.id === activeCounterOfferLeaveId) : null;
+  const defStart = startVal || (sl ? sl.startDate : getLogicalDateIso());
+  const defEnd = endVal || (sl ? sl.endDate : getLogicalDateIso());
+  const st = statusVal || "counter_offer";
+
+  const row = document.createElement("div");
+  row.className = "counter-offer-block-row";
+  row.style.cssText = "display:flex; gap:6px; align-items:center; flex-wrap:wrap; background:#f8fafc; border:1px solid #cbd5e1; padding:8px; border-radius:8px;";
+  row.innerHTML =
+    '<div style="flex:1; min-width:125px;">' +
+      '<label style="font-size:0.68rem; font-weight:700; color:#475569; display:block;">Von</label>' +
+      '<input type="date" class="form-control co-block-start" value="' + window.normalizeDateIso(defStart) + '" style="padding:5px 7px; font-size:0.78rem;">' +
+    '</div>' +
+    '<div style="flex:1; min-width:125px;">' +
+      '<label style="font-size:0.68rem; font-weight:700; color:#475569; display:block;">Bis</label>' +
+      '<input type="date" class="form-control co-block-end" value="' + window.normalizeDateIso(defEnd) + '" style="padding:5px 7px; font-size:0.78rem;">' +
+    '</div>' +
+    '<div style="flex:1.2; min-width:155px;">' +
+      '<label style="font-size:0.68rem; font-weight:700; color:#475569; display:block;">Entscheidung</label>' +
+      '<select class="form-control co-block-status" style="padding:5px 7px; font-size:0.78rem; font-weight:700;">' +
+        '<option value="counter_offer" ' + (st === "counter_offer" ? "selected" : "") + '>🟡 Bedingt vorschlagen</option>' +
+        '<option value="approved" ' + (st === "approved" ? "selected" : "") + '>✅ Direkt genehmigen</option>' +
+        '<option value="rejected" ' + (st === "rejected" ? "selected" : "") + '>❌ Zeitraum ablehnen</option>' +
+      '</select>' +
+    '</div>' +
+    '<button type="button" class="btn btn-outline" style="padding:5px 8px; margin-top:14px; color:#dc2626; border-color:#fca5a5;" onclick="removeCounterOfferBlockRow(this)" title="Zeitraum entfernen">🗑️</button>';
+  blocksEl.appendChild(row);
+};
+
+window.removeCounterOfferBlockRow = function(btnEl) {
+  const container = document.getElementById("counterOfferBlocksContainer");
+  if (!container || container.children.length <= 1) {
+    showToast("Mindestens ein Zeitraum muss erhalten bleiben!", true);
+    return;
+  }
+  const row = btnEl.closest(".counter-offer-block-row");
+  if (row) row.remove();
+};
+
+window.saveCounterOfferAndSplitLeave = function() {
+  if (!activeCounterOfferLeaveId) return;
+  const sl = sickLeaves.find(x => x.id === activeCounterOfferLeaveId);
+  if (!sl) return;
+
+  const rows = Array.from(document.querySelectorAll("#counterOfferBlocksContainer .counter-offer-block-row"));
+  if (!rows.length) return;
+
+  const parsedBlocks = [];
+  for (let i = 0; i < rows.length; i++) {
+    const s = window.normalizeDateIso(rows[i].querySelector(".co-block-start").value);
+    const e = window.normalizeDateIso(rows[i].querySelector(".co-block-end").value);
+    const st = rows[i].querySelector(".co-block-status").value;
+    if (!s || !e || s > e) {
+      showToast("❌ Bitte gültige Von/Bis-Daten in Zeile " + (i + 1) + " eingeben!", true);
+      return;
+    }
+    parsedBlocks.push({ start: s, end: e, status: st });
+  }
+
+  if (!sl.originalStartDate) sl.originalStartDate = sl.startDate;
+  if (!sl.originalEndDate) sl.originalEndDate = sl.endDate;
+
+  sl.blocks = parsedBlocks;
+  sl.plannerCounterNote = (document.getElementById("counterOfferPlannerNote").value || "").trim();
+  sl.plannerUnreadInfo = false;
+  sl.reviewedBy = getCurrentActorLabel();
+  sl.reviewedAt = new Date().toISOString();
+
+  const nonRej = parsedBlocks.filter(b => b.status !== "rejected");
+  if (nonRej.length > 0) {
+    const starts = nonRej.map(b => b.start).sort();
+    const ends = nonRej.map(b => b.end).sort();
+    sl.startDate = starts[0];
+    sl.endDate = ends[ends.length - 1];
+  }
+
+  const hasCounter = parsedBlocks.some(b => b.status === "counter_offer");
+  const hasApproved = parsedBlocks.some(b => b.status === "approved");
+
+  if (hasCounter) {
+    sl.status = "counter_offer";
+    appendAuditEntry(sl, "Bedingtes Gegenangebot vom Planer gesendet" + (sl.plannerCounterNote ? " („" + sl.plannerCounterNote + "“)" : ""));
+  } else if (hasApproved) {
+    sl.status = "approved";
+    appendAuditEntry(sl, "Zeitraum vom Planer genehmigt");
+    window.generateCoveragePromptForLeave(sl, "pending");
+  } else {
+    sl.status = "rejected";
+    appendAuditEntry(sl, "Antrag vom Planer abgelehnt");
+    window.removeCoveragePromptForLeave(sl.id);
+  }
+
+  window.closeModal("leaveCounterOfferModal");
+  window.syncAbsentAndExtraZones();
+  saveToFirebase();
+  window.initBoard();
+  if (typeof window.renderInboxLists === "function") window.renderInboxLists();
+  showToast("💾 Urlaubsentscheidung gespeichert & an Mitarbeiter übermittelt!");
+};
+
+window.acceptLeaveCounterOffer = function(leaveId) {
+  const sl = sickLeaves.find(x => x.id === leaveId);
+  if (!sl) return;
+  const emp = employees.find(e => e.id === sl.empId);
+  const actor = (emp ? fullName(emp) : "Mitarbeiter") + " (Portal)";
+
+  if (Array.isArray(sl.blocks) && sl.blocks.length > 0) {
+    sl.blocks.forEach(b => { if (b.status === "counter_offer") b.status = "approved"; });
+    const appBlocks = sl.blocks.filter(b => b.status === "approved");
+    if (appBlocks.length > 0) {
+      const starts = appBlocks.map(b => b.start).sort();
+      const ends = appBlocks.map(b => b.end).sort();
+      sl.startDate = starts[0];
+      sl.endDate = ends[ends.length - 1];
+    }
+  }
+  sl.status = "approved";
+  sl.counterOfferResponse = "accepted";
+  sl.plannerUnreadInfo = true;
+  appendAuditEntry(sl, "Gegenangebot vom Mitarbeiter im Portal verbindlich angenommen", actor);
+  window.generateCoveragePromptForLeave(sl, "pending");
+  window.syncAbsentAndExtraZones();
+  saveToFirebase();
+};
+
+window.rejectLeaveCounterOffer = function(leaveId) {
+  const sl = sickLeaves.find(x => x.id === leaveId);
+  if (!sl) return;
+  const emp = employees.find(e => e.id === sl.empId);
+  const actor = (emp ? fullName(emp) : "Mitarbeiter") + " (Portal)";
+
+  if (Array.isArray(sl.blocks) && sl.blocks.length > 0) {
+    sl.blocks.forEach(b => { if (b.status === "counter_offer") b.status = "rejected"; });
+    const appBlocks = sl.blocks.filter(b => b.status === "approved");
+    if (appBlocks.length > 0) {
+      const starts = appBlocks.map(b => b.start).sort();
+      const ends = appBlocks.map(b => b.end).sort();
+      sl.startDate = starts[0];
+      sl.endDate = ends[ends.length - 1];
+      sl.status = "approved";
+    } else {
+      sl.status = "rejected";
+    }
+  } else {
+    sl.status = "rejected";
+  }
+  sl.counterOfferResponse = "rejected";
+  sl.plannerUnreadInfo = true;
+  appendAuditEntry(sl, "Gegenangebot vom Mitarbeiter im Portal abgelehnt", actor);
+  window.syncAbsentAndExtraZones();
+  saveToFirebase();
 };
 /* ==========================================================================
    🧱 [LEGO-MODUL PLN-11 ENDE: BRINGSCHICHT-FREIGABE (JA/NEIN) & BEDINGT ANNEHMEN]
