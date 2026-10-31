@@ -568,15 +568,26 @@
        🧱 [LEGO-MODUL PRT-10 ENDE: BASIS-HELFER, DATUM & SYNCHRONER SCHICHT-HEADER]
        ========================================================================== */
 
-    /* ==========================================================================
+/* ==========================================================================
        🧱 [LEGO-MODUL PRT-11 START: LOGIN, NAMENSSUCHE & START-PIN-ÄNDERUNG]
        ========================================================================== */
     function onPortalLoginNameInput(val) {
       selectedLoginPortalEmpId = null;
-      const box = document.getElementById("portalLoginSuggestions"), q = (val || "").trim().toLowerCase();
-      if (!employees || !employees.length || q.length < 3) { box.style.display = "none"; return; }
+      const box = document.getElementById("portalLoginSuggestions");
+      const q = (val || "").trim().toLowerCase();
+
+      if (typeof employees === "undefined" || !employees || !employees.length || q.length < 3) {
+        if (box) box.style.display = "none";
+        return;
+      }
+
       const matches = employees.slice().sort((a, b) => fullName(a).localeCompare(fullName(b))).filter(e => fullName(e).toLowerCase().indexOf(q) !== -1);
-      if (!matches.length) { box.style.display = "none"; return; }
+      
+      if (!matches.length) {
+        if (box) box.style.display = "none";
+        return;
+      }
+
       box.innerHTML = matches.map(e => {
         const tName = (teamsConfig && teamsConfig[e.team]) ? teamsConfig[e.team].name : e.team;
         return '<div class="suggestion-item" onclick="selectPortalLoginEmp(\'' + e.id + '\')"><span><b>' + fullName(e) + '</b></span><small style="color:#64748b;">' + (e.role || 'Bediener') + ' · ' + tName + '</small></div>';
@@ -690,7 +701,6 @@
     /* ==========================================================================
        🧱 [LEGO-MODUL PRT-11 ENDE: LOGIN, NAMENSSUCHE & START-PIN-ÄNDERUNG]
        ========================================================================== */
-
     /* ==========================================================================
        🧱 [LEGO-MODUL PRT-12 START: ONBOARDING-ASSISTENT & LINIEN-ANFRAGEN]
        ========================================================================== */
