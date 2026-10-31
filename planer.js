@@ -2702,6 +2702,37 @@ function getLineRoleSummaryText(line) {
   return parts.length ? parts.join(" · ") : "Bediener, LOP";
 }
 
+function checkZoneStammSafetyWarning(lineId, shiftId) {
+  const line = lines.find(l => l.id === lineId);
+  if (!line || line.ausgeplant) return "";
+  const zoneEmps = employees.filter(e => extractLineIdFromZone(e.zone) === lineId && extractShiftIdFromZone(e.zone) === shiftId);
+  if (!zoneEmps.length) return "";
+
+  const rTargets = line.roleTargets || {};
+  for (let i = 0; i < roles.length; i++) {
+    const rName = roles[i];
+    const req = Number(rTargets[rName] || 0);
+    if (req <= 0) continue;
+    const roleEmps = zoneEmps.filter(e => (e.role || "Bediener") === rName);
+    if (!roleEmps.length) continue;
+
+    const mainCount = roleEmps.filter(e => Array.isArray(e.mainLines) && e.mainLines.indexOf(lineId) !== -1).length;
+    const unqualCount = roleEmps.filter(e => !isEmployeeQualifiedForLine(e, lineId)).length;
+    const nonMainCount = roleEmps.length - mainCount;
+
+    if (line.mainOnly && nonMainCount > 0 && mainCount === 0) {
+      return "⚠️ Nur Sek./Lern an Stamm-Linie";
+    }
+    if (unqualCount > 0 && mainCount === 0) {
+      return "⚠️ Lernender ohne Stamm-" + (rName === "Bediener" ? "Bed." : rName);
+    }
+    if (roleEmps.length >= 2 && mainCount === 0) {
+      return "⚠️ Kein Stamm-" + (rName === "Bediener" ? "Bed." : rName);
+    }
+  }
+  return "";
+}
+
 window.initBoard = function() {
   if (isDraggingCard) return;
   injectModernSaaSStyles();
@@ -2991,13 +3022,17 @@ function renderEmployees() {
         }
       });
 
+      const stammWarnTxt = checkZoneStammSafetyWarning(line.id, shift.id);
+
       let statusCls = "status-ok";
-      if (st.count < totalSoll || missingRolesList.length > 0) statusCls = "status-missing";
+      if (st.count < totalSoll || missingRolesList.length > 0 || stammWarnTxt) statusCls = "status-missing";
       else if (st.count > totalSoll) statusCls = "status-over";
 
       barEl.className = "zone-staff-bar " + statusCls;
-      const countTxt = st.count + "/" + totalSoll + (st.count >= totalSoll && missingRolesList.length === 0 ? " ✓" : "");
-      let rightRoleTxt = missingRolesList.length > 0 ? missingRolesList.join(", ") : (tlSharedViaFloor ? ("🔗 TL " + (line.floor || "1. OG")) : "");
+      const countTxt = st.count + "/" + totalSoll + (st.count >= totalSoll && missingRolesList.length === 0 && !stammWarnTxt ? " ✓" : "");
+      let rightRoleTxt = missingRolesList.length > 0
+        ? missingRolesList.join(", ") + (stammWarnTxt ? " · " + stammWarnTxt : "")
+        : (stammWarnTxt ? stammWarnTxt : (tlSharedViaFloor ? ("🔗 TL " + (line.floor || "1. OG")) : ""));
 
       barEl.innerHTML = '<span>' + countTxt + '</span><span class="zone-missing-roles" title="' + rightRoleTxt + '">' + rightRoleTxt + '</span>';
     });
@@ -3117,6 +3152,10 @@ function initDragAndDrop() {
             if (targetLineId) {
               const defaultShiftHours = (shiftModelConfig && typeof shiftModelConfig.defaultShiftHours === "number") ? shiftModelConfig.defaultShiftHours : 8;
               window.recordManualAssignmentHours(emp.id, targetLineId, defaultShiftHours, false, false);
+              const safetyWarn = checkZoneStammSafetyWarning(targetLineId, targetShiftId);
+              if (safetyWarn) {
+                showToast(safetyWarn + " an " + getLineNameById(targetLineId) + "!", true);
+              }
             }
           } else if (newZone === "pool" || newZone === "review") {
             window.recordManualAssignmentHours(emp.id, null, 0, true, true);
