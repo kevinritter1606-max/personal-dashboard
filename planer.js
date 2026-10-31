@@ -4759,7 +4759,7 @@ window.filterSettingsEmployees = function(q) {
    🧱 [LEGO-MODUL PLN-13 START: AUTOCOMPLETE, POSTFACH-AKTIONEN & HARTE BRINGSCHICHT-SPERRE]
    ========================================================================== */
 
-var selectedLoginPortalEmpId = null;
+window.selectedLoginPortalEmpId = window.selectedLoginPortalEmpId || null;
 
 window.openInboxModal = function(empId, openSickForm, openExtraForm) {
   const modal = document.getElementById("inboxModal");
@@ -4767,25 +4767,49 @@ window.openInboxModal = function(empId, openSickForm, openExtraForm) {
   const today = getLogicalDateIso();
   if (typeof toggleManualEntryBox === "function" && openSickForm) {
     toggleManualEntryBox(true);
-    if (!document.getElementById("manualSickStart").value) document.getElementById("manualSickStart").value = today;
-    if (!document.getElementById("manualSickEnd").value) document.getElementById("manualSickEnd").value = today;
+    if (document.getElementById("manualSickStart") && !document.getElementById("manualSickStart").value) document.getElementById("manualSickStart").value = today;
+    if (document.getElementById("manualSickEnd") && !document.getElementById("manualSickEnd").value) document.getElementById("manualSickEnd").value = today;
   }
   if (typeof toggleManualExtraBox === "function" && openExtraForm) {
     toggleManualExtraBox(true);
-    if (!document.getElementById("manualExtraDate").value) document.getElementById("manualExtraDate").value = today;
+    if (document.getElementById("manualExtraDate") && !document.getElementById("manualExtraDate").value) document.getElementById("manualExtraDate").value = today;
   }
-  if (typeof window.renderInboxLists === "function") window.renderInboxLists();
+  if (empId) {
+    const emp = employees.find(x => x.id === empId);
+    if (emp) {
+      if (openSickForm && document.getElementById("manualSickEmpInput")) {
+        selectedManualSickEmpId = emp.id;
+        document.getElementById("manualSickEmpInput").value = fullName(emp);
+      }
+      if (openExtraForm && document.getElementById("manualExtraEmpInput")) {
+        selectedManualExtraEmpId = emp.id;
+        document.getElementById("manualExtraEmpInput").value = fullName(emp);
+      }
+    }
+  }
+  window.renderInboxLists();
 };
 
 window.updateInboxBadge = function() {
-  const unreadLeavesCount = (typeof sickLeaves !== "undefined" && Array.isArray(sickLeaves)) ? sickLeaves.filter(sl => sl && (sl.status === "pending" || sl.plannerUnreadInfo)).length : 0;
-  const unreadExtrasCount = (typeof extraShifts !== "undefined" && Array.isArray(extraShifts)) ? extraShifts.filter(es => es && (es.status === "pending" || es.plannerUnreadInfo)).length : 0;
+  const unreadLeavesCount = (typeof sickLeaves !== "undefined" && Array.isArray(sickLeaves))
+    ? sickLeaves.filter(sl => sl && (sl.status === "pending" || sl.plannerUnreadInfo)).length
+    : 0;
+  const unreadExtrasCount = (typeof extraShifts !== "undefined" && Array.isArray(extraShifts))
+    ? extraShifts.filter(es => es && (es.status === "pending" || es.plannerUnreadInfo)).length
+    : 0;
   const totalUnread = unreadLeavesCount + unreadExtrasCount;
   const badge = document.getElementById("inboxBadge");
   if (badge) {
     badge.textContent = totalUnread;
     badge.style.display = totalUnread > 0 ? "inline-flex" : "none";
   }
+};
+
+window.updateInboxSearch = function(val) {
+  inboxSearchQuery = (val || "").trim().toLowerCase();
+  const clearBtn = document.getElementById("clearInboxSearchBtn");
+  if (clearBtn) clearBtn.style.display = inboxSearchQuery ? "block" : "none";
+  window.renderInboxLists();
 };
 
 function renderUniversalSuggestions(val, boxId, selectFnName, preferPlanners) {
@@ -4845,6 +4869,618 @@ window.onManualExtraNameInput = function(val) {
 };
 window.selectManualExtraEmp = function(id) {
   selectedManualExtraEmpId = selectUniversalEmployee(id, "manualExtraEmpInput", "manualExtraSuggestions");
+};
+
+window.addManualSickLeave = function() {
+  const typedName = (document.getElementById("manualSickEmpInput").value || "").trim().toLowerCase();
+  let emp = selectedManualSickEmpId ? employees.find(e => e.id === selectedManualSickEmpId) : null;
+  if (!emp && typedName) emp = employees.find(e => fullName(e).toLowerCase() === typedName);
+  if (!emp) return showToast("❌ Bitte Mitarbeiter aus der Liste auswählen!", true);
+
+  const sNorm = window.normalizeDateIso(document.getElementById("manualSickStart").value);
+  const eNorm = window.normalizeDateIso(document.getElementById("manualSickEnd").value);
+  const cat = document.getElementById("manualSickCategory").value;
+  const reason = (document.getElementById("manualSickReason").value || "").trim();
+
+  if (!sNorm || !eNorm || sNorm > eNorm) return showToast("❌ Bitte gültigen Zeitraum (Von – Bis) wählen!", true);
+  if (window.hasLeaveOverlap(emp.id, sNorm, eNorm)) {
+    return showToast("⛔ Zeitraum überschneidet sich mit einer bestehenden Abwesenheit von " + fullName(emp) + "!", true);
+  }
+
+  const nowIso = new Date().toISOString();
+  const actor = getCurrentActorLabel();
+  const newSl = {
+    id: "sl_" + Date.now(),
+    empId: emp.id,
+    startDate: sNorm,
+    endDate: eNorm,
+    originalStartDate: sNorm,
+    originalEndDate: eNorm,
+    category: cat,
+    reason: reason,
+    status: "approved",
+    plannerUnreadInfo: false,
+    createdAt: nowIso,
+    createdBy: actor,
+    reviewedBy: actor,
+    reviewedAt: nowIso,
+    auditLog: []
+  };
+  appendAuditEntry(newSl, "Direkt vom Planer eingetragen & genehmigt (" + formatDateDe(sNorm) + " – " + formatDateDe(eNorm) + ")", actor);
+  sickLeaves.unshift(newSl);
+  window.generateCoveragePromptForLeave(newSl, "pending");
+
+  selectedManualSickEmpId = null;
+  document.getElementById("manualSickEmpInput").value = "";
+  document.getElementById("manualSickReason").value = "";
+  if (typeof toggleManualEntryBox === "function") toggleManualEntryBox(false);
+
+  addHistoryLog("Abwesenheit (" + cat + ") für " + fullName(emp) + " eingetragen (" + formatDateDe(sNorm) + " - " + formatDateDe(eNorm) + ")", "ABSENCE");
+  window.syncAbsentAndExtraZones();
+  saveToFirebase();
+  window.initBoard();
+  window.renderInboxLists();
+  window.openCoverageReleaseModal(newSl.id);
+  showToast("✅ Abwesenheit für " + fullName(emp) + " gespeichert!");
+};
+
+window.addManualExtraShift = function() {
+  const typedName = (document.getElementById("manualExtraEmpInput").value || "").trim().toLowerCase();
+  let emp = selectedManualExtraEmpId ? employees.find(e => e.id === selectedManualExtraEmpId) : null;
+  if (!emp && typedName) emp = employees.find(e => fullName(e).toLowerCase() === typedName);
+  if (!emp) return showToast("❌ Bitte Mitarbeiter aus der Liste auswählen!", true);
+
+  const dNorm = window.normalizeDateIso(document.getElementById("manualExtraDate").value);
+  const shiftId = document.getElementById("manualExtraShift").value;
+  const note = (document.getElementById("manualExtraNote").value || "").trim();
+  if (!dNorm || !shiftId) return showToast("❌ Bitte Datum und Schicht auswählen!", true);
+
+  const existingSameDay = extraShifts.find(es => es.empId === emp.id && window.normalizeDateIso(es.date) === dNorm && es.status !== "rejected");
+  if (existingSameDay) {
+    return showToast("⛔ " + fullName(emp) + " hat am " + formatDateDe(dNorm) + " bereits eine Bringschicht eingetragen!", true);
+  }
+  const activeLeave = getActiveLeaveForEmpOnDate(emp.id, dNorm);
+  if (activeLeave) {
+    return showToast("⛔ " + fullName(emp) + " ist am " + formatDateDe(dNorm) + " als abwesend eingetragen!", true);
+  }
+  const regShift = window.getEmpRegularShiftOnDate(emp, dNorm);
+  if (regShift) {
+    return showToast("⛔ " + fullName(emp) + " arbeitet am " + formatDateDe(dNorm) + " bereits regulär (" + (shiftsLabel[regShift] || regShift) + ")!", true);
+  }
+
+  const plaus = window.checkExtraShiftPlausibility(emp.id, dNorm, shiftId);
+  if (!plaus.ok && plaus.isWorkingConflict) {
+    const warnMsg = window.formatConflictForPlanner(plaus.reason, fullName(emp));
+    if (!confirm("⚠️ Ruhezeit-/Schicht-Hinweis:\n" + warnMsg + "\n\nTrotzdem verbindlich als Bringschicht eintragen?")) return;
+  }
+
+  const nowIso = new Date().toISOString();
+  const actor = getCurrentActorLabel();
+  const fsnCode = getShiftCodeLetter(shiftId);
+  const newEs = {
+    id: "es_" + Date.now(),
+    empId: emp.id,
+    date: dNorm,
+    shift: shiftId,
+    note: note,
+    plausibilityWarning: !plaus.ok,
+    isNightShiftConflict: !!plaus.isNightShiftConflict,
+    conflictDetails: (!plaus.ok && plaus.reason) ? window.formatConflictForPlanner(plaus.reason, fullName(emp)) : "",
+    plannerUnreadInfo: false,
+    status: "approved",
+    createdAt: nowIso,
+    createdBy: actor,
+    reviewedBy: actor,
+    reviewedAt: nowIso,
+    auditLog: []
+  };
+  appendAuditEntry(newEs, "Bringschicht [" + fsnCode + "] am " + formatDateDe(dNorm) + " direkt vom Planer aktiviert", actor);
+  extraShifts.push(newEs);
+
+  selectedManualExtraEmpId = null;
+  document.getElementById("manualExtraEmpInput").value = "";
+  document.getElementById("manualExtraNote").value = "";
+  if (typeof toggleManualExtraBox === "function") toggleManualExtraBox(false);
+
+  addHistoryLog("Bringschicht [" + fsnCode + "] für " + fullName(emp) + " am " + formatDateDe(dNorm) + " eingetragen", "ABSENCE");
+  window.syncAbsentAndExtraZones();
+  saveToFirebase();
+  window.initBoard();
+  window.renderInboxLists();
+  showToast("✅ Bringschicht [" + fsnCode + "] für " + fullName(emp) + " aktiviert!");
+};
+
+window.markAllSickLeavesRead = function() {
+  let count = 0;
+  (sickLeaves || []).forEach(sl => {
+    if (sl && sl.plannerUnreadInfo && sl.status !== "pending") {
+      sl.plannerUnreadInfo = false;
+      count++;
+    }
+    if (sl && sl.isOnboardingNotice && sl.status === "pending") {
+      sl.status = "approved";
+      sl.plannerUnreadInfo = false;
+      appendAuditEntry(sl, "Onboarding-Info als gelesen bestätigt");
+      count++;
+    }
+  });
+  (extraShifts || []).forEach(es => {
+    if (es && es.plannerUnreadInfo && es.status !== "pending") {
+      es.plannerUnreadInfo = false;
+      count++;
+    }
+  });
+  saveToFirebase();
+  window.updateInboxBadge();
+  window.renderInboxLists();
+  showToast(count > 0 ? ("✅ " + count + " Info-Hinweise als gelesen markiert") : "Alle Info-Hinweise sind bereits gelesen");
+};
+
+window.approveSickLeave = function(slId, openCovModalAfter) {
+  const sl = sickLeaves.find(x => x.id === slId);
+  if (!sl) return;
+  const emp = employees.find(e => e.id === sl.empId);
+  const actor = getCurrentActorLabel();
+  const nowIso = new Date().toISOString();
+
+  if (sl.lineRequestData && emp) {
+    const { lineId, type } = sl.lineRequestData;
+    if (!Array.isArray(emp.mainLines)) emp.mainLines = [];
+    if (!Array.isArray(emp.secLines)) emp.secLines = [];
+    if (type === "prio") {
+      if (emp.mainLines.indexOf(lineId) === -1) emp.mainLines.push(lineId);
+      emp.secLines = emp.secLines.filter(id => id !== lineId);
+    } else {
+      if (emp.secLines.indexOf(lineId) === -1) emp.secLines.push(lineId);
+      emp.mainLines = emp.mainLines.filter(id => id !== lineId);
+    }
+    sl.status = "approved";
+    sl.plannerUnreadInfo = false;
+    sl.reviewedBy = actor;
+    sl.reviewedAt = nowIso;
+    appendAuditEntry(sl, "Linien-Qualifikation (" + getLineNameById(lineId) + ") vom Planer freigeschaltet", actor);
+    addHistoryLog("Linien-Antrag von " + fullName(emp) + " für " + getLineNameById(lineId) + " genehmigt", "EMP");
+    saveToFirebase();
+    window.initBoard();
+    window.renderInboxLists();
+    showToast("✅ Linien-Qualifikation für " + fullName(emp) + " freigeschaltet!");
+    return;
+  }
+
+  if (sl.isOnboardingNotice) {
+    sl.status = "approved";
+    sl.plannerUnreadInfo = false;
+    sl.reviewedBy = actor;
+    sl.reviewedAt = nowIso;
+    appendAuditEntry(sl, "Onboarding-Angaben vom Planer geprüft & bestätigt", actor);
+    saveToFirebase();
+    window.updateInboxBadge();
+    window.renderInboxLists();
+    showToast("✅ Onboarding-Meldung bestätigt!");
+    return;
+  }
+
+  if (Array.isArray(sl.blocks) && sl.blocks.length > 0) {
+    sl.blocks.forEach(b => {
+      if (b.status !== "rejected") b.status = "approved";
+    });
+  }
+  sl.status = "approved";
+  sl.plannerUnreadInfo = false;
+  sl.reviewedBy = actor;
+  sl.reviewedAt = nowIso;
+  appendAuditEntry(sl, "Antrag vom Planer genehmigt", actor);
+
+  const cov = window.generateCoveragePromptForLeave(sl, "pending");
+  addHistoryLog("Antrag (" + (sl.category || "Urlaub") + ") von " + (emp ? fullName(emp) : "Mitarbeiter") + " genehmigt", "ABSENCE");
+  window.syncAbsentAndExtraZones();
+  saveToFirebase();
+  window.initBoard();
+  window.renderInboxLists();
+  if (openCovModalAfter && cov) {
+    window.openCoverageReleaseModal(sl.id);
+  } else {
+    showToast("✅ Antrag von " + (emp ? fullName(emp) : "Mitarbeiter") + " genehmigt!");
+  }
+};
+
+window.rejectSickLeave = function(slId) {
+  const sl = sickLeaves.find(x => x.id === slId);
+  if (!sl) return;
+  const emp = employees.find(e => e.id === sl.empId);
+  const actor = getCurrentActorLabel();
+  const nowIso = new Date().toISOString();
+
+  sl.status = "rejected";
+  sl.plannerUnreadInfo = false;
+  sl.reviewedBy = actor;
+  sl.reviewedAt = nowIso;
+  if (Array.isArray(sl.blocks)) {
+    sl.blocks.forEach(b => { b.status = "rejected"; });
+  }
+  appendAuditEntry(sl, "Antrag vom Planer abgelehnt", actor);
+  window.removeCoveragePromptForLeave(sl.id);
+
+  addHistoryLog("Antrag (" + (sl.category || "Urlaub") + ") von " + (emp ? fullName(emp) : "Mitarbeiter") + " abgelehnt", "ABSENCE");
+  window.syncAbsentAndExtraZones();
+  saveToFirebase();
+  window.initBoard();
+  window.renderInboxLists();
+  showToast("❌ Antrag abgelehnt");
+};
+
+window.deleteSickLeave = function(slId) {
+  const sl = sickLeaves.find(x => x.id === slId);
+  if (!sl) return;
+  const emp = employees.find(e => e.id === sl.empId);
+  if (!confirm("Möchten Sie diesen Eintrag von " + (emp ? fullName(emp) : "Mitarbeiter") + " wirklich löschen / stornieren?")) return;
+
+  sickLeaves = sickLeaves.filter(x => x.id !== slId);
+  window.removeCoveragePromptForLeave(slId);
+  addHistoryLog("Abwesenheitseintrag von " + (emp ? fullName(emp) : "Mitarbeiter") + " gelöscht", "ABSENCE");
+  window.syncAbsentAndExtraZones();
+  saveToFirebase();
+  window.initBoard();
+  window.renderInboxLists();
+  showToast("🗑️ Eintrag gelöscht");
+};
+
+window.approveExtraShift = function(esId) {
+  const es = extraShifts.find(x => x.id === esId);
+  if (!es) return;
+  const emp = employees.find(e => e.id === es.empId);
+  const dNorm = window.normalizeDateIso(es.date);
+
+  const duplicateApproved = extraShifts.find(other =>
+    other.id !== es.id &&
+    other.empId === es.empId &&
+    window.normalizeDateIso(other.date) === dNorm &&
+    other.status === "approved"
+  );
+  if (duplicateApproved) {
+    return showToast("⛔ " + (emp ? fullName(emp) : "Mitarbeiter") + " hat am " + formatDateDe(dNorm) + " bereits eine genehmigte Bringschicht!", true);
+  }
+
+  const actor = getCurrentActorLabel();
+  const nowIso = new Date().toISOString();
+  const fsnCode = getShiftCodeLetter(es.shift);
+
+  es.status = "approved";
+  es.plannerUnreadInfo = false;
+  es.reviewedBy = actor;
+  es.reviewedAt = nowIso;
+  appendAuditEntry(es, "Bringschicht [" + fsnCode + "] vom Planer genehmigt", actor);
+
+  if (es.coverageId) {
+    const cov = (leaveRequests || []).find(r => r.id === es.coverageId);
+    if (cov && Array.isArray(cov.days)) {
+      const dayObj = cov.days.find(d => window.normalizeDateIso(d.date) === dNorm && d.shift === es.shift);
+      if (dayObj) {
+        dayObj.takenBy = es.empId;
+        dayObj.dayStatus = "taken";
+      }
+    }
+  } else {
+    (leaveRequests || []).forEach(cov => {
+      (cov.days || []).forEach(d => {
+        if (!d.takenBy && window.normalizeDateIso(d.date) === dNorm && d.shift === es.shift && d.dayStatus === "open") {
+          d.takenBy = es.empId;
+          d.dayStatus = "taken";
+        }
+      });
+    });
+  }
+
+  addHistoryLog("Bringschicht [" + fsnCode + "] von " + (emp ? fullName(emp) : "Mitarbeiter") + " am " + formatDateDe(dNorm) + " genehmigt", "ABSENCE");
+  window.syncAbsentAndExtraZones();
+  saveToFirebase();
+  window.initBoard();
+  window.renderInboxLists();
+  showToast("✅ Bringschicht [" + fsnCode + "] für " + (emp ? fullName(emp) : "Mitarbeiter") + " genehmigt!");
+};
+
+window.rejectExtraShift = function(esId) {
+  const es = extraShifts.find(x => x.id === esId);
+  if (!es) return;
+  const emp = employees.find(e => e.id === es.empId);
+  const actor = getCurrentActorLabel();
+  const nowIso = new Date().toISOString();
+  const dNorm = window.normalizeDateIso(es.date);
+
+  es.status = "rejected";
+  es.plannerUnreadInfo = false;
+  es.reviewedBy = actor;
+  es.reviewedAt = nowIso;
+  appendAuditEntry(es, "Bringschicht vom Planer abgelehnt", actor);
+
+  (leaveRequests || []).forEach(cov => {
+    (cov.days || []).forEach(d => {
+      if (d.takenBy === es.empId && window.normalizeDateIso(d.date) === dNorm && d.shift === es.shift) {
+        d.takenBy = null;
+        d.dayStatus = d.explicitlyApproved ? "open" : "pending";
+      }
+    });
+  });
+
+  addHistoryLog("Bringschicht von " + (emp ? fullName(emp) : "Mitarbeiter") + " am " + formatDateDe(dNorm) + " abgelehnt", "ABSENCE");
+  window.syncAbsentAndExtraZones();
+  saveToFirebase();
+  window.initBoard();
+  window.renderInboxLists();
+  showToast("❌ Bringschicht abgelehnt");
+};
+
+window.deleteExtraShift = function(esId, silentFromPortal) {
+  const es = extraShifts.find(x => x.id === esId);
+  if (!es) return;
+  const emp = employees.find(e => e.id === es.empId);
+  if (!silentFromPortal && !confirm("Möchten Sie diese Bringschicht von " + (emp ? fullName(emp) : "Mitarbeiter") + " wirklich löschen?")) return;
+
+  const dNorm = window.normalizeDateIso(es.date);
+  extraShifts = extraShifts.filter(x => x.id !== esId);
+
+  (leaveRequests || []).forEach(cov => {
+    (cov.days || []).forEach(d => {
+      if (d.takenBy === es.empId && window.normalizeDateIso(d.date) === dNorm && d.shift === es.shift) {
+        d.takenBy = null;
+        d.dayStatus = d.explicitlyApproved ? "open" : "pending";
+      }
+    });
+  });
+
+  window.syncAbsentAndExtraZones();
+  saveToFirebase();
+  if (!silentFromPortal) {
+    window.initBoard();
+    window.renderInboxLists();
+    showToast("🗑️ Bringschicht gelöscht");
+  }
+};
+
+window.renderInboxLists = function() {
+  window.updateInboxBadge();
+  const unreadEl = document.getElementById("unreadSickList");
+  const covEl = document.getElementById("inboxCoverageControlList");
+  const extraEl = document.getElementById("inboxExtraList");
+  const activeEl = document.getElementById("activeSickList");
+  if (!unreadEl || !activeEl) return;
+
+  const globalQ = (inboxSearchQuery || "").trim().toLowerCase();
+  const activeSearchInp = document.getElementById("inboxActiveSearchInput");
+  const activeQ = ((activeSearchInp ? activeSearchInp.value : "") || globalQ).trim().toLowerCase();
+  const todayIso = getLogicalDateIso();
+
+  const filterBar = document.getElementById("inboxHistoryFilterBar");
+  if (filterBar) {
+    const curCat = window.activeInboxHistoryCategory || "ALL";
+    filterBar.querySelectorAll("button").forEach(btn => {
+      const oc = btn.getAttribute("onclick") || "";
+      btn.classList.toggle("active", oc.indexOf("'" + curCat + "'") !== -1);
+    });
+  }
+
+  /* 1. NEUE MELDUNGEN, URLAUBSANTRÄGE & BRINGSCHICHT-ANGEBOTE (1-Spalten-Kartenansicht) */
+  const unreadCards = [];
+
+  (Array.isArray(sickLeaves) ? sickLeaves : []).forEach(sl => {
+    if (!sl || (sl.status !== "pending" && !sl.plannerUnreadInfo)) return;
+    const emp = employees.find(e => e.id === sl.empId);
+    const empName = emp ? fullName(emp) : "Mitarbeiter";
+    const tObj = (emp && teamsConfig[emp.team]) ? teamsConfig[emp.team] : { name: "", color: "#0091df" };
+
+    if (globalQ) {
+      const hay = (empName + " " + (sl.category || "") + " " + (sl.reason || "") + " " + formatDateDe(sl.startDate)).toLowerCase();
+      if (hay.indexOf(globalQ) === -1) return;
+    }
+
+    let actionBtnsHtml = "";
+    let statusPillHtml = "";
+
+    if (sl.isOnboardingNotice) {
+      statusPillHtml = '<span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:999px; font-size:0.7rem; font-weight:700;">🎓 Onboarding-Info</span>';
+      actionBtnsHtml =
+        '<button class="btn btn-primary" style="padding:5px 12px; font-size:0.75rem; background:#16a34a;" onclick="approveSickLeave(\'' + sl.id + '\')">✅ Bestätigen</button>' +
+        (emp ? '<button class="btn btn-outline" style="padding:5px 10px; font-size:0.75rem;" onclick="closeModal(\'inboxModal\'); openSettingsModal(); editEmployee(\'' + emp.id + '\')">✏️ Profil prüfen</button>' : '');
+    } else if (sl.lineRequestData) {
+      statusPillHtml = '<span style="background:#f0f9ff; color:#0369a1; padding:2px 8px; border-radius:999px; font-size:0.7rem; font-weight:700;">🏭 Linien-Anfrage</span>';
+      actionBtnsHtml =
+        '<button class="btn btn-primary" style="padding:5px 12px; font-size:0.75rem; background:#16a34a;" onclick="approveSickLeave(\'' + sl.id + '\')">✓ Freischalten</button>' +
+        '<button class="btn btn-outline" style="padding:5px 12px; font-size:0.75rem; color:#dc2626; border-color:#fca5a5;" onclick="rejectSickLeave(\'' + sl.id + '\')">✕ Ablehnen</button>';
+    } else if (sl.status === "pending") {
+      statusPillHtml = '<span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:999px; font-size:0.7rem; font-weight:700;">⏳ Entscheidung offen</span>';
+      actionBtnsHtml =
+        '<button class="btn btn-primary" style="padding:5px 12px; font-size:0.75rem; background:#16a34a;" onclick="approveSickLeave(\'' + sl.id + '\', true)">✓ Ja (Genehmigen)</button>' +
+        '<button class="btn btn-outline" style="padding:5px 10px; font-size:0.75rem; color:#b45309; border-color:#fde68a; background:#fffbeb;" onclick="openLeaveCounterOfferModal(\'' + sl.id + '\')">🟡 Bedingt / Zeitraum</button>' +
+        '<button class="btn btn-outline" style="padding:5px 12px; font-size:0.75rem; color:#dc2626; border-color:#fca5a5;" onclick="rejectSickLeave(\'' + sl.id + '\')">✕ Nein</button>';
+    } else {
+      const isSick = String(sl.category || "").toLowerCase().indexOf("krank") !== -1 || String(sl.category || "").toLowerCase().indexOf("arbeitsunfähig") !== -1;
+      statusPillHtml = '<span style="background:#fee2e2; color:#b91c1c; padding:2px 8px; border-radius:999px; font-size:0.7rem; font-weight:700;">🔔 Neue Meldung (' + (sl.status === "approved" ? "Aktiv" : sl.status) + ')</span>';
+      actionBtnsHtml =
+        (isSick || sl.status === "approved" ? '<button class="btn btn-primary" style="padding:5px 11px; font-size:0.74rem;" onclick="openCoverageReleaseModal(\'' + sl.id + '\')">📢 Bringschichten (Ja/Nein)</button>' : '') +
+        '<button class="btn btn-outline" style="padding:5px 10px; font-size:0.74rem;" onclick=" (function(){ var s=sickLeaves.find(x=>x.id===\'' + sl.id + '\'); if(s) s.plannerUnreadInfo=false; saveToFirebase(); renderInboxLists(); })() ">✓ Gelesen</button>';
+    }
+
+    unreadCards.push(
+      '<div style="background:#ffffff; border:1px solid #cbd5e1; border-left:4px solid ' + (tObj.color || '#0091df') + '; border-radius:10px; padding:10px 12px; margin-bottom:8px; display:flex; flex-direction:column; gap:6px;">' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">' +
+          '<div style="font-size:0.86rem;"><b>👤 ' + empName + '</b> <span style="color:#64748b; font-size:0.75rem;">(' + (emp ? emp.role : '') + (tObj.name ? ' · ' + tObj.name : '') + ')</span></div>' +
+          statusPillHtml +
+        '</div>' +
+        '<div style="font-size:0.8rem; color:#1e293b;">' +
+          '<b>' + (sl.category || 'Antrag') + ':</b> ' +
+          (sl.isOnboardingNotice || sl.lineRequestData ? '' : ('Von <b>' + formatDateDe(sl.startDate) + '</b> bis <b>' + formatDateDe(sl.endDate) + '</b> ')) +
+          (sl.reason ? '<span style="color:#475569;">· ' + sl.reason + '</span>' : '') +
+        '</div>' +
+        renderAuditTrailHtml(sl) +
+        '<div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; margin-top:2px;">' + actionBtnsHtml + '</div>' +
+      '</div>'
+    );
+  });
+
+  (Array.isArray(extraShifts) ? extraShifts : []).forEach(es => {
+    if (!es || (es.status !== "pending" && !es.plannerUnreadInfo)) return;
+    const emp = employees.find(e => e.id === es.empId);
+    const empName = emp ? fullName(emp) : "Mitarbeiter";
+    const fsnCode = getShiftCodeLetter(es.shift);
+
+    if (globalQ) {
+      const hay = (empName + " bringschicht " + (es.note || "") + " " + formatDateDe(es.date)).toLowerCase();
+      if (hay.indexOf(globalQ) === -1) return;
+    }
+
+    const warnBanner = (es.plausibilityWarning && es.conflictDetails)
+      ? '<div style="background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; padding:5px 8px; border-radius:6px; font-size:0.74rem; font-weight:700;">⚠️ ' + es.conflictDetails + '</div>'
+      : '';
+
+    unreadCards.push(
+      '<div style="background:#f0fdf4; border:1px solid #86efac; border-left:4px solid #16a34a; border-radius:10px; padding:10px 12px; margin-bottom:8px; display:flex; flex-direction:column; gap:6px;">' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">' +
+          '<div style="font-size:0.86rem;"><b>➕ ' + empName + '</b> <span class="card-extra-fsn-badge">' + fsnCode + ' · ' + (shiftsLabel[es.shift] || es.shift) + '</span></div>' +
+          '<span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:999px; font-size:0.7rem; font-weight:700;">⏳ Bringschicht-Angebot</span>' +
+        '</div>' +
+        '<div style="font-size:0.8rem; color:#1e293b;">Datum: <b>' + getWeekdayShortDe(es.date) + ', ' + formatDateDe(es.date) + '</b>' + (es.note ? ' · ' + es.note : '') + '</div>' +
+        warnBanner +
+        renderAuditTrailHtml(es) +
+        '<div style="display:flex; gap:6px; justify-content:flex-end; margin-top:2px;">' +
+          '<button class="btn btn-primary" style="padding:5px 12px; font-size:0.75rem; background:#16a34a;" onclick="approveExtraShift(\'' + es.id + '\')">✓ Ja (Annehmen)</button>' +
+          '<button class="btn btn-outline" style="padding:5px 12px; font-size:0.75rem; color:#dc2626; border-color:#fca5a5; background:#fff;" onclick="rejectExtraShift(\'' + es.id + '\')">✕ Nein (Ablehnen)</button>' +
+        '</div>' +
+      '</div>'
+    );
+  });
+
+  unreadEl.innerHTML = unreadCards.length
+    ? unreadCards.join("")
+    : '<p style="font-size:0.78rem; color:#64748b; padding:4px;">Keine offenen Anträge oder ungelesenen Meldungen.</p>';
+
+  /* 2. GESUCHTE BRINGSCHICHTEN (Kompakt-Steuerung fürs Portal) */
+  if (covEl) {
+    const activeCovs = (Array.isArray(leaveRequests) ? leaveRequests : []).filter(cov => {
+      if (!cov || !Array.isArray(cov.days)) return false;
+      return cov.days.some(d => window.normalizeDateIso(d.date) >= todayIso);
+    });
+
+    if (!activeCovs.length) {
+      covEl.innerHTML = '<p style="font-size:0.76rem; color:#64748b; padding:4px;">Aktuell keine anstehenden Ausfalltage zur Bringschicht-Suche.</p>';
+    } else {
+      covEl.innerHTML = activeCovs.map(cov => {
+        const emp = employees.find(e => e.id === cov.empId);
+        const empName = emp ? fullName(emp) : "Mitarbeiter";
+        const dayChips = (cov.days || []).map((d, idx) => {
+          const dNorm = window.normalizeDateIso(d.date);
+          if (dNorm < todayIso) return "";
+          const fsn = getShiftCodeLetter(d.shift);
+          if (d.takenBy) {
+            const taker = employees.find(x => x.id === d.takenBy);
+            return '<span style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; padding:3px 8px; border-radius:6px; font-size:0.71rem; font-weight:700;">🤝 ' + formatDateDe(dNorm).slice(0, 6) + ' [' + fsn + ']: ' + (taker ? fullName(taker) : 'Besetzt') + '</span>';
+          }
+          const isOpen = (d.dayStatus === "open" && d.explicitlyApproved);
+          const chipStyle = isOpen
+            ? "background:#dcfce7; color:#166534; border:1px solid #86efac;"
+            : "background:#fff1f2; color:#be123c; border:1px solid #fecdd3;";
+          return '<button type="button" onclick="toggleCoverageDayQuick(\'' + cov.leaveId + '\', ' + idx + ')" style="cursor:pointer; padding:3px 8px; border-radius:6px; font-size:0.71rem; font-weight:700; ' + chipStyle + '" title="Klicken zum Umschalten (Freigeben / Sperren)">' +
+            (isOpen ? '🟢 Ja: ' : '🔴 Nein: ') + getWeekdayShortDe(dNorm) + ' ' + formatDateDe(dNorm).slice(0, 6) + ' [' + fsn + ']' +
+          '</button>';
+        }).filter(Boolean).join("");
+
+        return '<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; margin-bottom:6px; display:flex; flex-direction:column; gap:6px;">' +
+          '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">' +
+            '<span style="font-size:0.78rem; font-weight:700; color:#0f172a;">Ausfall: ' + empName + ' <small style="color:#64748b;">(' + (cov.role || 'Bediener') + (cov.probableLines ? ' · ' + cov.probableLines : '') + ')</small></span>' +
+            '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.7rem; color:#0284c7; border-color:#7dd3fc;" onclick="openCoverageReleaseModal(\'' + cov.leaveId + '\')">⚙️ Details (Ja/Nein)</button>' +
+          '</div>' +
+          '<div style="display:flex; gap:5px; flex-wrap:wrap;">' + dayChips + '</div>' +
+        '</div>';
+      }).join("");
+    }
+  }
+
+  /* 3. KOMMENDE GENEHMIGTE BRINGSCHICHTEN (F / S / N) */
+  if (extraEl) {
+    const upcomingApproved = (Array.isArray(extraShifts) ? extraShifts : [])
+      .filter(es => es && es.status === "approved" && window.normalizeDateIso(es.date) >= todayIso)
+      .slice()
+      .sort((a, b) => window.normalizeDateIso(a.date).localeCompare(window.normalizeDateIso(b.date)));
+
+    if (!upcomingApproved.length) {
+      extraEl.innerHTML = '<p style="font-size:0.76rem; color:#64748b; padding:4px;">Keine kommenden genehmigten Bringschichten.</p>';
+    } else {
+      extraEl.innerHTML = upcomingApproved.map(es => {
+        const emp = employees.find(e => e.id === es.empId);
+        const fsn = getShiftCodeLetter(es.shift);
+        const dNorm = window.normalizeDateIso(es.date);
+        return '<div class="item-row" style="background:#f0fdf4; border-color:#bbf7d0; flex-direction:column; align-items:stretch; gap:4px;">' +
+          '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">' +
+            '<div style="font-size:0.8rem;"><b>👤 ' + (emp ? fullName(emp) : 'Mitarbeiter') + '</b> · 📅 <b>' + getWeekdayShortDe(dNorm) + ', ' + formatDateDe(dNorm) + '</b> <span class="card-extra-fsn-badge">' + fsn + ' · ' + (shiftsLabel[es.shift] || es.shift) + '</span>' + (es.note ? ' <span style="color:#475569; font-size:0.74rem;">(' + es.note + ')</span>' : '') + '</div>' +
+            '<button class="btn btn-outline" style="padding:2px 8px; font-size:0.7rem; color:#dc2626; border-color:#fca5a5; background:#fff;" onclick="deleteExtraShift(\'' + es.id + '\')">🗑️ Stornieren</button>' +
+          '</div>' +
+          renderAuditTrailHtml(es) +
+        '</div>';
+      }).join("");
+    }
+  }
+
+  /* 4. BEARBEITETE & AKTIVE ABWESENHEITEN (INKL. AUDIT-TRAIL) */
+  const combinedHistory = []
+    .concat((Array.isArray(sickLeaves) ? sickLeaves : []).filter(sl => sl && sl.status !== "pending"))
+    .concat((Array.isArray(extraShifts) ? extraShifts : []).filter(es => es && es.status !== "pending").map(es => Object.assign({}, es, { _isExtraShiftRecord: true })));
+
+  const curCat = window.activeInboxHistoryCategory || "ALL";
+  const filteredActive = combinedHistory.filter(item => {
+    if (curCat !== "ALL" && typeof window.classifyInboxActiveItem === "function") {
+      if (window.classifyInboxActiveItem(item) !== curCat) return false;
+    }
+    if (activeQ) {
+      const emp = employees.find(e => e.id === item.empId);
+      const empName = emp ? fullName(emp) : "";
+      const hay = (empName + " " + (item.category || "") + " " + (item.reason || "") + " " + (item.note || "") + " " + formatDateDe(item.startDate || item.date || "")).toLowerCase();
+      if (hay.indexOf(activeQ) === -1) return false;
+    }
+    return true;
+  });
+
+  if (!filteredActive.length) {
+    activeEl.innerHTML = '<p style="font-size:0.78rem; color:#64748b; padding:4px;">Keine passenden Einträge gefunden.</p>';
+  } else {
+    activeEl.innerHTML = filteredActive.slice(0, 80).map(item => {
+      const emp = employees.find(e => e.id === item.empId);
+      const empName = emp ? fullName(emp) : "Mitarbeiter";
+
+      if (item._isExtraShiftRecord) {
+        const fsn = getShiftCodeLetter(item.shift);
+        const stBadge = item.status === "approved"
+          ? '<span style="background:#dcfce7; color:#166534; padding:1px 7px; border-radius:999px; font-size:0.68rem; font-weight:700;">✅ Genehmigt</span>'
+          : '<span style="background:#fee2e2; color:#b91c1c; padding:1px 7px; border-radius:999px; font-size:0.68rem; font-weight:700;">❌ Abgelehnt</span>';
+
+        return '<div class="item-row" style="flex-direction:column; align-items:stretch; gap:4px;">' +
+          '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">' +
+            '<div style="font-size:0.79rem;"><b>➕ ' + empName + '</b> · Bringschicht [' + fsn + '] am <b>' + formatDateDe(item.date) + '</b> ' + stBadge + (item.note ? ' <small style="color:#64748b;">(' + item.note + ')</small>' : '') + '</div>' +
+            '<button class="btn btn-outline" style="padding:2px 7px; font-size:0.7rem; color:#dc2626; border-color:#fca5a5;" onclick="deleteExtraShift(\'' + item.id + '\')">🗑️</button>' +
+          '</div>' +
+          renderAuditTrailHtml(item) +
+        '</div>';
+      }
+
+      const stBadge = item.status === "approved"
+        ? '<span style="background:#dcfce7; color:#166534; padding:1px 7px; border-radius:999px; font-size:0.68rem; font-weight:700;">✅ Genehmigt</span>'
+        : (item.status === "counter_offer"
+          ? '<span style="background:#fef3c7; color:#b45309; padding:1px 7px; border-radius:999px; font-size:0.68rem; font-weight:700;">🟡 Bedingt (Wartet auf MA)</span>'
+          : '<span style="background:#fee2e2; color:#b91c1c; padding:1px 7px; border-radius:999px; font-size:0.68rem; font-weight:700;">❌ Abgelehnt</span>');
+
+      const showCovBtn = item.status === "approved" && !item.isOnboardingNotice && !item.lineRequestData;
+
+      return '<div class="item-row" style="flex-direction:column; align-items:stretch; gap:4px;">' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">' +
+          '<div style="font-size:0.79rem;"><b>👤 ' + empName + '</b> · <b>' + (item.category || 'Abwesend') + '</b> (' + formatDateDe(item.startDate) + ' – ' + formatDateDe(item.endDate) + ') ' + stBadge + (item.reason ? ' <small style="color:#64748b;">· ' + item.reason + '</small>' : '') + '</div>' +
+          '<div style="display:flex; gap:4px; align-items:center;">' +
+            (showCovBtn ? '<button class="btn btn-outline" style="padding:2px 7px; font-size:0.7rem; color:#0284c7; border-color:#7dd3fc;" onclick="openCoverageReleaseModal(\'' + item.id + '\')">📢 Ja/Nein</button>' : '') +
+            (!item.isOnboardingNotice && !item.lineRequestData ? '<button class="btn btn-outline" style="padding:2px 7px; font-size:0.7rem;" onclick="openLeaveCounterOfferModal(\'' + item.id + '\')" title="Zeitraum bearbeiten">✏️</button>' : '') +
+            '<button class="btn btn-outline" style="padding:2px 7px; font-size:0.7rem; color:#dc2626; border-color:#fca5a5;" onclick="deleteSickLeave(\'' + item.id + '\')">🗑️</button>' +
+          '</div>' +
+        '</div>' +
+        renderAuditTrailHtml(item) +
+      '</div>';
+    }).join("");
+  }
 };
 /* ==========================================================================
    🧱 [LEGO-MODUL PLN-13 ENDE: AUTOCOMPLETE, POSTFACH-AKTIONEN & HARTE BRINGSCHICHT-SPERRE]
