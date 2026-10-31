@@ -335,12 +335,15 @@
         </div>
 
         <div style="border-top:1px solid #e2e8f0; padding-top:12px;">
-          <h3 style="font-size:0.88rem; color:#334155; margin-bottom:10px;">➕ Eigene Bringschicht / Zusatzschicht anbieten (F / S / N)</h3>
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; align-items:start; margin-bottom:14px;">
-            <div class="form-group" style="margin-bottom:0;"><label>Datum der Schicht</label><input type="date" id="portalExtraDate" class="form-control" onchange="updateExtraShiftPreviewHint()"></div>
+          <h3 style="font-size:0.88rem; color:#334155; margin-bottom:10px;">➕ Eigene Bringschicht / Zusatzschicht anbieten</h3>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; align-items:end; margin-bottom:14px;">
             <div class="form-group" style="margin-bottom:0;">
-              <label>Gewünschte Schicht</label>
-              <select id="portalExtraShift" class="form-control" onchange="updateExtraShiftPreviewHint()">
+              <label style="white-space:nowrap;">Datum der Schicht</label>
+              <input type="date" id="portalExtraDate" class="form-control" style="height:42px;" onchange="updateExtraShiftPreviewHint()">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label style="white-space:nowrap;">Gewünschte Schicht</label>
+              <select id="portalExtraShift" class="form-control" style="height:42px;" onchange="updateExtraShiftPreviewHint()">
                 <option value="frueh">Frühschicht</option>
                 <option value="spaet">Spätschicht</option>
                 <option value="nacht">Nachtschicht</option>
@@ -355,6 +358,7 @@
       </div>
     </div>
     <!-- 🧱 [LEGO-MODUL PRT-08 ENDE: ANTRAGS-TABS (URLAUB, KRANK/ABWESEND, BRINGSCHICHT)] -->
+
 
     <!-- 🧱 [LEGO-MODUL PRT-09 START: MEINE EINGEREICHTEN ANTRÄGE & MELDUNGEN] -->
     <div class="card">
