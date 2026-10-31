@@ -5739,6 +5739,7 @@ window.logoutPlanner = function() {
 
 window.handleLogoClick = function() {
   if (!isPlanner) {
+    selectedLoginPlannerId = null;
     document.getElementById("pinModal").style.display = "flex";
     document.getElementById("loginModalError").style.display = "none";
     document.getElementById("loginPlannerName").value = "";
@@ -5753,7 +5754,7 @@ window.verifyPin = function() {
   const pinVal = document.getElementById("pinInput").value.trim();
   const typedName = (document.getElementById("loginPlannerName").value || "").trim().toLowerCase();
 
-  let emp = selectedLoginPortalEmpId ? employees.find(e => e.id === selectedLoginPortalEmpId) : null;
+  let emp = selectedLoginPlannerId ? employees.find(e => e.id === selectedLoginPlannerId) : null;
   if (!emp && typedName) emp = employees.find(e => fullName(e).toLowerCase() === typedName);
 
   if (!emp) return showTimedBoxMsg("loginModalError", "❌ Bitte wähle deinen Namen aus der Vorschlagsliste aus!", false);
@@ -5811,7 +5812,7 @@ window.submitPlannerForcePinChange = function() {
 };
 
 document.addEventListener("click", evt => {
-  ["plannerLoginSuggestions", "manualSickSuggestions", "manualExtraSuggestions"].forEach(id => {
+  ["plannerLoginSuggestions", "manualSickSuggestions", "manualExtraSuggestions", "portalLoginSuggestions"].forEach(id => {
     const box = document.getElementById(id);
     if (box && box.parentElement && !box.parentElement.contains(evt.target)) {
       box.style.display = "none";
