@@ -1675,6 +1675,18 @@
       renderPortalCalendar(loggedInPortalEmpId);
     };
 
+    function getPendingLeaveForEmpOnDate(empId, dIso) {
+      if (typeof sickLeaves === "undefined" || !Array.isArray(sickLeaves)) return null;
+      return sickLeaves.find(sl => {
+        if (!sl || sl.empId !== empId || sl.isOnboardingNotice || sl.lineRequestData) return false;
+        if (sl.status !== "pending" && sl.status !== "counter_offer") return false;
+        if (Array.isArray(sl.blocks) && sl.blocks.length > 0) {
+          return sl.blocks.some(b => b && b.status !== "rejected" && normIsoLocal(b.start) <= dIso && normIsoLocal(b.end) >= dIso);
+        }
+        return normIsoLocal(sl.startDate) <= dIso && normIsoLocal(sl.endDate) >= dIso;
+      }) || null;
+    }
+
     function renderPortalCalendar(empId) {
       const gridEl = document.getElementById("portalCalendarGrid");
       const titleEl = document.getElementById("portalCalendarTitle");
@@ -1709,6 +1721,8 @@
         html += '<div class="cal-cell empty-cell"></div>';
       }
 
+      const shortShiftMap = { frueh: "Früh", spaet: "Spät", nacht: "Nacht" };
+
       for (let day = 1; day <= totalDays; day++) {
         const dObj = new Date(year, month, day);
         const dIso = dObj.getFullYear() + "-" + String(dObj.getMonth() + 1).padStart(2, "0") + "-" + String(dObj.getDate()).padStart(2, "0");
@@ -1716,25 +1730,38 @@
         const isSunday = (dObj.getDay() === 0);
 
         const activeLeave = (typeof getActiveLeaveForEmpOnDate === "function") ? getActiveLeaveForEmpOnDate(emp.id, dIso) : null;
-        const extraShift = (typeof extraShifts !== "undefined" && Array.isArray(extraShifts)) ? extraShifts.find(es => es.empId === emp.id && es.status === "approved" && normIsoLocal(es.date) === dIso) : null;
+        const pendingLeave = !activeLeave ? getPendingLeaveForEmpOnDate(emp.id, dIso) : null;
+        const approvedExtra = (typeof extraShifts !== "undefined" && Array.isArray(extraShifts))
+          ? extraShifts.find(es => es.empId === emp.id && es.status === "approved" && normIsoLocal(es.date) === dIso)
+          : null;
+        const pendingExtra = (!approvedExtra && typeof extraShifts !== "undefined" && Array.isArray(extraShifts))
+          ? extraShifts.find(es => es.empId === emp.id && es.status === "pending" && normIsoLocal(es.date) === dIso)
+          : null;
         const regShift = (isSunday || activeLeave) ? null : (typeof window.getEmpRegularShiftOnDate === "function" ? window.getEmpRegularShiftOnDate(emp, dIso) : null);
 
         let cellCls = "cal-cell" + (isToday ? " today-cell" : "");
         let eventHtml = "";
 
-        if (extraShift) {
-          eventHtml = '<div class="cal-event-block cal-event-extra">Bringschicht</div>';
+        if (approvedExtra) {
+          const sShort = shortShiftMap[approvedExtra.shift] || "Extra";
+          eventHtml = '<div class="cal-event-block cal-event-extra">+ ' + sShort + '</div>';
         } else if (activeLeave) {
-          const isSick = String(activeLeave.category || "").toLowerCase().indexOf("krank") !== -1 || String(activeLeave.category || "").toLowerCase().indexOf("arbeitsunfähig") !== -1;
+          const catLow = String(activeLeave.category || "").toLowerCase();
+          const isSick = catLow.indexOf("krank") !== -1 || catLow.indexOf("arbeitsunfähig") !== -1;
           eventHtml = '<div class="cal-event-block ' + (isSick ? 'cal-event-sick' : 'cal-event-leave') + '">' + (isSick ? 'Krank' : 'Urlaub') + '</div>';
+        } else if (pendingLeave) {
+          eventHtml = '<div class="cal-event-block cal-event-pending">⏳ Urlaub</div>';
+        } else if (pendingExtra) {
+          const sShort = shortShiftMap[pendingExtra.shift] || "Extra";
+          eventHtml = '<div class="cal-event-block cal-event-pending">⏳ +' + sShort + '</div>';
         } else if (isSunday) {
           eventHtml = '<div class="cal-event-block cal-event-frei">Frei</div>';
         } else if (regShift === "frueh") {
-          eventHtml = '<div class="cal-event-block cal-event-frueh">Frühschicht</div>';
+          eventHtml = '<div class="cal-event-block cal-event-frueh">Früh</div>';
         } else if (regShift === "spaet") {
-          eventHtml = '<div class="cal-event-block cal-event-spaet">Spätschicht</div>';
+          eventHtml = '<div class="cal-event-block cal-event-spaet">Spät</div>';
         } else if (regShift === "nacht") {
-          eventHtml = '<div class="cal-event-block cal-event-nacht">Nachtschicht</div>';
+          eventHtml = '<div class="cal-event-block cal-event-nacht">Nacht</div>';
         } else {
           eventHtml = '<div class="cal-event-block cal-event-frei">Frei</div>';
         }
@@ -1748,6 +1775,7 @@
       gridEl.innerHTML = html;
     }
     /* 🧱 [LEGO-MODUL PRT-15.01 ENDE] */
+
 
     
     
