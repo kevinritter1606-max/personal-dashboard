@@ -1867,16 +1867,24 @@ function compareSecondaryFairness(empA, empB, lineId, todayIso) {
     if (!aWasHereDay1 && bWasHereDay1) return 1;
   }
 
-  if (shiftModelConfig.fairnessBalanceEnabled === false) return 0;
-  const lastA = (empA.lineHistory && empA.lineHistory[lineId]) ? empA.lineHistory[lineId] : "2000-01-01";
-  const lastB = (empB.lineHistory && empB.lineHistory[lineId]) ? empB.lineHistory[lineId] : "2000-01-01";
-  if (lastA !== lastB) return lastA < lastB ? -1 : 1;
+  /* Bevorzugt bei Sekundär-Einsätzen zuerst Mitarbeiter, deren eigene Stammlinie keine unbesetzte Top-Prio ist */
+  const aMainCount = Array.isArray(empA.mainLines) ? empA.mainLines.length : 0;
+  const bMainCount = Array.isArray(empB.mainLines) ? empB.mainLines.length : 0;
 
-  const cntLineA = (empA.lineAssignCounts && empA.lineAssignCounts[lineId]) || 0;
-  const cntLineB = (empB.lineAssignCounts && empB.lineAssignCounts[lineId]) || 0;
-  if (cntLineA !== cntLineB) return cntLineA - cntLineB;
+  if (shiftModelConfig.fairnessBalanceEnabled !== false) {
+    const lastA = (empA.lineHistory && empA.lineHistory[lineId]) ? empA.lineHistory[lineId] : "2000-01-01";
+    const lastB = (empB.lineHistory && empB.lineHistory[lineId]) ? empB.lineHistory[lineId] : "2000-01-01";
+    if (lastA !== lastB) return lastA < lastB ? -1 : 1;
 
-  return (empA.foreignAssignCount || 0) - (empB.foreignAssignCount || 0);
+    const cntLineA = (empA.lineAssignCounts && empA.lineAssignCounts[lineId]) || 0;
+    const cntLineB = (empB.lineAssignCounts && empB.lineAssignCounts[lineId]) || 0;
+    if (cntLineA !== cntLineB) return cntLineA - cntLineB;
+
+    const forDiff = (empA.foreignAssignCount || 0) - (empB.foreignAssignCount || 0);
+    if (forDiff !== 0) return forDiff;
+  }
+
+  return aMainCount - bMainCount;
 }
 
 function getActiveFocusLineHours(emp, lineId) {
@@ -1895,7 +1903,7 @@ window.shouldApplyTrainingFocusToday = function(emp, lineId, todayIso) {
   const pct = Math.min(100, Math.max(5, Math.round((Number(shiftModelConfig.focusModePercent) || 20) / 5) * 5));
   if (pct >= 100) return true;
 
-  /* Nutzt den 2-Tage-Block-Index (statt Einzeltag), damit ein Fokus-Einsatz an Tag 1 + Tag 2 des Blocks stabil bleibt */
+  /* Nutzt den 2-Tage-Block-Index, damit ein Fokus-Einsatz an Tag 1 + Tag 2 des Blocks stabil bleibt */
   const blockSerial = getWorkdayBlockIndex(todayIso || getLogicalDateIso());
   let empHash = 0;
   const idStr = String(emp.id || "");
@@ -2049,7 +2057,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     return employees.some(e => extractShiftIdFromZone(e.zone) === shiftId && e.ersthelfer);
   }
 
-  /* Prüft, ob für eine Rolle bereits ein erfahrener Stamm-Mitarbeiter (mainLines) auf der Linie steht */
+  /* Prüft, ob für diese Rolle bereits mindestens ein echter Stamm-Mitarbeiter (mainLines) auf der Linie steht (wichtig für Ausbildung!) */
   function hasPrimaryRoleOnLine(lineId, roleName) {
     return getLineEmps(lineId).some(e =>
       (e.role || "Bediener") === roleName &&
@@ -2058,15 +2066,15 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     );
   }
 
-  /* Prüft, ob für eine Rolle bereits ein Sekundär- oder Lern-Mitarbeiter (nicht mainLines) auf der Linie steht */
-  function hasNonPrimaryRoleOnLine(lineId, roleName) {
+  /* Prüft, ob für diese Rolle bereits ein ungelernter Mitarbeiter (weder Prio noch Sek) auf der Linie steht */
+  function hasUnqualifiedRoleOnLine(lineId, roleName) {
     return getLineEmps(lineId).some(e =>
       (e.role || "Bediener") === roleName &&
-      (!Array.isArray(e.mainLines) || e.mainLines.indexOf(lineId) === -1)
+      !isEmployeeQualifiedForLine(e, lineId)
     );
   }
 
-  /* Prüft, ob auf der Linie überhaupt schon irgendein Lernender (ohne Prio/Sek-Qualifikation) sitzt */
+  /* Prüft, ob auf der Linie überhaupt schon irgendein Ungelernter sitzt */
   function hasAnyUnqualifiedTraineeOnLine(lineId) {
     return getLineEmps(lineId).some(e => !isEmployeeQualifiedForLine(e, lineId));
   }
@@ -2093,6 +2101,8 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     return Math.max(0, roleSoll - currentRoleCount);
   }
 
+  /* Ausgebildete Mitarbeiter (Stamm ODER Sekundär) dürfen jede reguläre Linie besetzen!
+     Nur wenn auf der Linie bereits ein Ungelernter derselben Rolle sitzt, muss mindestens 1 Stamm-Mitarbeiter für die Ausbildung da sein. */
   function canSafelyPlaceQualifiedEmpOnLine(emp, line) {
     if (!emp || !line || line.ausgeplant) return false;
     const rName = emp.role || "Bediener";
@@ -2102,8 +2112,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     const isSec = Array.isArray(emp.secLines) && emp.secLines.indexOf(line.id) !== -1;
     if (!isMain && !isSec) return false;
     if (line.mainOnly && !isMain) return false;
-    const roleSoll = Number((line.roleTargets || {})[rName] || 0);
-    if (!isMain && (hasNonPrimaryRoleOnLine(line.id, rName) || (roleSoll >= 2 && !hasPrimaryRoleOnLine(line.id, rName)))) {
+    if (!isMain && hasUnqualifiedRoleOnLine(line.id, rName) && !hasPrimaryRoleOnLine(line.id, rName)) {
       return false;
     }
     return true;
@@ -2208,20 +2217,20 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     });
   }
 
-  /* PHASE 2: Reguläre Linien (nicht mainOnly) mit 5%-100% Fokus-Quote, Stammpersonal, Block-Kleber (Tag 2) & fairer Sekundär-Balance besetzen
-     SICHERHEITS-REGEL: Fokus-Lernende nur wenn bereits ein Stamm-Mitarbeiter derselben Rolle auf der Linie steht;
-     niemals 2 Sekundär-Mitarbeiter oder Sekundär + Lernender derselben Rolle zusammen ohne Stamm-Mitarbeiter! */
+  /* PHASE 2: Reguläre Linien streng nach PRIO 1 -> 10 besetzen!
+     1. Zuerst Stammpersonal (mainLines) auf die Linie setzen.
+     2. Wenn ein Stamm-Mitarbeiter derselben Rolle bereits auf der Linie steht, darf ein Fokus-Lernender (Azubi) von ihm ausgebildet werden.
+     3. Wenn kein Stamm-Mitarbeiter für die Linie verfügbar ist, springen sofort ausgebildete Sekundär-Kräfte (secLines) ein – auch allein oder zu zweit! */
   sortedLines.filter(l => !l.mainOnly).forEach(line => {
     const totalSoll = getLineTotalTarget(line);
     roles.forEach(rName => {
-      const roleSoll = Number((line.roleTargets || {})[rName] || 0);
       while (getLineEmps(line.id).length < totalSoll && getRoleDeficitForLine(line, rName) > 0) {
         let cand = null;
 
+        /* A) Fokus-Ausbildung: Nur wenn bereits ein echter Stamm-Mitarbeiter derselben Rolle als Ausbilder auf der Linie steht! */
         if (
           shiftModelConfig.focusModeEnabled !== false &&
           hasPrimaryRoleOnLine(line.id, rName) &&
-          !hasNonPrimaryRoleOnLine(line.id, rName) &&
           !hasAnyUnqualifiedTraineeOnLine(line.id)
         ) {
           const focusCands = slotCandidates.filter(e =>
@@ -2245,6 +2254,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
           }
         }
 
+        /* B) Stamm-Mitarbeiter mit Pin auf dieser Linie */
         cand = slotCandidates.find(e =>
           isAvailableInPool(e) &&
           !todaysFocusMap[e.id] &&
@@ -2253,6 +2263,7 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
           Array.isArray(e.mainLines) && e.mainLines.indexOf(line.id) !== -1
         );
 
+        /* C) Regulärer Stamm-Mitarbeiter dieser Linie */
         if (!cand) {
           cand = slotCandidates.find(e =>
             isAvailableInPool(e) &&
@@ -2262,7 +2273,8 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
           );
         }
 
-        if (!cand && !hasNonPrimaryRoleOnLine(line.id, rName) && (roleSoll < 2 || hasPrimaryRoleOnLine(line.id, rName))) {
+        /* D) Ausgebildete Sekundär-Kraft (secLines): Darf die Linie eigenständig (auch als 1. oder 2. Sekundär-Kraft) bedienen, damit Prio-Linien besetzt werden! */
+        if (!cand) {
           const secPool = slotCandidates.filter(e =>
             isAvailableInPool(e) &&
             !todaysFocusMap[e.id] &&
@@ -2273,12 +2285,22 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
           if (secPool.length > 0) cand = secPool[0];
         }
 
+        /* E) Falls ein Mitarbeiter heute eigentlich Fokus auf einer anderen Linie hatte, aber hier dringend als Stamm/Sek gebraucht wird */
         if (!cand) {
           cand = slotCandidates.find(e =>
             isAvailableInPool(e) &&
             (e.role || "Bediener") === rName &&
             Array.isArray(e.mainLines) && e.mainLines.indexOf(line.id) !== -1
           );
+        }
+        if (!cand) {
+          const secFallbackAny = slotCandidates.filter(e =>
+            isAvailableInPool(e) &&
+            !window.shouldHoldEmpOnMainLineToday(e, todayIso) &&
+            (e.role || "Bediener") === rName &&
+            Array.isArray(e.secLines) && e.secLines.indexOf(line.id) !== -1
+          ).sort((a, b) => compareSecondaryFairness(a, b, line.id, todayIso));
+          if (secFallbackAny.length > 0) cand = secFallbackAny[0];
         }
 
         if (!cand) break;
@@ -2287,13 +2309,11 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     });
   });
 
-  /* PHASE 3: AUSNAHME-FALLBACK für "Nur Stammmitarbeiter"-Linien (ebenfalls max. 1 Sekundär-Kraft neben einem Stamm-Mitarbeiter) */
+  /* PHASE 3: AUSNAHME-FALLBACK für "Nur Stammmitarbeiter"-Linien (falls nicht genug Stammpersonal da ist, dürfen Sekundär-Kräfte einspringen) */
   sortedLines.filter(l => l.mainOnly).forEach(line => {
     const totalSoll = getLineTotalTarget(line);
     roles.forEach(rName => {
-      const roleSoll = Number((line.roleTargets || {})[rName] || 0);
       while (getLineEmps(line.id).length < totalSoll && getRoleDeficitForLine(line, rName) > 0) {
-        if (hasNonPrimaryRoleOnLine(line.id, rName) || (roleSoll >= 2 && !hasPrimaryRoleOnLine(line.id, rName))) break;
         const secFallback = slotCandidates.filter(e =>
           isAvailableInPool(e) &&
           !window.shouldHoldEmpOnMainLineToday(e, todayIso) &&
@@ -2306,20 +2326,21 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
     });
   });
 
-  /* PHASE 4: Intelligenter 1-Schritt- & 2-Schritt-Dreiecks-Ringtausch (unter strikter Beachtung der Stamm-Mindestbesetzung) */
+  /* PHASE 4: Intelligenter 1-Schritt- & 2-Schritt-Dreiecks-Ringtausch */
   if (shiftModelConfig.smartAllowSwap !== false) {
     const canSwapReplaceOnLine = (incomingEmp, outgoingEmp, line) => {
       const roleName = incomingEmp.role || "Bediener";
-      const roleSoll = Number((line.roleTargets || {})[roleName] || 0);
       const isIncomingMain = Array.isArray(incomingEmp.mainLines) && incomingEmp.mainLines.indexOf(line.id) !== -1;
       const isIncomingSec = Array.isArray(incomingEmp.secLines) && incomingEmp.secLines.indexOf(line.id) !== -1;
       if (!isIncomingMain && !isIncomingSec) return false;
       if (line.mainOnly && !isIncomingMain) return false;
+
+      /* Falls ein Ungelernter (Azubi) auf der Linie ist, darf der letzte Stamm-Ausbilder nicht gegen eine Sekundär-Kraft getauscht werden! */
       if (!isIncomingMain) {
         const remainingRoleEmps = getLineEmps(line.id).filter(x => x.id !== outgoingEmp.id && (x.role || "Bediener") === roleName);
+        const hasTraineeOnLine = remainingRoleEmps.some(x => !isEmployeeQualifiedForLine(x, line.id));
         const hasRemainingMain = remainingRoleEmps.some(x => Array.isArray(x.mainLines) && x.mainLines.indexOf(line.id) !== -1);
-        const hasOtherNonMain = remainingRoleEmps.some(x => !Array.isArray(x.mainLines) || x.mainLines.indexOf(line.id) === -1);
-        if (hasOtherNonMain || (roleSoll >= 2 && !hasRemainingMain)) return false;
+        if (hasTraineeOnLine && !hasRemainingMain) return false;
       }
       return true;
     };
@@ -2427,13 +2448,13 @@ window.smartAssignShiftSlot = function(shiftId, silentBatch) {
   }
 
   /* PHASE 5: Förder-Zyklus & anteiliger Fokus (5%-100%) für noch offene Linien-Plätze
-     SICHERHEITS-REGEL: Ein Ungelernter darf nur dazugesetzt werden, wenn bereits ein Stamm-Mitarbeiter derselben Rolle vor Ort ist
-     und noch kein anderer Lernender oder Sekundär-Mitarbeiter auf der Linie steht! */
+     AUSBILDUNGS-REGEL: Ein Ungelernter darf NUR dann an eine Linie gestellt werden, wenn dort bereits ein echter
+     STAMM-Mitarbeiter (mainLines) derselben Rolle als Ausbilder steht und noch kein anderer Ungelernter auf der Linie sitzt! */
   sortedLines.filter(l => !l.mainOnly).forEach(line => {
     const totalSoll = getLineTotalTarget(line);
     roles.forEach(rName => {
       while (getLineEmps(line.id).length < totalSoll && getRoleDeficitForLine(line, rName) > 0) {
-        if (!hasPrimaryRoleOnLine(line.id, rName) || hasNonPrimaryRoleOnLine(line.id, rName) || hasAnyUnqualifiedTraineeOnLine(line.id)) {
+        if (!hasPrimaryRoleOnLine(line.id, rName) || hasAnyUnqualifiedTraineeOnLine(line.id)) {
           break;
         }
         let learner = slotCandidates.find(e =>
@@ -2486,6 +2507,7 @@ window.runAllShiftsAutoAssignment = function(silent) {
 /* ==========================================================================
    🧱 [LEGO-MODUL PLN-05 ENDE: STRATEGISCHE QUALIFIKATIONS- & ROTATIONS-MATRIX]
    ========================================================================== */
+
 
 /* ==========================================================================
    🧱 [LEGO-MODUL PLN-06 START: KUGELSICHERE 05:00-UHR-AUTOMATIK & TIMER]
