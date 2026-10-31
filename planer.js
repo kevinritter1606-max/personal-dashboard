@@ -4564,6 +4564,33 @@ window.filterSettingsEmployees = function(q) {
 
 var selectedLoginPortalEmpId = null;
 
+window.openInboxModal = function(empId, openSickForm, openExtraForm) {
+  const modal = document.getElementById("inboxModal");
+  if (modal) modal.style.display = "flex";
+  const today = getLogicalDateIso();
+  if (typeof toggleManualEntryBox === "function" && openSickForm) {
+    toggleManualEntryBox(true);
+    if (!document.getElementById("manualSickStart").value) document.getElementById("manualSickStart").value = today;
+    if (!document.getElementById("manualSickEnd").value) document.getElementById("manualSickEnd").value = today;
+  }
+  if (typeof toggleManualExtraBox === "function" && openExtraForm) {
+    toggleManualExtraBox(true);
+    if (!document.getElementById("manualExtraDate").value) document.getElementById("manualExtraDate").value = today;
+  }
+  if (typeof window.renderInboxLists === "function") window.renderInboxLists();
+};
+
+window.updateInboxBadge = function() {
+  const unreadLeavesCount = (typeof sickLeaves !== "undefined" && Array.isArray(sickLeaves)) ? sickLeaves.filter(sl => sl && (sl.status === "pending" || sl.plannerUnreadInfo)).length : 0;
+  const unreadExtrasCount = (typeof extraShifts !== "undefined" && Array.isArray(extraShifts)) ? extraShifts.filter(es => es && (es.status === "pending" || es.plannerUnreadInfo)).length : 0;
+  const totalUnread = unreadLeavesCount + unreadExtrasCount;
+  const badge = document.getElementById("inboxBadge");
+  if (badge) {
+    badge.textContent = totalUnread;
+    badge.style.display = totalUnread > 0 ? "inline-flex" : "none";
+  }
+};
+
 function renderUniversalSuggestions(val, boxId, selectFnName, preferPlanners) {
   const box = document.getElementById(boxId);
   const q = (val || "").trim().toLowerCase();
