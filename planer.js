@@ -2730,6 +2730,11 @@ function checkZoneStammSafetyWarning(lineId, shiftId) {
   const zoneEmps = employees.filter(e => extractLineIdFromZone(e.zone) === lineId && extractShiftIdFromZone(e.zone) === shiftId);
   if (!zoneEmps.length) return "";
 
+  const totalUnqualOnLine = zoneEmps.filter(e => !isEmployeeQualifiedForLine(e, lineId)).length;
+  if (totalUnqualOnLine >= 2) {
+    return "⚠️ 2 Ungelernte zusammen!";
+  }
+
   const rTargets = line.roleTargets || {};
   for (let i = 0; i < roles.length; i++) {
     const rName = roles[i];
@@ -2740,16 +2745,12 @@ function checkZoneStammSafetyWarning(lineId, shiftId) {
 
     const mainCount = roleEmps.filter(e => Array.isArray(e.mainLines) && e.mainLines.indexOf(lineId) !== -1).length;
     const unqualCount = roleEmps.filter(e => !isEmployeeQualifiedForLine(e, lineId)).length;
-    const nonMainCount = roleEmps.length - mainCount;
 
-    if (line.mainOnly && nonMainCount > 0 && mainCount === 0) {
-      return "⚠️ Nur Sek./Lern an Stamm-Linie";
+    if (line.mainOnly && mainCount === 0) {
+      return "⚠️ Kein Stamm an Nur-Stamm-Linie";
     }
     if (unqualCount > 0 && mainCount === 0) {
-      return "⚠️ Lernender ohne Stamm-" + (rName === "Bediener" ? "Bed." : rName);
-    }
-    if (roleEmps.length >= 2 && mainCount === 0) {
-      return "⚠️ Kein Stamm-" + (rName === "Bediener" ? "Bed." : rName);
+      return "⚠️ Anlernen nur mit Stamm-" + (rName === "Bediener" ? "Bed." : rName);
     }
   }
   return "";
@@ -3192,6 +3193,7 @@ function initDragAndDrop() {
 /* ==========================================================================
    🧱 [LEGO-MODUL PLN-07 ENDE: INIT BOARD, KARTEN-RENDERING & DRAG-AND-DROP]
    ========================================================================== */
+
 
 /* ==========================================================================
    🧱 [LEGO-MODUL PLN-08 START: SCHICHTEN LEEREN, LADEN & ROTIEREN]
