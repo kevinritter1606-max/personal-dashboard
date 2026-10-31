@@ -243,6 +243,12 @@
           <input type="password" id="portalLoginPinInput" class="form-control" placeholder="****" onkeydown="if(event.key==='Enter') verifyPortalLogin()">
         </div>
         <button class="btn btn-primary" style="width:100%; margin-top: 4px;" onclick="verifyPortalLogin()">Anmelden</button>
+        <div class="pwa-install-trigger" style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #e2e8f0; text-align: center;">
+          <button type="button" class="btn-pwa-install" style="width:100%; justify-content:center;" onclick="handlePortalAppInstallClick()">
+            <span>📲</span>
+            <span>Als App installieren (Android & iOS)</span>
+          </button>
+        </div>
         <div style="margin-top:12px; text-align:center;">
           <a href="index.html" style="font-size:0.78rem; color:#64748b; text-decoration:underline;">Zurück zur Schichtübersicht</a>
         </div>
