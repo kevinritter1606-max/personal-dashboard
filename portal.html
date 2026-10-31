@@ -273,6 +273,60 @@
   </div>
   <!-- 🧱 [LEGO-MODUL PRT-05 ENDE: MODAL WARN- & WEITERLEITUNGS-DIALOG BEI RUHEZEIT-KONFLIKT] -->
 
+    <!-- 🧱 [LEGO-MODUL PRT-05.01 START: MODAL WEB-APP INSTALLATION (ANDROID & IOS)] -->
+  <div id="pwaInstallModal" class="modal-overlay" style="display:none; z-index: 2600; background: rgba(15,23,42,0.75);">
+    <div class="modal" style="max-width: 420px; background:#fff; padding:22px; border-radius:14px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <img src="logo.png" alt="App Icon" style="width:38px; height:38px; object-fit:contain; border-radius:8px; border:1px solid #e2e8f0; padding:3px;" onerror="this.style.display='none'">
+          <div>
+            <h3 style="color:var(--bayer-blue); font-size:1.02rem; margin:0;">📲 Portal als App installieren</h3>
+            <div style="font-size:0.73rem; color:#64748b;">Schnellzugriff direkt vom Handy-Startbildschirm</div>
+          </div>
+        </div>
+        <button onclick="closePwaInstallModal()" style="border:none; background:#f1f5f9; color:#475569; width:28px; height:28px; border-radius:8px; font-size:1.1rem; font-weight:700; cursor:pointer;">&times;</button>
+      </div>
+
+      <div class="pwa-platform-tabs">
+        <button type="button" id="pwaTabBtnAndroid" class="pwa-platform-btn active" onclick="switchPwaPlatformTab('android')">🤖 Android</button>
+        <button type="button" id="pwaTabBtnIos" class="pwa-platform-btn" onclick="switchPwaPlatformTab('ios')">🍏 iPhone / iOS</button>
+      </div>
+
+      <div id="pwaContentAndroid">
+        <div id="pwaNativeInstallWrap" style="display:none; margin-bottom:12px;">
+          <button type="button" class="btn-pwa-install" style="width:100%; justify-content:center; padding:11px; font-size:0.9rem;" onclick="triggerNativeAndroidInstall()">
+            🚀 Jetzt direkt als App installieren
+          </button>
+        </div>
+        <div class="pwa-step-box">
+          <b>1.</b> Tippe oben rechts im Browser (Chrome / Samsung Internet) auf das Menü <b>⋮</b> (drei Punkte).
+        </div>
+        <div class="pwa-step-box">
+          <b>2.</b> Wähle <b>„App installieren“</b> oder <b>„Zum Startbildschirm hinzufügen“</b>.
+        </div>
+        <div style="font-size:0.74rem; color:#64748b; text-align:center; margin-top:4px;">
+          Das Bayer-Schichtportal erscheint danach wie eine normale App auf deinem Handy.
+        </div>
+      </div>
+
+      <div id="pwaContentIos" style="display:none;">
+        <div class="pwa-step-box">
+          <b>1.</b> Öffne diese Seite in <b>Safari</b> und tippe unten in der Leiste auf das <b>Teilen-Symbol</b> <span style="display:inline-block; background:#e0f2fe; color:#0369a1; font-weight:800; padding:1px 6px; border-radius:4px;">📤 [↑]</span>.
+        </div>
+        <div class="pwa-step-box">
+          <b>2.</b> Scrolle im Menü leicht nach unten und tippe auf <b>„Zum Home-Bildschirm“ (➕)</b>.
+        </div>
+        <div class="pwa-step-box">
+          <b>3.</b> Bestätige oben rechts mit <b>„Hinzufügen“</b> – fertig!
+        </div>
+      </div>
+
+      <button type="button" class="btn btn-primary" style="width:100%; margin-top:12px;" onclick="closePwaInstallModal()">Verstanden</button>
+    </div>
+  </div>
+  <!-- 🧱 [LEGO-MODUL PRT-05.01 ENDE: MODAL WEB-APP INSTALLATION (ANDROID & IOS)] -->
+
+
   <!-- 🧱 [LEGO-MODUL PRT-06 START: PORTAL HEADER & SCHICHT-STATUS-BADGE] -->
   <header>
     <div class="header-left">
