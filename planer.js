@@ -5529,6 +5529,60 @@ window.renderInboxLists = function() {
    🧱 [LEGO-MODUL PLN-14 START: CLOUD-SYNC, LIVE-BENACHRICHTIGUNG & APP-START]
    ========================================================================== */
 
+window._recentlyDeletedItemIds = window._recentlyDeletedItemIds || {};
+
+window.markItemRecentlyDeleted = function(id) {
+  if (!id) return;
+  window._recentlyDeletedItemIds[id] = Date.now();
+};
+
+function isRecentlyDeletedId(id) {
+  if (!id || !window._recentlyDeletedItemIds[id]) return false;
+  if (Date.now() - window._recentlyDeletedItemIds[id] > 60000) {
+    delete window._recentlyDeletedItemIds[id];
+    return false;
+  }
+  return true;
+}
+
+function mergeRecordsByIdSafe(localArr, remoteArr, isPortalPage) {
+  const loc = Array.isArray(localArr) ? localArr : [];
+  const rem = Array.isArray(remoteArr) ? remoteArr : [];
+  const mapById = {};
+  const result = [];
+
+  loc.forEach(item => {
+    if (!item || !item.id || isRecentlyDeletedId(item.id)) return;
+    mapById[item.id] = item;
+    result.push(item);
+  });
+
+  rem.forEach(rItem => {
+    if (!rItem || !rItem.id || isRecentlyDeletedId(rItem.id)) return;
+    if (!mapById[rItem.id]) {
+      /* Wenn ein Antrag auf dem anderen Gerät gerade neu eingereicht wurde (oder im Portal noch fehlt), niemals löschen! */
+      const createdMs = rItem.createdAt ? new Date(rItem.createdAt).getTime() : 0;
+      const isFresh = (Date.now() - createdMs) < 300000;
+      if (!isPortalPage && (rItem.status === "pending" || rItem.plannerUnreadInfo || isFresh)) {
+        result.unshift(rItem);
+        mapById[rItem.id] = rItem;
+      } else if (isPortalPage && isFresh) {
+        result.unshift(rItem);
+        mapById[rItem.id] = rItem;
+      }
+    } else if (isPortalPage) {
+      /* Wenn der Planer zwischenzeitlich genehmigt/abgelehnt hat, Status anderer Mitarbeiter im Portal nicht überschreiben */
+      const activePortalEmp = sessionStorage.getItem("portal_logged_emp_id");
+      if (rItem.empId && activePortalEmp && rItem.empId !== activePortalEmp) {
+        const idx = result.findIndex(x => x.id === rItem.id);
+        if (idx !== -1) result[idx] = rItem;
+      }
+    }
+  });
+
+  return result;
+}
+
 function deduplicateLeaveAndExtraRecords() {
   let removedAny = false;
 
@@ -5617,8 +5671,9 @@ function deduplicateLeaveAndExtraRecords() {
 
 function applyIncomingDocData(d) {
   if (!d) return;
-  const oldUnreadCount = (Array.isArray(sickLeaves) ? sickLeaves.filter(sl => sl.status === "pending" || sl.plannerUnreadInfo).length : 0) +
-                         (Array.isArray(extraShifts) ? extraShifts.filter(es => es.status === "pending" || es.plannerUnreadInfo).length : 0);
+  const wasAlreadyLoaded = hasLoadedFromCloud;
+  const oldUnreadCount = (Array.isArray(sickLeaves) ? sickLeaves.filter(sl => sl && (sl.status === "pending" || sl.plannerUnreadInfo)).length : 0) +
+                         (Array.isArray(extraShifts) ? extraShifts.filter(es => es && (es.status === "pending" || es.plannerUnreadInfo)).length : 0);
 
   hasLoadedFromCloud = true;
   try {
@@ -5691,8 +5746,8 @@ function applyIncomingDocData(d) {
       if (migratedCoverage || deduplicatedAny || fixedDuplicateTeams) saveToFirebase();
     }
 
-    const newUnreadCount = (Array.isArray(sickLeaves) ? sickLeaves.filter(sl => sl.status === "pending" || sl.plannerUnreadInfo).length : 0) +
-                           (Array.isArray(extraShifts) ? extraShifts.filter(es => es.status === "pending" || es.plannerUnreadInfo).length : 0);
+    const newUnreadCount = (Array.isArray(sickLeaves) ? sickLeaves.filter(sl => sl && (sl.status === "pending" || sl.plannerUnreadInfo)).length : 0) +
+                           (Array.isArray(extraShifts) ? extraShifts.filter(es => es && (es.status === "pending" || es.plannerUnreadInfo)).length : 0);
 
     window.updateInboxBadge();
     const inboxModalEl = document.getElementById("inboxModal");
@@ -5700,8 +5755,8 @@ function applyIncomingDocData(d) {
       window.renderInboxLists();
     }
 
-    if (newUnreadCount > oldUnreadCount && hasLoadedFromCloud) {
-      showToast("📬 Neue Meldung oder Urlaubsantrag im Postfach eingegangen!");
+    if (wasAlreadyLoaded && newUnreadCount > oldUnreadCount) {
+      showToast("📬 Neue Meldung oder Antrag im Postfach eingegangen!");
     }
   } catch (err) {
     console.error("Fehler beim Verarbeiten der Cloud-Daten:", err);
@@ -5726,26 +5781,93 @@ window.forceRefreshFromServer = function() {
   });
 };
 
+/* Atomar gesichertes Speichern: Verhindert, dass Portal und Planer sich gegenseitig Anträge oder Linien-Zonen überschreiben */
 function saveToFirebase() {
-  if (!hasLoadedFromCloud) return;
+  if (!hasLoadedFromCloud) return Promise.resolve(false);
   window.sanitizeTeamReferences();
   ensureUniqueShiftRotationTeams();
-  const payload = {
-    lines,
-    roles,
-    employees,
-    teamsConfig,
-    sickLeaves,
-    leaveRequests,
-    extraShifts,
-    historyLogs,
-    backups,
-    shiftRotation,
-    securityConfig,
-    shiftModelConfig,
-    approvedShiftKey
-  };
-  boardRef.update(payload).catch(() => { boardRef.set(payload); });
+
+  const isPortalPage = !document.getElementById("matrixBody");
+
+  return db.runTransaction(transaction => {
+    return transaction.get(boardRef).then(sfDoc => {
+      if (!sfDoc.exists) {
+        const fullPayload = {
+          lines, roles, employees, teamsConfig,
+          sickLeaves, leaveRequests, extraShifts,
+          historyLogs, backups, shiftRotation,
+          securityConfig, shiftModelConfig, approvedShiftKey
+        };
+        transaction.set(boardRef, fullPayload);
+        return;
+      }
+
+      const remote = sfDoc.data() || {};
+      const mergedSickLeaves = mergeRecordsByIdSafe(sickLeaves, remote.sickLeaves, isPortalPage);
+      const mergedExtraShifts = mergeRecordsByIdSafe(extraShifts, remote.extraShifts, isPortalPage);
+      const mergedLeaveRequests = mergeRecordsByIdSafe(leaveRequests, remote.leaveRequests, isPortalPage);
+
+      sickLeaves = mergedSickLeaves;
+      extraShifts = mergedExtraShifts;
+      leaveRequests = mergedLeaveRequests;
+
+      if (isPortalPage) {
+        /* Portal aktualisiert gezielt nur Anträge + eigene Profil/PIN-Felder, überschreibt niemals Planer-Zonen */
+        const remoteEmps = Array.isArray(remote.employees) ? remote.employees : employees;
+        const activePortalEmpId = sessionStorage.getItem("portal_logged_emp_id");
+        const safeEmployees = remoteEmps.map(rEmp => {
+          const localMatch = employees.find(e => e.id === rEmp.id);
+          if (!localMatch) return rEmp;
+          if (activePortalEmpId && rEmp.id === activePortalEmpId) {
+            return Object.assign({}, rEmp, {
+              password: localMatch.password,
+              mustChangePw: localMatch.mustChangePw,
+              role: localMatch.role,
+              mainLines: localMatch.mainLines,
+              secLines: localMatch.secLines,
+              onboardingCompleted: localMatch.onboardingCompleted,
+              profileLockedByPlanner: localMatch.profileLockedByPlanner
+            });
+          }
+          return rEmp;
+        });
+
+        transaction.update(boardRef, {
+          employees: safeEmployees,
+          sickLeaves: mergedSickLeaves,
+          leaveRequests: mergedLeaveRequests,
+          extraShifts: mergedExtraShifts,
+          historyLogs: historyLogs
+        });
+      } else {
+        /* Planer speichert Board-Stand + zusammengeführte Postfach-Eingänge */
+        transaction.update(boardRef, {
+          lines,
+          roles,
+          employees,
+          teamsConfig,
+          sickLeaves: mergedSickLeaves,
+          leaveRequests: mergedLeaveRequests,
+          extraShifts: mergedExtraShifts,
+          historyLogs,
+          backups,
+          shiftRotation,
+          securityConfig,
+          shiftModelConfig,
+          approvedShiftKey
+        });
+      }
+    });
+  }).catch(err => {
+    console.warn("Fallback-Update nach Transaktions-Konflikt:", err);
+    const payload = {
+      lines, roles, employees, teamsConfig,
+      sickLeaves, leaveRequests, extraShifts,
+      historyLogs, backups, shiftRotation,
+      securityConfig, shiftModelConfig, approvedShiftKey
+    };
+    return boardRef.update(payload).catch(() => boardRef.set(payload));
+  });
 }
 
 function applyPlannerLoginState(name, lvl, empId) {
