@@ -7,7 +7,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
-  <!-- 🧱 [LEGO-MODUL PRT-01 START: CSS & DESIGN-STYLES] -->
+   <!-- 🧱 [LEGO-MODUL PRT-01 START: CSS & DESIGN-STYLES] -->
   <style>
     :root { --bayer-blue: #0091df; --bg-gray: #f4f6f9; }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
@@ -80,28 +80,28 @@
 
     .role-select-option { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; cursor: pointer; font-size: 0.86rem; font-weight: 600; transition: 0.15s; }
     .role-select-option:hover { background: #f0f9ff; border-color: #7dd3fc; }
-  </style>
 
-      /* Moderner Block-Kalender (analog Handy-Widget) */
-    .portal-calendar-card { background: #fff; border-radius: 10px; padding: 16px; border: 1px solid #e2e8f0; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    /* Moderner Block-Kalender (analog Handy-Widget) */
+    .portal-calendar-card { background: #fff; border-radius: 10px; padding: 16px; border: 1px solid #e2e8f0; margin-bottom: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
     .cal-top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
     .cal-top-nav h3 { font-size: 0.98rem; font-weight: 700; color: #0f172a; margin: 0; text-transform: uppercase; letter-spacing: 0.03em; }
-    .cal-grid-view { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; }
-    .cal-wk-header { font-size: 0.68rem; font-weight: 700; color: #64748b; padding-bottom: 6px; }
-    .cal-cell { min-height: 62px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 2px; display: flex; flex-direction: column; align-items: stretch; font-size: 0.72rem; }
+    .cal-grid-view { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+    .cal-wk-header { font-size: 0.68rem; font-weight: 700; color: #64748b; padding-bottom: 6px; text-transform: uppercase; }
+    .cal-cell { min-height: 58px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 3px; display: flex; flex-direction: column; align-items: stretch; font-size: 0.72rem; }
     .cal-cell.empty-cell { background: transparent; border: none; min-height: 0; }
     .cal-cell.today-cell { border-color: var(--bayer-blue); box-shadow: 0 0 0 1px var(--bayer-blue); background: #f0f9ff; }
-    .cal-cell-num { font-weight: 700; color: #334155; font-size: 0.74rem; text-align: right; padding-right: 2px; margin-bottom: 2px; }
-    .cal-event-block { font-size: 0.6rem; font-weight: 700; padding: 2px 3px; border-radius: 3px; margin-bottom: 2px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; }
-    .cal-event-frueh { background: #e0f2fe; color: #0369a1; border-left: 2px solid #0284c7; }
-    .cal-event-spaet { background: #fef3c7; color: #b45309; border-left: 2px solid #d97706; }
-    .cal-event-nacht { background: #f5f3ff; color: #6d28d9; border-left: 2px solid #7c3aed; }
-    .cal-event-leave { background: #dcfce7; color: #166534; border-left: 2px solid #16a34a; }
-    .cal-event-sick { background: #fee2e2; color: #b91c1c; border-left: 2px solid #dc2626; }
-    .cal-event-extra { background: #16a34a; color: #ffffff; border-left: 2px solid #15803d; }
-    .cal-event-frei { background: #f1f5f9; color: #64748b; }
-
+    .cal-cell-num { font-weight: 700; color: #334155; font-size: 0.74rem; text-align: right; padding-right: 2px; margin-bottom: 4px; }
+    .cal-event-block { font-size: 0.6rem; font-weight: 700; padding: 3px 4px; border-radius: 4px; margin-bottom: 2px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; }
+    .cal-event-frueh { background: #e0f2fe; color: #0369a1; border-left: 3px solid #0284c7; }
+    .cal-event-spaet { background: #fef3c7; color: #b45309; border-left: 3px solid #d97706; }
+    .cal-event-nacht { background: #f5f3ff; color: #6d28d9; border-left: 3px solid #7c3aed; }
+    .cal-event-leave { background: #dcfce7; color: #166534; border-left: 3px solid #16a34a; }
+    .cal-event-sick { background: #fee2e2; color: #b91c1c; border-left: 3px solid #dc2626; }
+    .cal-event-extra { background: #16a34a; color: #ffffff; border-left: 3px solid #15803d; }
+    .cal-event-frei { background: #f1f5f9; color: #64748b; border-left: 3px solid #cbd5e1; }
+  </style>
   <!-- 🧱 [LEGO-MODUL PRT-01 ENDE: CSS & DESIGN-STYLES] -->
+
 </head>
 <body class="portal-locked">
   <div id="brandGradientBar" class="brand-gradient pending"></div>
