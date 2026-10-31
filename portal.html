@@ -336,16 +336,21 @@
         <div id="headerDate" class="header-meta">Lade Datum...</div>
       </div>
     </div>
-    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
       <div id="portalShiftStatusBadge" class="portal-shift-status pending">
         <span id="portalStatusDot" class="status-dot"></span>
         <span id="portalStatusText">Schicht ist noch nicht bestätigt</span>
       </div>
+      <button type="button" class="btn-pwa-install pwa-install-trigger" onclick="handlePortalAppInstallClick()" title="Portal als App auf dem Smartphone (Android & iOS) installieren">
+        <span>📲</span>
+        <span>Als App</span>
+      </button>
       <button class="btn btn-outline" onclick="logoutPortalEmp()">Abmelden</button>
       <button class="btn btn-outline" onclick="window.location.href='index.html'">Zur Schichtübersicht</button>
     </div>
   </header>
   <!-- 🧱 [LEGO-MODUL PRT-06 ENDE: PORTAL HEADER & SCHICHT-STATUS-BADGE] -->
+
 
   <main>
     <!-- 🧱 [LEGO-MODUL PRT-07 START: MEINE SCHICHT, GEGENANGEBOTE & MEINE LINIEN] -->
