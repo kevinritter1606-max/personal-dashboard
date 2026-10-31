@@ -2906,8 +2906,12 @@ function renderEmployees() {
   employees.forEach(emp => {
     const fName = fullName(emp);
     const pinNum = emp.pinnedZone ? getShortLineNumber(emp.pinnedZone) : "";
-    const mainNums = Array.isArray(emp.mainLines) ? emp.mainLines.map(getShortLineNumber).filter(Boolean).join(", ") : "";
-    const secNums = Array.isArray(emp.secLines) ? emp.secLines.map(getShortLineNumber).filter(Boolean).join(", ") : "";
+    const mainArr = Array.isArray(emp.mainLines) ? emp.mainLines.map(getShortLineNumber).filter(Boolean) : [];
+    const secArr = Array.isArray(emp.secLines) ? emp.secLines.map(getShortLineNumber).filter(Boolean) : [];
+    const mainNums = mainArr.join(", ");
+    const secNums = secArr.join(", ");
+    const mainCompact = mainArr.join(",");
+    const secCompact = secArr.join(",");
 
     const zId = emp.zone;
     if (cellStats[zId]) {
@@ -2982,11 +2986,13 @@ function renderEmployees() {
     }
 
     let qualsRowHtml = "";
-    if (mainNums || secNums) {
+    if (mainCompact || secCompact) {
+      const prioLabel = isInSidebar ? ("★ Prio: " + mainNums) : ("★ " + mainCompact);
+      const secLabel = isInSidebar ? ("Sek: " + secNums) : ("S: " + secCompact);
       qualsRowHtml =
         '<div class="card-quals-row">' +
-          (mainNums ? '<span class="card-qual-prio" title="Prio-Linien (Stammlinien): ' + mainNums + '">★ Prio: ' + mainNums + '</span>' : '') +
-          (secNums ? '<span class="card-qual-sec" title="Sekundär-Linien (Zweitlinien): ' + secNums + '">Sek: ' + secNums + '</span>' : '') +
+          (mainCompact ? '<span class="card-qual-prio" title="Prio-Linien (Stammlinien): ' + mainNums + '">' + prioLabel + '</span>' : '') +
+          (secCompact ? '<span class="card-qual-sec" title="Sekundär-Linien (Zweitlinien): ' + secNums + '">' + secLabel + '</span>' : '') +
         '</div>';
     }
 
@@ -3192,6 +3198,7 @@ function initDragAndDrop() {
 /* ==========================================================================
    🧱 [LEGO-MODUL PLN-07 ENDE: INIT BOARD, KARTEN-RENDERING & DRAG-AND-DROP]
    ========================================================================== */
+
 
 
 /* ==========================================================================
