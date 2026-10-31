@@ -1667,7 +1667,7 @@
        🧱 [LEGO-MODUL PRT-15 ENDE: URLAUB, KRANKMELDUNG, GEGENANGEBOTE & ANTRAGS-HISTORIE]
        ========================================================================== */
 
-    /* 🧱 [LEGO-MODUL PRT-15.01 START: KALENDER LOGIK & NAVIGATION] */
+/* 🧱 [LEGO-MODUL PRT-15.01 START: ANTRAGS-ÜBERMITTLUNG & KALENDER LOGIK] */
     let portalCalendarCursorDate = new Date();
 
     window.changePortalCalendarMonth = function(delta) {
@@ -1774,8 +1774,55 @@
 
       gridEl.innerHTML = html;
     }
-    /* 🧱 [LEGO-MODUL PRT-15.01 ENDE] */
 
+    window.submitPortalVacation = function() {
+      if (!loggedInPortalEmpId || isSubmittingPortalAction) return;
+      const start = normIsoLocal(document.getElementById("portalVacStart").value), end = normIsoLocal(document.getElementById("portalVacEnd").value);
+      const cat = document.getElementById("portalVacCategory").value, reason = document.getElementById("portalVacReason").value.trim();
+      if (!start || !end) { showPortalInlineMsg("Bitte Von- und Bis-Datum auswählen.", false); return; }
+      if (start > end) { showPortalInlineMsg("⛔ Das Bis-Datum darf nicht vor dem Von-Datum liegen.", false); return; }
+
+      if (hasPortalLeaveOverlapLocal(loggedInPortalEmpId, start, end)) {
+        showPortalInlineMsg("⛔ Du hast für diesen Zeitraum bereits einen Urlaubs- oder Abwesenheitsantrag eingereicht oder genehmigt.", false);
+        return;
+      }
+
+      lockPortalSubmitBriefly();
+      if (typeof window.addPortalLeaveRequest === "function" && window.addPortalLeaveRequest(loggedInPortalEmpId, start, end, cat, reason)) {
+        document.getElementById("portalVacStart").value = "";
+        document.getElementById("portalVacEnd").value = "";
+        document.getElementById("portalVacReason").value = "";
+        showPortalInlineMsg("✅ Urlaubsantrag erfolgreich an Planer übermittelt!", true);
+        renderPortalView();
+      } else {
+        showPortalInlineMsg("⛔ Antrag konnte nicht gespeichert werden (Zeitraum bereits belegt).", false);
+      }
+    };
+
+    window.submitPortalSick = function() {
+      if (!loggedInPortalEmpId || isSubmittingPortalAction) return;
+      const start = normIsoLocal(document.getElementById("portalSickStart").value), end = normIsoLocal(document.getElementById("portalSickEnd").value);
+      const cat = document.getElementById("portalSickCategory").value, reason = document.getElementById("portalSickReason").value.trim();
+      if (!start || !end) { showPortalInlineMsg("Bitte Von- und Bis-Datum auswählen.", false); return; }
+      if (start > end) { showPortalInlineMsg("⛔ Das Bis-Datum darf nicht vor dem Von-Datum liegen.", false); return; }
+
+      if (hasPortalLeaveOverlapLocal(loggedInPortalEmpId, start, end)) {
+        showPortalInlineMsg("⛔ Du hast für diesen Zeitraum bereits eine Abwesenheitsmeldung eingereicht oder eingetragen.", false);
+        return;
+      }
+
+      lockPortalSubmitBriefly();
+      if (typeof window.addPortalLeaveRequest === "function" && window.addPortalLeaveRequest(loggedInPortalEmpId, start, end, cat, reason)) {
+        document.getElementById("portalSickStart").value = "";
+        document.getElementById("portalSickEnd").value = "";
+        document.getElementById("portalSickReason").value = "";
+        showPortalInlineMsg("✅ Abwesenheitsmeldung direkt an Planer übermittelt!", true);
+        renderPortalView();
+      } else {
+        showPortalInlineMsg("⛔ Meldung konnte nicht gespeichert werden (Zeitraum bereits belegt).", false);
+      }
+    };
+    /* 🧱 [LEGO-MODUL PRT-15.01 ENDE] */
 
     
     
