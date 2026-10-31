@@ -5356,7 +5356,7 @@ window.updateInboxBadge = function() {
    ========================================================================== */
 
 /* ==========================================================================
-   🧱 [LEGO-MODUL PLN-14 START: CLOUD-SYNC, LOGIN, PIN-VERWALTUNG & APP-START]
+   🧱 [LEGO-MODUL PLN-14 START: CLOUD-SYNC, LIVE-BENACHRICHTIGUNG & APP-START]
    ========================================================================== */
 
 function deduplicateLeaveAndExtraRecords() {
@@ -5379,9 +5379,10 @@ function deduplicateLeaveAndExtraRecords() {
       }
       const sNorm = window.normalizeDateIso ? window.normalizeDateIso(sl.startDate) : sl.startDate;
       const eNorm = window.normalizeDateIso ? window.normalizeDateIso(sl.endDate) : sl.endDate;
+      const catKey = String(sl.category || "").trim().toLowerCase();
       const key = sl.lineRequestData
         ? ("LINE_" + sl.empId + "_" + sl.lineRequestData.lineId + "_" + sl.lineRequestData.type)
-        : ("LEAVE_" + sl.empId + "_" + sNorm + "_" + eNorm);
+        : ("LEAVE_" + sl.empId + "_" + sNorm + "_" + eNorm + "_" + catKey);
       if (!seenLeaveKeys[key]) {
         seenLeaveKeys[key] = true;
         keepIds.add(sl.id);
@@ -5426,7 +5427,7 @@ function deduplicateLeaveAndExtraRecords() {
         return;
       }
       const dNorm = window.normalizeDateIso ? window.normalizeDateIso(es.date) : es.date;
-      const key = "EXTRA_" + es.empId + "_" + dNorm;
+      const key = "EXTRA_" + es.empId + "_" + dNorm + "_" + (es.shift || "");
       if (!seenExtraKeys[key]) {
         seenExtraKeys[key] = true;
         keepExtraIds.add(es.id);
@@ -5446,6 +5447,9 @@ function deduplicateLeaveAndExtraRecords() {
 
 function applyIncomingDocData(d) {
   if (!d) return;
+  const oldUnreadCount = (Array.isArray(sickLeaves) ? sickLeaves.filter(sl => sl.status === "pending" || sl.plannerUnreadInfo).length : 0) +
+                         (Array.isArray(extraShifts) ? extraShifts.filter(es => es.status === "pending" || es.plannerUnreadInfo).length : 0);
+
   hasLoadedFromCloud = true;
   try {
     if (Array.isArray(d.lines) && d.lines.length > 0) lines = d.lines;
@@ -5515,6 +5519,19 @@ function applyIncomingDocData(d) {
     if (!autoDidRun) {
       window.initBoard();
       if (migratedCoverage || deduplicatedAny || fixedDuplicateTeams) saveToFirebase();
+    }
+
+    const newUnreadCount = (Array.isArray(sickLeaves) ? sickLeaves.filter(sl => sl.status === "pending" || sl.plannerUnreadInfo).length : 0) +
+                           (Array.isArray(extraShifts) ? extraShifts.filter(es => es.status === "pending" || es.plannerUnreadInfo).length : 0);
+
+    window.updateInboxBadge();
+    const inboxModalEl = document.getElementById("inboxModal");
+    if (inboxModalEl && inboxModalEl.style.display === "flex") {
+      window.renderInboxLists();
+    }
+
+    if (newUnreadCount > oldUnreadCount && hasLoadedFromCloud) {
+      showToast("📬 Neue Meldung oder Urlaubsantrag im Postfach eingegangen!");
     }
   } catch (err) {
     console.error("Fehler beim Verarbeiten der Cloud-Daten:", err);
@@ -5606,7 +5623,7 @@ window.verifyPin = function() {
   const pinVal = document.getElementById("pinInput").value.trim();
   const typedName = (document.getElementById("loginPlannerName").value || "").trim().toLowerCase();
 
-  let emp = selectedLoginPlannerId ? employees.find(e => e.id === selectedLoginPlannerId) : null;
+  let emp = selectedLoginPortalEmpId ? employees.find(e => e.id === selectedLoginPortalEmpId) : null;
   if (!emp && typedName) emp = employees.find(e => fullName(e).toLowerCase() === typedName);
 
   if (!emp) return showTimedBoxMsg("loginModalError", "❌ Bitte wähle deinen Namen aus der Vorschlagsliste aus!", false);
@@ -5693,5 +5710,5 @@ window.addEventListener("DOMContentLoaded", function() {
   window.initBoard();
 });
 /* ==========================================================================
-   🧱 [LEGO-MODUL PLN-14 ENDE: CLOUD-SYNC, LOGIN, PIN-VERWALTUNG & APP-START]
+   🧱 [LEGO-MODUL PLN-14 ENDE: CLOUD-SYNC, LIVE-BENACHRICHTIGUNG & APP-START]
    ========================================================================== */
