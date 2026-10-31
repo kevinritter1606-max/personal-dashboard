@@ -703,6 +703,116 @@
        🧱 [LEGO-MODUL PRT-10 ENDE: BASIS-HELFER, DATUM & SYNCHRONER SCHICHT-HEADER]
        ========================================================================== */
 
+        /* ==========================================================================
+       🧱 [LEGO-MODUL PRT-10.01 START: PWA WEB-APP INSTALLATIONS-LOGIK (ANDROID & IOS)]
+       ========================================================================== */
+    let deferredPwaPrompt = null;
+
+    (function initPortalPwaSupport() {
+      try {
+        const iconUrl = new URL("logo.png", window.location.href).href;
+        const startUrl = new URL("portal.html", window.location.href).href;
+        const manifestObj = {
+          name: "Bayer Mitarbeiter-Portal",
+          short_name: "Schichtportal",
+          description: "Mitarbeiter-Portal für Schichtplan, Urlaub, Krankmeldung & Bringschichten",
+          start_url: startUrl,
+          scope: new URL("./", window.location.href).href,
+          display: "standalone",
+          orientation: "portrait",
+          background_color: "#f4f6f9",
+          theme_color: "#0091df",
+          icons: [
+            { src: iconUrl, sizes: "192x192", type: "image/png", purpose: "any maskable" },
+            { src: iconUrl, sizes: "512x512", type: "image/png", purpose: "any maskable" }
+          ]
+        };
+        const blob = new Blob([JSON.stringify(manifestObj)], { type: "application/manifest+json" });
+        const linkEl = document.createElement("link");
+        linkEl.rel = "manifest";
+        linkEl.href = URL.createObjectURL(blob);
+        document.head.appendChild(linkEl);
+      } catch (e) {
+        console.warn("PWA Manifest Info:", e);
+      }
+
+      const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+      if (isStandalone) {
+        document.querySelectorAll(".pwa-install-trigger").forEach(el => { el.style.display = "none"; });
+      }
+    })();
+
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredPwaPrompt = e;
+      const nativeWrap = document.getElementById("pwaNativeInstallWrap");
+      if (nativeWrap) nativeWrap.style.display = "block";
+    });
+
+    window.addEventListener("appinstalled", () => {
+      deferredPwaPrompt = null;
+      closePwaInstallModal();
+      document.querySelectorAll(".pwa-install-trigger").forEach(el => { el.style.display = "none"; });
+      showPortalInlineMsg("✅ Portal wurde erfolgreich als App auf deinem Gerät installiert!", true);
+    });
+
+    function isIosDevice() {
+      const ua = window.navigator.userAgent || "";
+      const isIPhoneIPad = /iPad|iPhone|iPod/.test(ua);
+      const isIPadOS = (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      return isIPhoneIPad || isIPadOS;
+    }
+
+    window.switchPwaPlatformTab = function(platform) {
+      const btnAnd = document.getElementById("pwaTabBtnAndroid");
+      const btnIos = document.getElementById("pwaTabBtnIos");
+      const boxAnd = document.getElementById("pwaContentAndroid");
+      const boxIos = document.getElementById("pwaContentIos");
+      if (!btnAnd || !btnIos || !boxAnd || !boxIos) return;
+
+      if (platform === "ios") {
+        btnIos.classList.add("active");
+        btnAnd.classList.remove("active");
+        boxIos.style.display = "block";
+        boxAnd.style.display = "none";
+      } else {
+        btnAnd.classList.add("active");
+        btnIos.classList.remove("active");
+        boxAnd.style.display = "block";
+        boxIos.style.display = "none";
+      }
+    };
+
+    window.handlePortalAppInstallClick = function() {
+      if (deferredPwaPrompt) {
+        window.triggerNativeAndroidInstall();
+        return;
+      }
+      const modal = document.getElementById("pwaInstallModal");
+      if (!modal) return;
+      window.switchPwaPlatformTab(isIosDevice() ? "ios" : "android");
+      modal.style.display = "flex";
+    };
+
+    window.triggerNativeAndroidInstall = function() {
+      if (!deferredPwaPrompt) return;
+      deferredPwaPrompt.prompt();
+      deferredPwaPrompt.userChoice.then(() => {
+        deferredPwaPrompt = null;
+        const nativeWrap = document.getElementById("pwaNativeInstallWrap");
+        if (nativeWrap) nativeWrap.style.display = "none";
+      });
+    };
+
+    window.closePwaInstallModal = function() {
+      const modal = document.getElementById("pwaInstallModal");
+      if (modal) modal.style.display = "none";
+    };
+    /* ==========================================================================
+       🧱 [LEGO-MODUL PRT-10.01 ENDE: PWA WEB-APP INSTALLATIONS-LOGIK (ANDROID & IOS)]
+       ========================================================================== */
+
+
     /* ==========================================================================
        🧱 [LEGO-MODUL PRT-11 START: LOGIN, NAMENSSUCHE & START-PIN-ÄNDERUNG]
        ========================================================================== */
