@@ -387,11 +387,11 @@
 
   <script src="planer.js?v=4.9.70"></script>
   <script>
-    /* ==========================================================================
+/* ==========================================================================
        🧱 [LEGO-MODUL PRT-10 START: BASIS-HELFER, DATUM & SYNCHRONER SCHICHT-HEADER]
        ========================================================================== */
     let loggedInPortalEmpId = null;
-    let selectedLoginPortalEmpId = null; 
+    window.selectedLoginPortalEmpId = null;
     let initialSessionChecked = false, pendingExtraSubmission = null, pendingForceEmp = null;
     let activeMyRequestsCategory = "ALL";
     let isSubmittingPortalAction = false;
@@ -570,46 +570,58 @@
        🧱 [LEGO-MODUL PRT-10 ENDE: BASIS-HELFER, DATUM & SYNCHRONER SCHICHT-HEADER]
        ========================================================================== */
 
-/* ==========================================================================
+    /* ==========================================================================
        🧱 [LEGO-MODUL PRT-11 START: LOGIN, NAMENSSUCHE & START-PIN-ÄNDERUNG]
        ========================================================================== */
-    function onPortalLoginNameInput(val) {
-      selectedLoginPortalEmpId = null;
+    window.onPortalLoginNameInput = function(val) {
+      window.selectedLoginPortalEmpId = null;
+      const err = document.getElementById("portalLoginError");
+      if (err) err.style.display = "none";
+
       const box = document.getElementById("portalLoginSuggestions");
       const q = (val || "").trim().toLowerCase();
 
-      if (typeof employees === "undefined" || !employees || !employees.length || q.length < 3) {
+      if (!box || typeof employees === "undefined" || !Array.isArray(employees) || !employees.length || q.length < 3) {
         if (box) box.style.display = "none";
         return;
       }
 
-      const matches = employees.slice().sort((a, b) => fullName(a).localeCompare(fullName(b))).filter(e => fullName(e).toLowerCase().indexOf(q) !== -1);
-      
+      const matches = employees
+        .slice()
+        .sort((a, b) => fullName(a).localeCompare(fullName(b)))
+        .filter(e => fullName(e).toLowerCase().indexOf(q) !== -1);
+
       if (!matches.length) {
-        if (box) box.style.display = "none";
+        box.style.display = "none";
         return;
       }
 
       box.innerHTML = matches.map(e => {
-        const tName = (teamsConfig && teamsConfig[e.team]) ? teamsConfig[e.team].name : e.team;
-        return '<div class="suggestion-item" onclick="selectPortalLoginEmp(\'' + e.id + '\')"><span><b>' + fullName(e) + '</b></span><small style="color:#64748b;">' + (e.role || 'Bediener') + ' · ' + tName + '</small></div>';
+        const tName = (typeof teamsConfig !== "undefined" && teamsConfig && teamsConfig[e.team]) ? teamsConfig[e.team].name : (e.team || "");
+        return '<div class="suggestion-item" onclick="selectPortalLoginEmp(\'' + e.id + '\')">' +
+          '<span><b>' + fullName(e) + '</b></span>' +
+          '<small style="color:#64748b;">' + (e.role || 'Bediener') + (tName ? ' · ' + tName : '') + '</small>' +
+        '</div>';
       }).join("");
       box.style.display = "block";
-    }
+    };
 
-    function selectPortalLoginEmp(id) {
-      const e = employees.find(x => x.id === id);
+    window.selectPortalLoginEmp = function(id) {
+      const e = (typeof employees !== "undefined" && Array.isArray(employees)) ? employees.find(x => x.id === id) : null;
       if (e) {
-        selectedLoginPortalEmpId = e.id;
-        document.getElementById("portalLoginNameInput").value = fullName(e);
-        document.getElementById("portalLoginSuggestions").style.display = "none";
-        document.getElementById("portalLoginPinInput").focus();
+        window.selectedLoginPortalEmpId = e.id;
+        const nameInp = document.getElementById("portalLoginNameInput");
+        const sugBox = document.getElementById("portalLoginSuggestions");
+        const pinInp = document.getElementById("portalLoginPinInput");
+        if (nameInp) nameInp.value = fullName(e);
+        if (sugBox) sugBox.style.display = "none";
+        if (pinInp) pinInp.focus();
       }
-    }
+    };
 
     function doesRoleRequireLinesForOnboarding(roleName) {
       if (typeof window.doesRoleRequireLines === "function") return window.doesRoleRequireLines(roleName);
-      if (shiftModelConfig && shiftModelConfig.roleRequiresLines && typeof shiftModelConfig.roleRequiresLines[roleName] === "boolean") {
+      if (typeof shiftModelConfig !== "undefined" && shiftModelConfig && shiftModelConfig.roleRequiresLines && typeof shiftModelConfig.roleRequiresLines[roleName] === "boolean") {
         return shiftModelConfig.roleRequiresLines[roleName];
       }
       const rLow = String(roleName || "").toLowerCase();
@@ -624,23 +636,25 @@
       return true;
     }
 
-    function verifyPortalLogin() {
-      const pinVal = document.getElementById("portalLoginPinInput").value.trim();
+    window.verifyPortalLogin = function() {
+      const pinVal = (document.getElementById("portalLoginPinInput").value || "").trim();
       const typedName = (document.getElementById("portalLoginNameInput").value || "").trim().toLowerCase();
-      let emp = selectedLoginPortalEmpId ? employees.find(e => e.id === selectedLoginPortalEmpId) : null;
-      if (!emp && typedName) emp = employees.find(e => fullName(e).toLowerCase() === typedName);
-      
+      let emp = window.selectedLoginPortalEmpId ? employees.find(e => e.id === window.selectedLoginPortalEmpId) : null;
+      if (!emp && typedName) {
+        emp = employees.find(e => fullName(e).toLowerCase() === typedName);
+      }
+
       if (!emp) {
-        const err = document.getElementById("portalLoginError"); 
-        err.textContent = "❌ Bitte wähle deinen Namen aus der Vorschlagsliste aus!"; 
-        err.style.display = "block"; 
+        const err = document.getElementById("portalLoginError");
+        err.textContent = "❌ Bitte gib mindestens 3 Buchstaben ein und wähle deinen Namen aus der Vorschlagsliste!";
+        err.style.display = "block";
         return;
       }
-      
+
       if ((emp.password || "1234") !== pinVal) {
-        const err = document.getElementById("portalLoginError"); 
-        err.textContent = "❌ PIN nicht korrekt!"; 
-        err.style.display = "block"; 
+        const err = document.getElementById("portalLoginError");
+        err.textContent = "❌ PIN nicht korrekt!";
+        err.style.display = "block";
         return;
       }
 
@@ -649,7 +663,7 @@
         sessionStorage.setItem("portal_logged_emp_id", emp.id);
         document.body.classList.remove("portal-locked");
         document.getElementById("portalLoginModal").style.display = "none";
-        
+
         if (needsOnboardingWizard(emp)) openOnboardingWizard(emp);
         else renderPortalView();
       };
@@ -664,7 +678,7 @@
       } else {
         finishPortalLogin();
       }
-    }
+    };
 
     window.submitForcePinChange = function() {
       if (!pendingForceEmp) return;
@@ -691,15 +705,16 @@
       else renderPortalView();
     };
 
-    function logoutPortalEmp() {
+    window.logoutPortalEmp = function() {
       loggedInPortalEmpId = null;
+      window.selectedLoginPortalEmpId = null;
       sessionStorage.removeItem("portal_logged_emp_id");
       document.body.classList.add("portal-locked");
       document.getElementById("portalLoginNameInput").value = "";
       document.getElementById("portalLoginPinInput").value = "";
       document.getElementById("portalLoginModal").style.display = "flex";
       updatePortalShiftApprovalBanner();
-    }
+    };
     /* ==========================================================================
        🧱 [LEGO-MODUL PRT-11 ENDE: LOGIN, NAMENSSUCHE & START-PIN-ÄNDERUNG]
        ========================================================================== */
